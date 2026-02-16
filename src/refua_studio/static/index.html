@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Refua Studio</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <div class="aurora aurora-a" aria-hidden="true"></div>
+    <div class="aurora aurora-b" aria-hidden="true"></div>
+
+    <header class="masthead reveal" style="--delay: 0.05s">
+      <div class="masthead-title-wrap">
+        <p class="kicker">Refua Mission Control</p>
+        <h1>Refua Studio</h1>
+        <p class="subtitle">
+          Plan, validate, execute, and review disease-scale discovery campaigns.
+        </p>
+      </div>
+      <div class="status-chip" id="connectionChip" title="API connectivity">
+        <span class="dot"></span>
+        <span class="status-text">Checking...</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel reveal" style="--delay: 0.10s">
+        <h2>Mission Run</h2>
+
+        <label for="objectiveTemplateSelect">Objective Template</label>
+        <div class="row actions-row">
+          <select id="objectiveTemplateSelect"></select>
+          <button id="loadObjectiveTemplateButton" class="btn btn-outline btn-small">Load</button>
+        </div>
+
+        <label for="objectiveInput">Objective</label>
+        <textarea id="objectiveInput" rows="4" spellcheck="false"></textarea>
+
+        <div class="row">
+          <label class="toggle">
+            <input type="checkbox" id="dryRunToggle" />
+            <span>Dry Run</span>
+          </label>
+          <label class="toggle">
+            <input type="checkbox" id="asyncToggle" checked />
+            <span>Async Job</span>
+          </label>
+        </div>
+
+        <div class="row three">
+          <label>
+            Max Rounds
+            <input type="number" id="maxRoundsInput" min="1" value="3" />
+          </label>
+          <label>
+            Max Calls
+            <input type="number" id="maxCallsInput" min="1" value="10" />
+          </label>
+          <label class="toggle compact">
+            <input type="checkbox" id="skipValidateFirstToggle" />
+            <span>Skip Validate-First</span>
+          </label>
+        </div>
+
+        <div class="button-row">
+          <button id="planButton" class="btn btn-outline">Plan</button>
+          <button id="runButton" class="btn btn-primary">Run</button>
+          <button id="autonomousButton" class="btn btn-accent">Run Autonomous</button>
+        </div>
+      </section>
+
+      <section class="panel reveal" style="--delay: 0.15s">
+        <h2>Plan Editor</h2>
+
+        <label for="planTemplateSelect">Plan Template</label>
+        <div class="row actions-row">
+          <select id="planTemplateSelect"></select>
+          <button id="loadPlanTemplateButton" class="btn btn-outline btn-small">Load</button>
+          <button id="formatPlanButton" class="btn btn-outline btn-small">Format</button>
+        </div>
+
+        <label for="planInput">Tool Plan (JSON)</label>
+        <textarea id="planInput" rows="13" spellcheck="false"></textarea>
+
+        <div class="button-row">
+          <button id="validatePlanButton" class="btn btn-outline">Validate</button>
+          <button id="executePlanButton" class="btn btn-primary">Execute Plan</button>
+        </div>
+      </section>
+
+      <section class="panel reveal" style="--delay: 0.20s">
+        <h2>Portfolio Ranker</h2>
+
+        <label for="portfolioTemplateSelect">Portfolio Template</label>
+        <div class="row actions-row">
+          <select id="portfolioTemplateSelect"></select>
+          <button id="loadPortfolioTemplateButton" class="btn btn-outline btn-small">Load</button>
+          <button id="formatPortfolioButton" class="btn btn-outline btn-small">Format</button>
+        </div>
+
+        <label for="portfolioInput">Disease Programs (JSON array)</label>
+        <textarea id="portfolioInput" rows="9" spellcheck="false"></textarea>
+
+        <div class="button-row">
+          <button id="rankPortfolioButton" class="btn btn-accent">Rank Portfolio</button>
+        </div>
+      </section>
+
+      <section class="panel reveal" style="--delay: 0.25s">
+        <div class="panel-title-row">
+          <h2>Job History</h2>
+          <div class="inline-controls">
+            <select id="jobStatusFilter">
+              <option value="">All</option>
+              <option value="queued">Queued</option>
+              <option value="running">Running</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <button id="refreshJobsButton" class="btn btn-outline btn-small">Refresh</button>
+            <button id="cancelJobButton" class="btn btn-outline btn-small">Cancel</button>
+            <button id="clearFinishedJobsButton" class="btn btn-outline btn-small">Clear Finished</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Job ID</th>
+                <th>Kind</th>
+                <th>Status</th>
+                <th>Updated</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody id="jobsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel panel-wide reveal" style="--delay: 0.30s">
+        <div class="panel-title-row">
+          <h2>Tooling & Runtime</h2>
+          <button id="refreshToolsButton" class="btn btn-outline btn-small">Refresh</button>
+        </div>
+        <pre id="toolsOutput"></pre>
+      </section>
+
+      <section class="panel panel-full reveal" style="--delay: 0.35s">
+        <div class="panel-title-row">
+          <h2>Promising Drug Portfolio</h2>
+          <div class="inline-controls">
+            <label class="inline-label" for="drugMinScoreInput">Min Score</label>
+            <input type="number" id="drugMinScoreInput" min="0" max="100" value="50" step="1" />
+            <button id="refreshDrugPortfolioButton" class="btn btn-outline btn-small">Refresh</button>
+          </div>
+        </div>
+        <div id="drugPortfolioSummary" class="drug-summary-grid"></div>
+        <div id="drugPortfolioCards" class="drug-cards"></div>
+        <pre id="drugPortfolioDetail"></pre>
+      </section>
+
+      <section class="panel panel-wide reveal" style="--delay: 0.40s">
+        <div class="panel-title-row">
+          <h2>Output</h2>
+          <button id="clearOutputButton" class="btn btn-outline btn-small">Clear</button>
+        </div>
+        <pre id="resultOutput"></pre>
+      </section>
+    </main>
+
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>

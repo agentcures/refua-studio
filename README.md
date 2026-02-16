@@ -1,0 +1,135 @@
+# refua-studio
+
+`refua-studio` is the Refua web control plane for planning and running discovery campaigns.
+
+It provides:
+
+- Mission control UI for planning (`plan`), execution (`run`), and autonomous loops (`run-autonomous` behavior)
+- JSON plan editor with validation and direct execution
+- Portfolio ranking UI for disease program prioritization
+- Built-in objective/plan/portfolio templates loaded from workspace examples
+- Promising drug portfolio section with candidate cards, scores, metrics, and full detail view
+- Persistent background job history (SQLite)
+- Job lifecycle operations (filter, cancel queued jobs, clear finished jobs)
+- Runtime/tool introspection with graceful fallback when heavy ML deps are unavailable
+
+This project is designed to reuse existing workspace components:
+
+- `ClawCures` for planning, policy checks, orchestration, and portfolio ranking
+- `refua-mcp` for tool execution when runtime dependencies are installed
+
+## Install
+
+```bash
+cd path/to/refua-studio
+pip install -e .
+```
+
+## Run
+
+```bash
+refua-studio --host 127.0.0.1 --port 8787 --open-browser
+```
+
+Or from source without install:
+
+```bash
+cd path/to/refua-studio
+PYTHONPATH=src python -m refua_studio --host 127.0.0.1 --port 8787
+```
+
+## Configuration
+
+Studio uses the same OpenClaw-related environment variables as `ClawCures`:
+
+- `REFUA_CAMPAIGN_OPENCLAW_BASE_URL` (default: `http://127.0.0.1:18789`)
+- `REFUA_CAMPAIGN_OPENCLAW_MODEL` (default: `openclaw:main`)
+- `REFUA_CAMPAIGN_TIMEOUT_SECONDS` (default: `180`)
+- `OPENCLAW_GATEWAY_TOKEN` or `REFUA_CAMPAIGN_OPENCLAW_TOKEN`
+
+CLI flags:
+
+- `--host`
+- `--port`
+- `--data-dir` (default: `.refua-studio`)
+- `--workspace-root` (defaults to parent workspace)
+- `--max-workers` (background job concurrency)
+
+## API Endpoints
+
+- `GET /api/health`
+- `GET /api/config`
+- `GET /api/tools`
+- `GET /api/examples`
+- `GET /api/drug-portfolio?min_score=50&limit=60`
+- `GET /api/jobs?limit=80&status=running,failed`
+- `GET /api/jobs/{job_id}`
+- `POST /api/jobs/{job_id}/cancel`
+- `POST /api/jobs/clear`
+- `POST /api/plan`
+- `POST /api/run`
+- `POST /api/plan/validate`
+- `POST /api/plan/execute`
+- `POST /api/portfolio/rank`
+
+### `POST /api/run` payload
+
+```json
+{
+  "objective": "Design an initial campaign against KRAS G12D",
+  "system_prompt": null,
+  "dry_run": false,
+  "async_mode": true,
+  "autonomous": false,
+  "max_rounds": 3,
+  "max_calls": 10,
+  "allow_skip_validate_first": false,
+  "plan": null
+}
+```
+
+## Background Jobs
+
+Jobs are persisted in SQLite at:
+
+- `<data-dir>/studio.db`
+
+Each job records request payload, status transitions (`queued` -> `running` -> `completed`/`failed`), result JSON, and error text.
+`cancelled` is also tracked when queued jobs are cancelled before execution.
+
+## Runtime Behavior
+
+- If `refua-mcp` runtime dependencies are available, Studio executes plans through `RefuaMcpAdapter`.
+- If unavailable, Studio falls back to a static tool list for planning/validation and emits warnings.
+- Dry-run workflows and policy validation remain usable even without heavy runtime dependencies.
+
+## Tests
+
+```bash
+cd path/to/refua-studio
+python -m unittest discover -s tests -v
+```
+
+## Project Layout
+
+```text
+refua-studio/
+  src/refua_studio/
+    app.py
+    bridge.py
+    cli.py
+    config.py
+    runner.py
+    storage.py
+    static/
+      index.html
+      app.js
+      styles.css
+  tests/
+```
+
+## Notes
+
+- The Studio UI is a static single-page app served by the Python server.
+- No third-party web framework is required.
+- This keeps installation lightweight while still integrating with the existing Refua ecosystem.
