@@ -64,6 +64,7 @@ class StudioApiTest(unittest.TestCase):
         tools = self._request("GET", "/api/tools")
         self.assertIn("tools", tools)
         self.assertIn("refua_validate_spec", tools["tools"])
+        self.assertIn("refua_protein_properties", tools["tools"])
 
     def test_examples_endpoint(self) -> None:
         payload = self._request("GET", "/api/examples")

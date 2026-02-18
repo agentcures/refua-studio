@@ -20,6 +20,7 @@ class CampaignBridgeTest(unittest.TestCase):
     def test_available_tools_has_known_entries(self) -> None:
         tools, _warnings = self.bridge.available_tools()
         self.assertIn("refua_validate_spec", tools)
+        self.assertIn("refua_protein_properties", tools)
 
     def test_validate_plan(self) -> None:
         payload = self.bridge.validate_plan(

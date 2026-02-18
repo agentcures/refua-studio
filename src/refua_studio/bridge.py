@@ -12,6 +12,8 @@ STATIC_TOOL_LIST = [
     "refua_fold",
     "refua_affinity",
     "refua_antibody_design",
+    "refua_protein_properties",
+    "refua_clinical_simulator",
     "refua_job",
     "refua_admet_profile",
 ]
@@ -49,8 +51,11 @@ class StudioBridgeError(RuntimeError):
 
 
 class _StaticToolAdapter:
+    def __init__(self, tool_names: list[str] | tuple[str, ...] | None = None) -> None:
+        self._tool_names = list(tool_names) if tool_names else list(STATIC_TOOL_LIST)
+
     def available_tools(self) -> list[str]:
-        return list(STATIC_TOOL_LIST)
+        return list(self._tool_names)
 
     def execute_plan(self, _plan: dict[str, object]) -> list[object]:
         raise RuntimeError(
@@ -99,12 +104,18 @@ class CampaignBridge:
         return importlib.import_module(module_name)
 
     def _build_adapter(self) -> tuple[Any, str | None]:
+        fallback_tools = list(STATIC_TOOL_LIST)
         try:
             adapter_mod = self._import("refua_campaign.refua_mcp_adapter")
+            adapter_fallback = getattr(adapter_mod, "DEFAULT_TOOL_LIST", None)
+            if isinstance(adapter_fallback, (list, tuple)) and all(
+                isinstance(item, str) for item in adapter_fallback
+            ):
+                fallback_tools = list(adapter_fallback)
             adapter = adapter_mod.RefuaMcpAdapter()
             return adapter, None
         except Exception as exc:  # noqa: BLE001
-            return _StaticToolAdapter(), str(exc)
+            return _StaticToolAdapter(fallback_tools), str(exc)
 
     def _read_json_file(self, path: Path) -> tuple[Any | None, str | None]:
         if not path.exists():
