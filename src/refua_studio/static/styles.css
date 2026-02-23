@@ -539,11 +539,35 @@ tbody tr.selected {
   background: rgba(122, 143, 166, 0.24);
 }
 
+.panel-cures {
+  border-color: rgba(255, 255, 255, 0.3);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 160, 70, 0.2), transparent 36%),
+    radial-gradient(circle at 100% 0%, rgba(53, 201, 188, 0.22), transparent 40%),
+    radial-gradient(circle at 50% 100%, rgba(119, 103, 255, 0.2), transparent 42%),
+    rgba(7, 19, 30, 0.82);
+}
+
+.cures-kicker {
+  margin: 0 0 0.22rem;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.17em;
+  color: #ffc98f;
+}
+
 .drug-summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.55rem;
   margin-bottom: 0.72rem;
+}
+
+.cures-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 0.75rem;
+  align-items: start;
 }
 
 .summary-item {
@@ -568,9 +592,12 @@ tbody tr.selected {
 
 .drug-cards {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.68rem;
-  margin-bottom: 0.72rem;
+  margin-bottom: 0;
+  max-height: 52rem;
+  overflow: auto;
+  padding-right: 0.2rem;
 }
 
 .drug-card {
@@ -638,6 +665,140 @@ tbody tr.selected {
   padding: 0.14rem 0.43rem;
 }
 
+.cure-detail-card {
+  border: 1px solid rgba(184, 209, 233, 0.28);
+  border-radius: 14px;
+  padding: 0.72rem;
+  background:
+    linear-gradient(130deg, rgba(255, 143, 63, 0.12), rgba(53, 201, 188, 0.08), rgba(123, 98, 255, 0.1)),
+    rgba(7, 21, 33, 0.9);
+}
+
+.cure-detail-header {
+  margin-bottom: 0.52rem;
+}
+
+.cure-detail-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.cure-detail-meta {
+  margin-top: 0.24rem;
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.cure-detail-meta span {
+  border-radius: 999px;
+  border: 1px solid rgba(184, 209, 233, 0.2);
+  background: rgba(5, 18, 29, 0.75);
+  color: #dcebf6;
+  padding: 0.11rem 0.4rem;
+  font-size: 0.66rem;
+}
+
+.cure-assessment {
+  margin: 0 0 0.52rem;
+  font-size: 0.79rem;
+  color: #e5f1fb;
+  line-height: 1.46;
+}
+
+.admet-key-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 0.58rem;
+}
+
+.admet-key-item {
+  border: 1px solid rgba(184, 209, 233, 0.2);
+  border-radius: 10px;
+  background: rgba(4, 15, 24, 0.75);
+  padding: 0.42rem 0.5rem;
+}
+
+.admet-key-label {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b8cadb;
+}
+
+.admet-key-value {
+  margin-top: 0.18rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff0cf;
+}
+
+.admet-property-grid {
+  border: 1px solid rgba(184, 209, 233, 0.2);
+  border-radius: 11px;
+  background: rgba(3, 13, 22, 0.76);
+  padding: 0.4rem;
+  display: grid;
+  gap: 0.32rem;
+  max-height: 19rem;
+  overflow: auto;
+  margin-bottom: 0.55rem;
+}
+
+.admet-prop {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 0.4rem;
+  border: 1px solid rgba(184, 209, 233, 0.12);
+  border-radius: 9px;
+  background: rgba(5, 17, 27, 0.68);
+  padding: 0.32rem 0.4rem;
+}
+
+.admet-prop-key {
+  font-size: 0.68rem;
+  color: #d8e7f4;
+  word-break: break-word;
+}
+
+.admet-prop-value {
+  font-size: 0.68rem;
+  color: #fff4d8;
+  text-align: right;
+  word-break: break-word;
+}
+
+.admet-empty {
+  font-size: 0.73rem;
+  color: #b9cadb;
+  border: 1px dashed rgba(184, 209, 233, 0.2);
+  border-radius: 10px;
+  padding: 0.45rem;
+  background: rgba(3, 13, 21, 0.75);
+}
+
+.raw-json-toggle {
+  border: 1px solid rgba(184, 209, 233, 0.2);
+  border-radius: 10px;
+  background: rgba(2, 12, 20, 0.7);
+  padding: 0.42rem;
+}
+
+.raw-json-toggle > summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #d6e6f5;
+  user-select: none;
+}
+
+.raw-json-toggle > pre {
+  margin-top: 0.44rem;
+  min-height: 9rem;
+  max-height: 14rem;
+}
+
 .reveal {
   opacity: 0;
   transform: translateY(10px);
@@ -682,8 +843,13 @@ tbody tr.selected {
     grid-template-columns: 1fr;
   }
 
+  .cures-layout {
+    grid-template-columns: 1fr;
+  }
+
   .drug-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    max-height: 24rem;
   }
 }
 
@@ -725,5 +891,18 @@ tbody tr.selected {
 
   .drug-cards {
     grid-template-columns: 1fr;
+    max-height: none;
+  }
+
+  .admet-key-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admet-prop {
+    grid-template-columns: 1fr;
+  }
+
+  .admet-prop-value {
+    text-align: left;
   }
 }

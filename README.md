@@ -10,7 +10,7 @@ It provides:
 - Built-in objective/plan/portfolio templates loaded from workspace examples
 - Ecosystem health panel with cross-product discovery metadata
 - ClawCures-native handoff artifact generation and executable command suggestions
-- Promising drug portfolio section with candidate cards, scores, metrics, and full detail view
+- Promising cures section with full ADMET property maps, assessments, and detailed therapeutic review cards
 - Persistent background job history (SQLite)
 - Job lifecycle operations (filter, cancel queued jobs, clear finished jobs)
 - Runtime/tool introspection with graceful fallback when heavy ML deps are unavailable
@@ -65,6 +65,7 @@ CLI flags:
 - `GET /api/examples`
 - `GET /api/ecosystem`
 - `GET /api/drug-portfolio?min_score=50&limit=60`
+- `GET /api/promising-cures?min_score=50&limit=60`
 - `GET /api/jobs?limit=80&status=running,failed`
 - `GET /api/jobs/{job_id}`
 - `POST /api/jobs/{job_id}/cancel`

@@ -105,6 +105,27 @@ class StudioApiTest(unittest.TestCase):
         self.app.store.set_completed(
             job["job_id"],
             {
+                "promising_cures": [
+                    {
+                        "cure_id": "refua_fold:candidate_x",
+                        "name": "candidate_x",
+                        "smiles": "CCN",
+                        "target": "EGFR",
+                        "tool": "refua_fold",
+                        "score": 84.0,
+                        "promising": True,
+                        "assessment": "promising profile",
+                        "metrics": {
+                            "binding_probability": 0.9,
+                            "admet_score": 0.8,
+                        },
+                        "admet": {
+                            "status": "success",
+                            "key_metrics": {"admet_score": 0.8},
+                            "properties": {"results[0].predictions.hERG": 0.12},
+                        },
+                    }
+                ],
                 "results": [
                     {
                         "tool": "refua_fold",
@@ -124,6 +145,12 @@ class StudioApiTest(unittest.TestCase):
         self.assertIn("summary", payload)
         self.assertIn("candidates", payload)
         self.assertGreaterEqual(payload["summary"]["returned_candidates"], 1)
+        self.assertGreaterEqual(payload["summary"]["with_admet_properties"], 1)
+        self.assertIn("admet", payload["candidates"][0])
+
+        alias_payload = self._request("GET", "/api/promising-cures?min_score=0&limit=20")
+        self.assertIn("summary", alias_payload)
+        self.assertIn("candidates", alias_payload)
 
     def test_validate_plan_endpoint(self) -> None:
         payload = self._request(

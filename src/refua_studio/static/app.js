@@ -24,6 +24,11 @@ const drugMinScoreInput = document.getElementById("drugMinScoreInput");
 const drugPortfolioSummary = document.getElementById("drugPortfolioSummary");
 const drugPortfolioCards = document.getElementById("drugPortfolioCards");
 const drugPortfolioDetail = document.getElementById("drugPortfolioDetail");
+const cureDetailHeader = document.getElementById("cureDetailHeader");
+const cureAssessment = document.getElementById("cureAssessment");
+const cureMetricPills = document.getElementById("cureMetricPills");
+const admetKeyMetrics = document.getElementById("admetKeyMetrics");
+const admetPropertiesGrid = document.getElementById("admetPropertiesGrid");
 
 const productGrid = document.getElementById("productGrid");
 const ecosystemWarnings = document.getElementById("ecosystemWarnings");
@@ -169,6 +174,40 @@ function metricText(value, digits = 3) {
     return "-";
   }
   return value.toFixed(digits);
+}
+
+function valueText(value) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  if (typeof value === "number") {
+    if (Number.isNaN(value)) {
+      return "-";
+    }
+    if (Math.abs(value) >= 1000 || Math.abs(value) < 0.001) {
+      return value.toExponential(3);
+    }
+    return value.toFixed(4).replace(/0+$/, "").replace(/\\.$/, "");
+  }
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  return String(value);
+}
+
+function normalizedAdmet(candidate) {
+  const admet = candidate?.admet;
+  if (!admet || typeof admet !== "object") {
+    return { key_metrics: {}, properties: {} };
+  }
+  const keyMetrics = admet.key_metrics && typeof admet.key_metrics === "object" ? admet.key_metrics : {};
+  const properties = admet.properties && typeof admet.properties === "object" ? admet.properties : {};
+  return {
+    key_metrics: keyMetrics,
+    properties,
+    status: admet.status,
+    assessment: admet.assessment,
+  };
 }
 
 function setSelectOptions(select, options, labelGetter) {
@@ -391,6 +430,7 @@ function renderDrugSummary(summary) {
     { label: "Total Found", value: summary.total_candidates ?? 0 },
     { label: "Returned", value: summary.returned_candidates ?? 0 },
     { label: "Promising", value: summary.promising_count ?? 0 },
+    { label: "With ADMET", value: summary.with_admet_properties ?? 0 },
     { label: "Min Score", value: summary.min_score ?? 0 },
   ];
 
@@ -408,9 +448,80 @@ function renderDrugSummary(summary) {
 
 function renderDrugDetail(candidate) {
   if (!candidate) {
+    cureDetailHeader.textContent = "Select a candidate cure";
+    cureAssessment.textContent =
+      "Pick a therapeutic card to inspect full ADMET properties and assessment.";
+    cureMetricPills.innerHTML = "";
+    admetKeyMetrics.innerHTML = '<div class="admet-empty">No ADMET metrics yet.</div>';
+    admetPropertiesGrid.innerHTML = '<div class="admet-empty">No ADMET properties yet.</div>';
     drugPortfolioDetail.textContent = "Select a candidate to view full details.";
     return;
   }
+
+  const admet = normalizedAdmet(candidate);
+  const metrics = candidate.metrics || {};
+  const score = valueText(candidate.score);
+  const cureName = candidate.name || candidate.smiles || candidate.candidate_id;
+  const admetAssessment = candidate.assessment || admet.assessment || "No explicit assessment provided.";
+
+  cureDetailHeader.innerHTML = `
+    <div class="cure-detail-title">${escapeHtml(shortText(cureName, 120))}</div>
+    <div class="cure-detail-meta">
+      <span>${escapeHtml(candidate.promising ? "Promising" : "Needs optimization")}</span>
+      <span>Score ${escapeHtml(score)}</span>
+      <span>${escapeHtml(candidate.tool || "unknown_tool")}</span>
+    </div>
+  `;
+  cureAssessment.textContent = admetAssessment;
+
+  const metricEntries = [
+    ["pBind", metrics.binding_probability],
+    ["ADMET", metrics.admet_score ?? admet.key_metrics?.admet_score],
+    ["Affinity", metrics.affinity],
+    ["IC50", metrics.ic50],
+    ["KD", metrics.kd],
+  ];
+  cureMetricPills.innerHTML = metricEntries
+    .map(
+      ([label, value]) =>
+        `<span class="metric-chip">${escapeHtml(label)} ${escapeHtml(valueText(value))}</span>`
+    )
+    .join("");
+
+  const keyMetricEntries = Object.entries(admet.key_metrics || {});
+  if (keyMetricEntries.length === 0) {
+    admetKeyMetrics.innerHTML = '<div class="admet-empty">No key ADMET metrics available.</div>';
+  } else {
+    admetKeyMetrics.innerHTML = keyMetricEntries
+      .map(
+        ([key, value]) => `
+        <div class="admet-key-item">
+          <div class="admet-key-label">${escapeHtml(key)}</div>
+          <div class="admet-key-value">${escapeHtml(valueText(value))}</div>
+        </div>
+      `
+      )
+      .join("");
+  }
+
+  const propertyEntries = Object.entries(admet.properties || {}).sort((a, b) =>
+    String(a[0]).localeCompare(String(b[0]))
+  );
+  if (propertyEntries.length === 0) {
+    admetPropertiesGrid.innerHTML = '<div class="admet-empty">No ADMET property map available.</div>';
+  } else {
+    admetPropertiesGrid.innerHTML = propertyEntries
+      .map(
+        ([key, value]) => `
+        <div class="admet-prop">
+          <div class="admet-prop-key">${escapeHtml(String(key))}</div>
+          <div class="admet-prop-value">${escapeHtml(valueText(value))}</div>
+        </div>
+      `
+      )
+      .join("");
+  }
+
   drugPortfolioDetail.textContent = pretty(candidate);
 }
 
@@ -421,7 +532,7 @@ function renderDrugCards(candidates) {
     const empty = document.createElement("div");
     empty.className = "summary-item";
     empty.innerHTML =
-      '<div class="summary-label">Portfolio</div><div class="summary-value">No candidates yet</div>';
+      '<div class="summary-label">Cures</div><div class="summary-value">No promising therapeutics yet</div>';
     drugPortfolioCards.appendChild(empty);
     renderDrugDetail(null);
     return;
@@ -435,6 +546,8 @@ function renderDrugCards(candidates) {
     }
 
     const metrics = candidate.metrics || {};
+    const admet = normalizedAdmet(candidate);
+    const admetScore = metrics.admet_score ?? admet.key_metrics?.admet_score;
     card.innerHTML = `
       <div class="drug-card-top">
         <div class="drug-name">${escapeHtml(
@@ -443,12 +556,13 @@ function renderDrugCards(candidates) {
         <div class="drug-score">${escapeHtml(metricText(candidate.score, 1))}</div>
       </div>
       <div class="drug-meta">
+        Status: ${escapeHtml(candidate.promising ? "Promising" : "Needs optimization")}<br />
         Target: ${escapeHtml(shortText(candidate.target, 28))}<br />
         Tool: ${escapeHtml(shortText(candidate.tool, 22))}
       </div>
       <div class="metric-row">
         <span class="metric-chip">pBind ${escapeHtml(metricText(metrics.binding_probability, 2))}</span>
-        <span class="metric-chip">ADMET ${escapeHtml(metricText(metrics.admet_score, 2))}</span>
+        <span class="metric-chip">ADMET ${escapeHtml(metricText(admetScore, 2))}</span>
         <span class="metric-chip">Affinity ${escapeHtml(metricText(metrics.affinity, 2))}</span>
         <span class="metric-chip">IC50 ${escapeHtml(metricText(metrics.ic50, 2))}</span>
       </div>
@@ -474,7 +588,7 @@ function renderDrugCards(candidates) {
 async function refreshDrugPortfolio() {
   const minScore = Number(drugMinScoreInput.value || 50);
   const query = `?limit=60&min_score=${encodeURIComponent(minScore)}`;
-  const payload = await api(`/api/drug-portfolio${query}`, { method: "GET" });
+  const payload = await api(`/api/promising-cures${query}`, { method: "GET" });
 
   state.drugCandidates = payload.candidates || [];
   renderDrugSummary(payload.summary || {});

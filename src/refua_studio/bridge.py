@@ -204,6 +204,18 @@ class CampaignBridge:
         except Exception as exc:  # noqa: BLE001
             return _StaticToolAdapter(fallback_tools), str(exc)
 
+    def _extract_promising_cures_from_results(
+        self,
+        serialized_results: list[dict[str, Any]],
+    ) -> tuple[list[dict[str, Any]], dict[str, Any] | None, str | None]:
+        try:
+            cures_mod = self._import("refua_campaign.promising_cures")
+            cures = cures_mod.extract_promising_cures(serialized_results)
+            summary = cures_mod.summarize_promising_cures(cures)
+            return cures, summary, None
+        except Exception as exc:  # noqa: BLE001
+            return [], None, str(exc)
+
     def _read_json_file(self, path: Path) -> tuple[Any | None, str | None]:
         if not path.exists():
             return None, f"Missing file: {path}"
@@ -569,17 +581,31 @@ class CampaignBridge:
             raise StudioBridgeError(adapter_error)
 
         results = adapter.execute_plan(plan)
-        return {
+        serialized_results = [
+            {
+                "tool": item.tool,
+                "args": _to_plain_data(item.args),
+                "output": _to_plain_data(item.output),
+            }
+            for item in results
+        ]
+        cures, cures_summary, cures_error = self._extract_promising_cures_from_results(
+            serialized_results
+        )
+
+        payload: dict[str, Any] = {
             "plan": _to_plain_data(plan),
-            "results": [
-                {
-                    "tool": item.tool,
-                    "args": _to_plain_data(item.args),
-                    "output": _to_plain_data(item.output),
-                }
-                for item in results
-            ],
+            "results": serialized_results,
+            "promising_cures": cures,
         }
+        if cures_summary is not None:
+            payload["promising_cures_summary"] = cures_summary
+        if cures_error is not None:
+            payload.setdefault("warnings", []).append(
+                "Could not extract promising cures from execution results: "
+                f"{cures_error}"
+            )
+        return payload
 
     def run(
         self,
@@ -663,7 +689,7 @@ class CampaignBridge:
             raise StudioBridgeError(adapter_error)
 
         results = orchestrator.execute_plan(resolved_plan)
-        payload["results"] = [
+        serialized_results = [
             {
                 "tool": item.tool,
                 "args": _to_plain_data(item.args),
@@ -671,6 +697,18 @@ class CampaignBridge:
             }
             for item in results
         ]
+        cures, cures_summary, cures_error = self._extract_promising_cures_from_results(
+            serialized_results
+        )
+        payload["results"] = serialized_results
+        payload["promising_cures"] = cures
+        if cures_summary is not None:
+            payload["promising_cures_summary"] = cures_summary
+        if cures_error is not None:
+            payload.setdefault("warnings", []).append(
+                "Could not extract promising cures from execution results: "
+                f"{cures_error}"
+            )
         return payload
 
     def _run_autonomous(
@@ -754,7 +792,7 @@ class CampaignBridge:
             raise StudioBridgeError("Autonomous planner did not produce a valid final_plan.")
 
         results = adapter.execute_plan(final_plan)
-        payload["results"] = [
+        serialized_results = [
             {
                 "tool": item.tool,
                 "args": _to_plain_data(item.args),
@@ -762,6 +800,18 @@ class CampaignBridge:
             }
             for item in results
         ]
+        cures, cures_summary, cures_error = self._extract_promising_cures_from_results(
+            serialized_results
+        )
+        payload["results"] = serialized_results
+        payload["promising_cures"] = cures
+        if cures_summary is not None:
+            payload["promising_cures_summary"] = cures_summary
+        if cures_error is not None:
+            payload.setdefault("warnings", []).append(
+                "Could not extract promising cures from autonomous execution results: "
+                f"{cures_error}"
+            )
         return payload
 
     def validate_plan(

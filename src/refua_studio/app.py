@@ -254,6 +254,9 @@ class StudioApp:
             include_raw=include_raw,
         )
 
+    def promising_cures(self, *, query: dict[str, list[str]]) -> dict[str, Any]:
+        return self.drug_portfolio(query=query)
+
     def clawcures_handoff(self, payload: dict[str, Any]) -> dict[str, Any]:
         objective = _optional_nonempty_string(payload.get("objective"), "objective")
         system_prompt = _optional_nonempty_string(payload.get("system_prompt"), "system_prompt")
@@ -497,6 +500,10 @@ def create_handler(app: StudioApp):
                 if path == "/api/drug-portfolio":
                     query = parse_qs(parsed.query, keep_blank_values=False)
                     _json_response(self, HTTPStatus.OK, app.drug_portfolio(query=query))
+                    return
+                if path == "/api/promising-cures":
+                    query = parse_qs(parsed.query, keep_blank_values=False)
+                    _json_response(self, HTTPStatus.OK, app.promising_cures(query=query))
                     return
                 if path == "/api/jobs":
                     query = parse_qs(parsed.query, keep_blank_values=False)

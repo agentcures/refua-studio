@@ -2,9 +2,26 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+
+_ADMET_HINTS: tuple[str, ...] = (
+    "admet",
+    "tox",
+    "herg",
+    "ames",
+    "dili",
+    "carcinogen",
+    "clintox",
+    "clearance",
+    "half_life",
+    "bioavailability",
+    "solubility",
+    "permeability",
+    "cyp",
+)
 
 
 @dataclass(frozen=True)
@@ -17,6 +34,7 @@ class DrugCandidate:
     score: float
     promising: bool
     metrics: dict[str, float | None]
+    admet: dict[str, Any]
     assessment: str | None
     source_job_id: str
     source_kind: str
@@ -36,6 +54,7 @@ class DrugCandidate:
             "score": self.score,
             "promising": self.promising,
             "metrics": self.metrics,
+            "admet": self.admet,
             "assessment": self.assessment,
             "source": {
                 "job_id": self.source_job_id,
@@ -80,6 +99,12 @@ def build_drug_portfolio(
         "limit": safe_limit,
         "by_tool": dict(tool_counter),
         "promising_count": sum(1 for candidate in selected if candidate.promising),
+        "with_admet_properties": sum(
+            1
+            for candidate in selected
+            if isinstance(candidate.admet.get("properties"), Mapping)
+            and bool(candidate.admet.get("properties"))
+        ),
     }
 
     return {
@@ -94,41 +119,118 @@ def _extract_candidates_from_job(job: dict[str, Any]) -> list[DrugCandidate]:
         return []
 
     result = job.get("result")
-    if not isinstance(result, dict):
+    if not isinstance(result, Mapping):
         return []
 
-    tool_results = result.get("results")
-    if not isinstance(tool_results, list):
-        return []
-
-    extracted: list[DrugCandidate] = []
     objective = None
     request = job.get("request")
-    if isinstance(request, dict):
+    if isinstance(request, Mapping):
         maybe_objective = request.get("objective")
         if isinstance(maybe_objective, str) and maybe_objective.strip():
             objective = maybe_objective.strip()
 
-    for index, item in enumerate(tool_results):
-        if not isinstance(item, dict):
-            continue
-        candidate = _candidate_from_tool_result(
-            job=job,
-            objective=objective,
-            tool_result=item,
-            index=index,
-        )
-        if candidate is not None:
+    extracted: list[DrugCandidate] = []
+
+    promising_cures = result.get("promising_cures")
+    if isinstance(promising_cures, list):
+        for index, item in enumerate(promising_cures):
+            if not isinstance(item, Mapping):
+                continue
+            candidate = _candidate_from_promising_cure(
+                job=job,
+                objective=objective,
+                cure_payload=item,
+                index=index,
+            )
+            if candidate is not None:
+                extracted.append(candidate)
+
+    tool_results = result.get("results")
+    if isinstance(tool_results, list):
+        existing_ids = {candidate.candidate_id for candidate in extracted}
+        for index, item in enumerate(tool_results):
+            if not isinstance(item, Mapping):
+                continue
+            candidate = _candidate_from_tool_result(
+                job=job,
+                objective=objective,
+                tool_result=item,
+                index=index,
+            )
+            if candidate is None:
+                continue
+            if candidate.candidate_id in existing_ids:
+                continue
             extracted.append(candidate)
 
     return extracted
+
+
+def _candidate_from_promising_cure(
+    *,
+    job: dict[str, Any],
+    objective: str | None,
+    cure_payload: Mapping[str, Any],
+    index: int,
+) -> DrugCandidate | None:
+    metrics_payload = cure_payload.get("metrics")
+    metrics = _coerce_metrics(metrics_payload if isinstance(metrics_payload, Mapping) else {})
+
+    admet_payload = _normalize_admet_payload(cure_payload.get("admet"))
+    if metrics.get("admet_score") is None:
+        metrics["admet_score"] = admet_payload["key_metrics"].get("admet_score")
+
+    assessment = _optional_text(cure_payload.get("assessment"))
+    if not assessment:
+        assessment = _optional_text(admet_payload.get("assessment"))
+
+    score = _coerce_score(cure_payload.get("score"), metrics=metrics, assessment=assessment)
+    promising_raw = cure_payload.get("promising")
+    if isinstance(promising_raw, bool):
+        promising = promising_raw
+    else:
+        promising = score >= 50.0
+
+    smiles = _optional_text(cure_payload.get("smiles"))
+    has_signal = any(value is not None for value in metrics.values()) or bool(smiles)
+    if not has_signal:
+        return None
+
+    cure_id = _optional_text(cure_payload.get("cure_id"))
+    candidate_id = cure_id or f"{job.get('job_id', 'unknown_job')}:claw:{index}"
+
+    evidence = cure_payload.get("evidence_paths")
+    evidence_paths = dict(evidence) if isinstance(evidence, Mapping) else {}
+
+    tool_args_raw = cure_payload.get("tool_args")
+    tool_args = dict(tool_args_raw) if isinstance(tool_args_raw, Mapping) else {}
+
+    return DrugCandidate(
+        candidate_id=candidate_id,
+        name=_optional_text(cure_payload.get("name")),
+        smiles=smiles,
+        target=_optional_text(cure_payload.get("target")),
+        tool=_optional_text(cure_payload.get("tool")) or "unknown_tool",
+        score=score,
+        promising=promising,
+        metrics=metrics,
+        admet=admet_payload,
+        assessment=assessment,
+        source_job_id=str(job.get("job_id") or "unknown_job"),
+        source_kind=str(job.get("kind") or "unknown"),
+        source_updated_at=str(job.get("updated_at") or ""),
+        objective=objective,
+        evidence_paths=evidence_paths,
+        tool_args=tool_args,
+        tool_output=cure_payload,
+    )
 
 
 def _candidate_from_tool_result(
     *,
     job: dict[str, Any],
     objective: str | None,
-    tool_result: dict[str, Any],
+    tool_result: Mapping[str, Any],
     index: int,
 ) -> DrugCandidate | None:
     flat: dict[str, Any] = {}
@@ -179,14 +281,6 @@ def _candidate_from_tool_result(
     if binding_path:
         evidence_paths["binding_probability"] = binding_path
 
-    admet_score, admet_path = _pick_float(flat, [
-        "admet_score",
-        "overall_score",
-        "druglikeness",
-    ])
-    if admet_path:
-        evidence_paths["admet_score"] = admet_path
-
     affinity, affinity_path = _pick_float(flat, [
         "affinity",
         "predicted_affinity",
@@ -195,19 +289,25 @@ def _candidate_from_tool_result(
     if affinity_path:
         evidence_paths["affinity"] = affinity_path
 
-    ic50, ic50_path = _pick_float(flat, [
-        "ic50",
-        "predicted_ic50",
-    ])
+    ic50, ic50_path = _pick_float(flat, ["ic50", "predicted_ic50"])
     if ic50_path:
         evidence_paths["ic50"] = ic50_path
 
-    kd, kd_path = _pick_float(flat, [
-        "kd",
-        "predicted_kd",
-    ])
+    kd, kd_path = _pick_float(flat, ["kd", "predicted_kd"])
     if kd_path:
         evidence_paths["kd"] = kd_path
+
+    admet_payload = _normalize_admet_payload(output)
+    admet_score = admet_payload["key_metrics"].get("admet_score")
+    if admet_score is None:
+        admet_score, admet_path = _pick_float(flat, [
+            "admet_score",
+            "overall_score",
+            "druglikeness",
+            "score_admet",
+        ])
+        if admet_path:
+            evidence_paths["admet_score"] = admet_path
 
     assessment, assessment_path = _pick_string(flat, [
         "assessment",
@@ -216,6 +316,8 @@ def _candidate_from_tool_result(
     ])
     if assessment_path:
         evidence_paths["assessment"] = assessment_path
+    if not assessment:
+        assessment = _optional_text(admet_payload.get("assessment"))
 
     metrics = {
         "binding_probability": binding_probability,
@@ -225,7 +327,11 @@ def _candidate_from_tool_result(
         "kd": kd,
     }
 
-    has_signal = any(value is not None for value in metrics.values()) or smiles is not None
+    has_signal = (
+        any(value is not None for value in metrics.values())
+        or smiles is not None
+        or bool(admet_payload.get("properties"))
+    )
     if not has_signal:
         return None
 
@@ -241,15 +347,126 @@ def _candidate_from_tool_result(
         score=score,
         promising=score >= 50.0,
         metrics=metrics,
+        admet=admet_payload,
         assessment=assessment,
         source_job_id=job_id,
         source_kind=str(job.get("kind") or "unknown"),
         source_updated_at=str(job.get("updated_at") or ""),
         objective=objective,
         evidence_paths=evidence_paths,
-        tool_args=args if isinstance(args, dict) else {},
+        tool_args=dict(args) if isinstance(args, Mapping) else {},
         tool_output=output,
     )
+
+
+def _normalize_admet_payload(value: Any) -> dict[str, Any]:
+    flat: dict[str, Any] = {}
+    _flatten(value, "", flat)
+
+    properties: dict[str, float | str | bool | None] = {}
+    for key, item in flat.items():
+        if not _is_scalar(item):
+            continue
+        normalized_path = key.lower()
+        if "raw_output" in normalized_path or "raw_outputs" in normalized_path:
+            continue
+        if not any(token in normalized_path for token in _ADMET_HINTS):
+            continue
+        if normalized_path.startswith("key_metrics.") or ".key_metrics." in normalized_path:
+            continue
+        normalized_key = key.strip(".")
+        if normalized_key.startswith("admet."):
+            normalized_key = normalized_key.removeprefix("admet.")
+        if "admet." in normalized_key:
+            normalized_key = normalized_key.split("admet.", 1)[1]
+        if normalized_key.startswith("properties."):
+            normalized_key = normalized_key.removeprefix("properties.")
+        properties[normalized_key] = item
+
+    key_metrics = {
+        "admet_score": _resolve_metric(properties, "admet_score"),
+        "safety_score": _resolve_metric(properties, "safety_score"),
+        "adme_score": _resolve_metric(properties, "adme_score"),
+        "rdkit_score": _resolve_metric(properties, "rdkit_score"),
+    }
+
+    assessment = None
+    for key in (
+        "assessment",
+        "assessment_text",
+        "admet_assessment",
+        "safety_assessment",
+    ):
+        found = _resolve_text(properties, key)
+        if found:
+            assessment = found
+            break
+
+    status = None
+    if isinstance(value, Mapping):
+        status = _optional_text(value.get("status"))
+
+    return {
+        "status": status,
+        "key_metrics": key_metrics,
+        "assessment": assessment,
+        "properties": properties,
+    }
+
+
+def _coerce_metrics(payload: Mapping[str, Any]) -> dict[str, float | None]:
+    return {
+        "binding_probability": _coerce_float(payload.get("binding_probability")),
+        "admet_score": _coerce_float(payload.get("admet_score")),
+        "affinity": _coerce_float(payload.get("affinity")),
+        "ic50": _coerce_float(payload.get("ic50")),
+        "kd": _coerce_float(payload.get("kd")),
+    }
+
+
+def _coerce_score(
+    value: Any,
+    *,
+    metrics: dict[str, float | None],
+    assessment: str | None,
+) -> float:
+    maybe_score = _coerce_float(value)
+    if maybe_score is None:
+        return _score_candidate(metrics=metrics, assessment=assessment)
+    return round(max(0.0, min(maybe_score, 100.0)), 2)
+
+
+def _resolve_metric(
+    admet_properties: Mapping[str, float | str | bool | None],
+    metric_name: str,
+) -> float | None:
+    direct = admet_properties.get(metric_name)
+    direct_numeric = _coerce_float(direct)
+    if direct_numeric is not None:
+        return direct_numeric
+
+    for key, value in admet_properties.items():
+        if metric_name not in key.lower():
+            continue
+        numeric = _coerce_float(value)
+        if numeric is not None:
+            return numeric
+    return None
+
+
+def _resolve_text(
+    admet_properties: Mapping[str, float | str | bool | None],
+    label: str,
+) -> str | None:
+    direct = admet_properties.get(label)
+    if isinstance(direct, str) and direct.strip():
+        return direct.strip()
+    for key, value in admet_properties.items():
+        if label not in key.lower():
+            continue
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
 
 
 def _score_candidate(*, metrics: dict[str, float | None], assessment: str | None) -> float:
@@ -298,7 +515,6 @@ def _score_candidate(*, metrics: dict[str, float | None], assessment: str | None
 
 
 def _potency_score(value: float) -> float:
-    # Robust generic transform: smaller positive values map to stronger scores.
     transformed = 1.0 / (1.0 + math.log10(value + 1.0))
     return _clamp01(transformed)
 
@@ -312,18 +528,22 @@ def _clamp01(value: float) -> float:
 
 
 def _flatten(value: Any, prefix: str, out: dict[str, Any]) -> None:
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         for key, nested in value.items():
             next_prefix = f"{prefix}.{key}" if prefix else str(key)
             _flatten(nested, next_prefix, out)
         return
     if isinstance(value, list):
         for idx, nested in enumerate(value):
-            next_prefix = f"{prefix}[{idx}]"
+            next_prefix = f"{prefix}[{idx}]" if prefix else f"[{idx}]"
             _flatten(nested, next_prefix, out)
         return
-    if isinstance(value, (str, int, float, bool)) or value is None:
+    if _is_scalar(value):
         out[prefix] = value
+
+
+def _is_scalar(value: Any) -> bool:
+    return isinstance(value, (str, int, float, bool)) or value is None
 
 
 def _pick_string(flat: dict[str, Any], aliases: list[str]) -> tuple[str | None, str | None]:
@@ -337,20 +557,31 @@ def _pick_string(flat: dict[str, Any], aliases: list[str]) -> tuple[str | None, 
 
 def _pick_float(flat: dict[str, Any], aliases: list[str]) -> tuple[float | None, str | None]:
     value, path = _pick_value(flat, aliases)
+    return _coerce_float(value), path
+
+
+def _coerce_float(value: Any) -> float | None:
     if isinstance(value, bool):
-        return None, None
+        return None
     if isinstance(value, (int, float)):
-        return float(value), path
+        return float(value)
     if isinstance(value, str):
         try:
-            return float(value.strip()), path
+            return float(value.strip())
         except ValueError:
-            return None, None
-    return None, None
+            return None
+    return None
+
+
+def _optional_text(value: Any) -> str | None:
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped:
+            return stripped
+    return None
 
 
 def _pick_value(flat: dict[str, Any], aliases: list[str]) -> tuple[Any | None, str | None]:
-    # Prefer exact leaf-key matches first, then substring path matches.
     exact_hits: list[tuple[str, Any]] = []
     loose_hits: list[tuple[str, Any]] = []
 

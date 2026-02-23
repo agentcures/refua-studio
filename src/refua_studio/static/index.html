@@ -199,9 +199,12 @@
         <pre id="toolsOutput"></pre>
       </section>
 
-      <section class="panel panel-full reveal" style="--delay: 0.32s">
+      <section class="panel panel-full panel-cures reveal" style="--delay: 0.32s">
         <div class="panel-head">
-          <h2>Promising Drug Portfolio</h2>
+          <div>
+            <p class="cures-kicker">Unicorn Tier Discovery</p>
+            <h2>Promising Cures</h2>
+          </div>
           <div class="inline-controls">
             <label class="inline-label" for="drugMinScoreInput">Min Score</label>
             <input type="number" id="drugMinScoreInput" min="0" max="100" value="50" step="1" />
@@ -209,8 +212,27 @@
           </div>
         </div>
         <div id="drugPortfolioSummary" class="drug-summary-grid"></div>
-        <div id="drugPortfolioCards" class="drug-cards"></div>
-        <pre id="drugPortfolioDetail"></pre>
+        <div class="cures-layout">
+          <div id="drugPortfolioCards" class="drug-cards"></div>
+          <article class="cure-detail-card">
+            <div id="cureDetailHeader" class="cure-detail-header">Select a candidate cure</div>
+            <p id="cureAssessment" class="cure-assessment">
+              Pick a therapeutic card to inspect full ADMET properties and assessment.
+            </p>
+            <div id="cureMetricPills" class="metric-row"></div>
+
+            <h3>Key ADMET Metrics</h3>
+            <div id="admetKeyMetrics" class="admet-key-grid"></div>
+
+            <h3>Full ADMET Properties</h3>
+            <div id="admetPropertiesGrid" class="admet-property-grid"></div>
+
+            <details class="raw-json-toggle">
+              <summary>Raw Candidate JSON</summary>
+              <pre id="drugPortfolioDetail"></pre>
+            </details>
+          </article>
+        </div>
       </section>
 
       <section class="panel panel-full reveal" style="--delay: 0.36s">
