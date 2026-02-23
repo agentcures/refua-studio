@@ -7,25 +7,70 @@
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body>
-    <div class="aurora aurora-a" aria-hidden="true"></div>
-    <div class="aurora aurora-b" aria-hidden="true"></div>
+    <div class="ambient ambient-a" aria-hidden="true"></div>
+    <div class="ambient ambient-b" aria-hidden="true"></div>
 
-    <header class="masthead reveal" style="--delay: 0.05s">
-      <div class="masthead-title-wrap">
-        <p class="kicker">Refua Mission Control</p>
+    <header class="app-header reveal" style="--delay: 0.04s">
+      <div class="brand-block">
+        <p class="kicker">Refua Platform</p>
         <h1>Refua Studio</h1>
         <p class="subtitle">
-          Plan, validate, execute, and review disease-scale discovery campaigns.
+          Enterprise control plane for ClawCures campaign planning, execution, validation, and portfolio review.
         </p>
       </div>
-      <div class="status-chip" id="connectionChip" title="API connectivity">
-        <span class="dot"></span>
-        <span class="status-text">Checking...</span>
+      <div class="header-actions">
+        <div class="status-chip" id="connectionChip" title="API connectivity">
+          <span class="dot"></span>
+          <span class="status-text">Checking...</span>
+        </div>
+        <button id="refreshEcosystemButton" class="btn btn-outline btn-small">Refresh Ecosystem</button>
       </div>
     </header>
 
-    <main class="layout">
-      <section class="panel reveal" style="--delay: 0.10s">
+    <main class="dashboard">
+      <section class="panel panel-full reveal" style="--delay: 0.08s">
+        <div class="panel-head">
+          <h2>Platform & ClawCures Alignment</h2>
+          <div class="inline-controls">
+            <label class="toggle compact-toggle">
+              <input type="checkbox" id="handoffWriteFileToggle" checked />
+              <span>Write Handoff Artifact</span>
+            </label>
+            <button id="generateHandoffButton" class="btn btn-accent btn-small">Generate Handoff</button>
+          </div>
+        </div>
+
+        <div id="ecosystemWarnings" class="notice" hidden></div>
+
+        <div id="productGrid" class="product-grid"></div>
+
+        <div class="platform-columns">
+          <article class="subpanel">
+            <h3>ClawCures Default Objective</h3>
+            <p id="defaultObjectiveText" class="subpanel-text">Loading...</p>
+            <button id="loadClawCuresObjectiveButton" class="btn btn-outline btn-small">Use Objective</button>
+          </article>
+
+          <article class="subpanel">
+            <h3>Default System Prompt Preview</h3>
+            <pre id="defaultPromptPreview" class="compact-pre">Loading...</pre>
+          </article>
+
+          <article class="subpanel">
+            <h3>ClawCures Commands</h3>
+            <label for="handoffArtifactNameInput">Artifact Name (optional)</label>
+            <input
+              type="text"
+              id="handoffArtifactNameInput"
+              placeholder="clawcures_kras_handoff.json"
+              spellcheck="false"
+            />
+            <pre id="clawcuresCommandOutput" class="compact-pre">Generate a handoff to populate commands.</pre>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel reveal" style="--delay: 0.12s">
         <h2>Mission Run</h2>
 
         <label for="objectiveTemplateSelect">Objective Template</label>
@@ -36,6 +81,9 @@
 
         <label for="objectiveInput">Objective</label>
         <textarea id="objectiveInput" rows="4" spellcheck="false"></textarea>
+
+        <label for="systemPromptInput">System Prompt Override (optional)</label>
+        <textarea id="systemPromptInput" rows="4" spellcheck="false"></textarea>
 
         <div class="row">
           <label class="toggle">
@@ -70,7 +118,7 @@
         </div>
       </section>
 
-      <section class="panel reveal" style="--delay: 0.15s">
+      <section class="panel reveal" style="--delay: 0.16s">
         <h2>Plan Editor</h2>
 
         <label for="planTemplateSelect">Plan Template</label>
@@ -100,15 +148,15 @@
         </div>
 
         <label for="portfolioInput">Disease Programs (JSON array)</label>
-        <textarea id="portfolioInput" rows="9" spellcheck="false"></textarea>
+        <textarea id="portfolioInput" rows="10" spellcheck="false"></textarea>
 
         <div class="button-row">
           <button id="rankPortfolioButton" class="btn btn-accent">Rank Portfolio</button>
         </div>
       </section>
 
-      <section class="panel reveal" style="--delay: 0.25s">
-        <div class="panel-title-row">
+      <section class="panel panel-wide reveal" style="--delay: 0.24s">
+        <div class="panel-head">
           <h2>Job History</h2>
           <div class="inline-controls">
             <select id="jobStatusFilter">
@@ -124,6 +172,9 @@
             <button id="clearFinishedJobsButton" class="btn btn-outline btn-small">Clear Finished</button>
           </div>
         </div>
+
+        <div id="jobsCountSummary" class="panel-meta"></div>
+
         <div class="table-wrap">
           <table>
             <thead>
@@ -140,16 +191,16 @@
         </div>
       </section>
 
-      <section class="panel panel-wide reveal" style="--delay: 0.30s">
-        <div class="panel-title-row">
+      <section class="panel reveal" style="--delay: 0.28s">
+        <div class="panel-head">
           <h2>Tooling & Runtime</h2>
           <button id="refreshToolsButton" class="btn btn-outline btn-small">Refresh</button>
         </div>
         <pre id="toolsOutput"></pre>
       </section>
 
-      <section class="panel panel-full reveal" style="--delay: 0.35s">
-        <div class="panel-title-row">
+      <section class="panel panel-full reveal" style="--delay: 0.32s">
+        <div class="panel-head">
           <h2>Promising Drug Portfolio</h2>
           <div class="inline-controls">
             <label class="inline-label" for="drugMinScoreInput">Min Score</label>
@@ -162,8 +213,8 @@
         <pre id="drugPortfolioDetail"></pre>
       </section>
 
-      <section class="panel panel-wide reveal" style="--delay: 0.40s">
-        <div class="panel-title-row">
+      <section class="panel panel-full reveal" style="--delay: 0.36s">
+        <div class="panel-head">
           <h2>Output</h2>
           <button id="clearOutputButton" class="btn btn-outline btn-small">Clear</button>
         </div>

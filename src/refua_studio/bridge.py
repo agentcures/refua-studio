@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import importlib
 import json
+import shlex
 import sys
+import tomllib
 from dataclasses import asdict, is_dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +50,86 @@ _DEFAULT_OBJECTIVES: tuple[dict[str, str], ...] = (
             "using burden, tractability, unmet need, and safety signals."
         ),
     },
+)
+
+_PRODUCT_REGISTRY: tuple[dict[str, str], ...] = (
+    {
+        "id": "clawcures",
+        "name": "ClawCures",
+        "repo": "ClawCures",
+        "module": "refua_campaign",
+        "role": "Campaign planner and execution orchestrator",
+        "cli": "ClawCures",
+    },
+    {
+        "id": "refua_studio",
+        "name": "refua-studio",
+        "repo": "refua-studio",
+        "module": "refua_studio",
+        "role": "Web control plane",
+        "cli": "refua-studio",
+    },
+    {
+        "id": "refua_mcp",
+        "name": "refua-mcp",
+        "repo": "refua-mcp",
+        "module": "refua_mcp",
+        "role": "Typed scientific tool server",
+    },
+    {
+        "id": "refua_core",
+        "name": "refua",
+        "repo": "refua",
+        "module": "refua",
+        "role": "Core molecular design and scoring",
+    },
+    {
+        "id": "refua_data",
+        "name": "refua-data",
+        "repo": "refua-data",
+        "module": "refua_data",
+        "role": "Data and catalog pipeline",
+    },
+    {
+        "id": "refua_clinical",
+        "name": "refua-clinical",
+        "repo": "refua-clinical",
+        "module": "refua_clinical",
+        "role": "Clinical simulation and translational modeling",
+    },
+    {
+        "id": "refua_regulatory",
+        "name": "refua-regulatory",
+        "repo": "refua-regulatory",
+        "module": "refua_regulatory",
+        "role": "Regulatory lineage and evidence packaging",
+    },
+    {
+        "id": "refua_bench",
+        "name": "refua-bench",
+        "repo": "refua-bench",
+        "module": "refua_bench",
+        "role": "Benchmark and evaluation harness",
+    },
+    {
+        "id": "refua_notebook",
+        "name": "refua-notebook",
+        "repo": "refua-notebook",
+        "module": "refua_notebook",
+        "role": "Notebook widgets and exploratory workflows",
+    },
+    {
+        "id": "refua_deploy",
+        "name": "refua-deploy",
+        "repo": "refua-deploy",
+        "module": "refua_deploy",
+        "role": "Deployment and environment rendering",
+    },
+)
+
+_DEFAULT_CLAWCURES_OBJECTIVE = (
+    "Find cures for all diseases by prioritizing the highest-burden conditions and "
+    "researching the best drug design strategies for each."
 )
 
 
@@ -129,6 +212,118 @@ class CampaignBridge:
             return json.loads(text), None
         except Exception as exc:  # noqa: BLE001
             return None, f"Failed reading {path}: {exc}"
+
+    def _read_pyproject_meta(self, repo_dir: Path) -> dict[str, Any]:
+        pyproject_path = repo_dir / "pyproject.toml"
+        if not pyproject_path.exists():
+            return {}
+        try:
+            parsed = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            return {}
+        project = parsed.get("project")
+        if not isinstance(project, dict):
+            return {}
+        return {
+            "name": project.get("name"),
+            "version": project.get("version"),
+            "requires_python": project.get("requires-python"),
+        }
+
+    def _load_product_status(self, descriptor: dict[str, str]) -> dict[str, Any]:
+        repo_name = descriptor["repo"]
+        repo_dir = self._workspace_root / repo_name
+        pyproject = self._read_pyproject_meta(repo_dir)
+        module_name = descriptor.get("module", "")
+
+        imported = False
+        module_file: str | None = None
+        import_error: str | None = None
+        if module_name:
+            self._ensure_paths()
+            try:
+                spec = importlib.util.find_spec(module_name)
+                imported = spec is not None
+                if spec is not None and isinstance(spec.origin, str):
+                    module_file = spec.origin
+            except Exception as exc:  # noqa: BLE001
+                import_error = f"{type(exc).__name__}: {exc}"
+
+        exists = repo_dir.exists()
+        ready = bool(exists and imported)
+        health = "ready" if ready else "degraded" if exists else "missing"
+
+        payload = {
+            "id": descriptor["id"],
+            "name": descriptor["name"],
+            "role": descriptor["role"],
+            "repo": repo_name,
+            "path": str(repo_dir),
+            "exists": exists,
+            "health": health,
+            "importable": imported,
+            "module": module_name,
+            "module_file": module_file,
+            "readme_path": str(repo_dir / "README.md"),
+            "version": pyproject.get("version"),
+            "requires_python": pyproject.get("requires_python"),
+        }
+        cli = descriptor.get("cli")
+        if cli:
+            payload["cli"] = cli
+        if import_error is not None:
+            payload["import_error"] = import_error
+        return payload
+
+    def _clawcures_defaults(self) -> tuple[dict[str, Any], list[str]]:
+        warnings: list[str] = []
+        objective = _DEFAULT_CLAWCURES_OBJECTIVE
+        prompt_text = ""
+        allowlist: list[str] = list(STATIC_TOOL_LIST)
+        prompt_path = self._workspace_root / "ClawCures" / "src" / "refua_campaign" / "prompts" / (
+            "default_system_prompt.txt"
+        )
+
+        try:
+            cli_mod = self._import("refua_campaign.cli")
+            objective = str(getattr(cli_mod, "DEFAULT_OBJECTIVE", objective))
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"Could not import ClawCures default objective: {exc}")
+
+        try:
+            prompts_mod = self._import("refua_campaign.prompts")
+            prompt_text = str(prompts_mod.load_system_prompt())
+            config_mod = self._import("refua_campaign.config")
+            prompt_path = config_mod.default_prompt_path()
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"Could not import ClawCures prompt loader: {exc}")
+            if prompt_path.exists() and not prompt_text:
+                try:
+                    prompt_text = prompt_path.read_text(encoding="utf-8")
+                except Exception as nested_exc:  # noqa: BLE001
+                    warnings.append(f"Could not read default prompt file: {nested_exc}")
+
+        try:
+            adapter_mod = self._import("refua_campaign.refua_mcp_adapter")
+            raw_allowlist = getattr(adapter_mod, "DEFAULT_TOOL_LIST", ())
+            if isinstance(raw_allowlist, (list, tuple)):
+                allowlist = [str(name) for name in raw_allowlist if isinstance(name, str)]
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"Could not load ClawCures tool allowlist: {exc}")
+
+        prompt_lines = [line.strip() for line in prompt_text.splitlines() if line.strip()]
+        prompt_preview = "\n".join(prompt_lines[:6])
+
+        return (
+            {
+                "default_objective": objective,
+                "default_prompt_path": str(prompt_path),
+                "default_prompt_preview": prompt_preview,
+                "default_prompt_line_count": len(prompt_lines),
+                "tool_allowlist": sorted(set(allowlist)),
+            },
+            warnings,
+        )
 
     def examples(self) -> dict[str, Any]:
         warnings: list[str] = []
@@ -220,6 +415,120 @@ class CampaignBridge:
                 "has_token": bool(cfg.bearer_token),
             }
         }
+
+    def ecosystem(self) -> dict[str, Any]:
+        warnings: list[str] = []
+        products = [self._load_product_status(descriptor) for descriptor in _PRODUCT_REGISTRY]
+
+        clawcures_defaults, clawcures_warnings = self._clawcures_defaults()
+        warnings.extend(clawcures_warnings)
+
+        return {
+            "generated_at": datetime.now(UTC).isoformat(),
+            "products": products,
+            "clawcures": clawcures_defaults,
+            "warnings": warnings,
+        }
+
+    def build_clawcures_handoff(
+        self,
+        *,
+        objective: str | None,
+        plan: dict[str, Any] | None,
+        system_prompt: str | None,
+        autonomous: bool,
+        dry_run: bool,
+        max_calls: int,
+        allow_skip_validate_first: bool,
+        write_file: bool,
+        artifact_dir: Path,
+        artifact_name: str | None = None,
+    ) -> dict[str, Any]:
+        clawcures_defaults, default_warnings = self._clawcures_defaults()
+        resolved_objective = (
+            objective.strip()
+            if isinstance(objective, str) and objective.strip()
+            else clawcures_defaults["default_objective"]
+        )
+
+        normalized_plan = _to_plain_data(plan) if isinstance(plan, dict) else None
+        normalized_prompt = (
+            system_prompt.strip() if isinstance(system_prompt, str) and system_prompt.strip() else None
+        )
+        mode_command = "run-autonomous" if autonomous else "run"
+
+        artifact_payload: dict[str, Any] = {
+            "generated_at": datetime.now(UTC).isoformat(),
+            "source": "refua-studio",
+            "objective": resolved_objective,
+            "run_mode": mode_command,
+            "dry_run": bool(dry_run),
+            "max_calls": int(max_calls),
+            "allow_skip_validate_first": bool(allow_skip_validate_first),
+            "plan": normalized_plan,
+            "system_prompt": normalized_prompt,
+        }
+
+        artifact_path: str | None = None
+        if write_file:
+            artifact_dir.mkdir(parents=True, exist_ok=True)
+            filename = artifact_name or (
+                "clawcures_handoff_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + ".json"
+            )
+            if not filename.endswith(".json"):
+                filename = f"{filename}.json"
+            target_path = artifact_dir / filename
+            target_path.write_text(
+                json.dumps(artifact_payload, ensure_ascii=True, indent=2),
+                encoding="utf-8",
+            )
+            artifact_path = str(target_path)
+
+        command_flags = [f"--objective {shlex.quote(resolved_objective)}"]
+        if dry_run:
+            command_flags.append("--dry-run")
+        if autonomous:
+            command_flags.append(f"--max-calls {int(max_calls)}")
+            if allow_skip_validate_first:
+                command_flags.append("--allow-skip-validate-first")
+        if artifact_path is not None and normalized_plan is not None:
+            command_flags.append(f"--plan-file {shlex.quote(artifact_path)}")
+        elif normalized_plan is not None:
+            command_flags.append("--plan-file <handoff_plan.json>")
+
+        run_command = " ".join(["ClawCures", mode_command, *command_flags])
+
+        validate_command = "ClawCures validate-plan --plan-file "
+        if artifact_path is not None and normalized_plan is not None:
+            validate_command += shlex.quote(artifact_path)
+        else:
+            validate_command += "<handoff_plan.json>"
+
+        payload: dict[str, Any] = {
+            "artifact": artifact_payload,
+            "artifact_path": artifact_path,
+            "commands": [
+                {
+                    "id": "clawcures_run",
+                    "label": f"Execute with ClawCures {mode_command}",
+                    "command": run_command,
+                },
+                {
+                    "id": "clawcures_validate",
+                    "label": "Validate plan policy",
+                    "command": validate_command,
+                },
+            ],
+            "clawcures_defaults": clawcures_defaults,
+            "warnings": default_warnings,
+        }
+
+        if normalized_plan is None:
+            payload["warnings"].append(
+                "No plan was provided in the handoff payload; ClawCures will plan at runtime."
+            )
+
+        return payload
 
     def plan(self, *, objective: str, system_prompt: str | None = None) -> dict[str, Any]:
         objective_text = objective.strip()

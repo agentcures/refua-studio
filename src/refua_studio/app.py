@@ -87,6 +87,9 @@ class StudioApp:
     def examples_payload(self) -> dict[str, Any]:
         return self.bridge.examples()
 
+    def ecosystem_payload(self) -> dict[str, Any]:
+        return self.bridge.ecosystem()
+
     def list_jobs(self, *, query: dict[str, list[str]]) -> dict[str, Any]:
         limit = 100
         if "limit" in query:
@@ -249,6 +252,35 @@ class StudioApp:
             limit=limit,
             min_score=min_score,
             include_raw=include_raw,
+        )
+
+    def clawcures_handoff(self, payload: dict[str, Any]) -> dict[str, Any]:
+        objective = _optional_nonempty_string(payload.get("objective"), "objective")
+        system_prompt = _optional_nonempty_string(payload.get("system_prompt"), "system_prompt")
+
+        plan_payload = payload.get("plan")
+        if plan_payload is not None and not isinstance(plan_payload, dict):
+            raise BadRequestError("plan must be a JSON object when provided")
+
+        autonomous = bool(payload.get("autonomous", False))
+        dry_run = bool(payload.get("dry_run", True))
+        max_calls = _coerce_int(payload.get("max_calls", 10), "max_calls", minimum=1)
+        allow_skip_validate_first = bool(payload.get("allow_skip_validate_first", False))
+        write_file = bool(payload.get("write_file", True))
+        artifact_name = _optional_nonempty_string(payload.get("artifact_name"), "artifact_name")
+
+        artifact_dir = self.config.data_dir / "handoffs"
+        return self.bridge.build_clawcures_handoff(
+            objective=objective,
+            plan=plan_payload,
+            system_prompt=system_prompt,
+            autonomous=autonomous,
+            dry_run=dry_run,
+            max_calls=max_calls,
+            allow_skip_validate_first=allow_skip_validate_first,
+            write_file=write_file,
+            artifact_dir=artifact_dir,
+            artifact_name=artifact_name,
         )
 
 
@@ -459,6 +491,9 @@ def create_handler(app: StudioApp):
                 if path == "/api/examples":
                     _json_response(self, HTTPStatus.OK, app.examples_payload())
                     return
+                if path == "/api/ecosystem":
+                    _json_response(self, HTTPStatus.OK, app.ecosystem_payload())
+                    return
                 if path == "/api/drug-portfolio":
                     query = parse_qs(parsed.query, keep_blank_values=False)
                     _json_response(self, HTTPStatus.OK, app.drug_portfolio(query=query))
@@ -530,6 +565,9 @@ def create_handler(app: StudioApp):
                     return
                 if path == "/api/portfolio/rank":
                     _json_response(self, HTTPStatus.OK, app.rank_portfolio(payload))
+                    return
+                if path == "/api/clawcures/handoff":
+                    _json_response(self, HTTPStatus.OK, app.clawcures_handoff(payload))
                     return
                 if path == "/api/jobs/clear":
                     _json_response(self, HTTPStatus.OK, app.clear_jobs(payload))

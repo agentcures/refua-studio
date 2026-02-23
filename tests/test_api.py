@@ -72,6 +72,33 @@ class StudioApiTest(unittest.TestCase):
         self.assertIn("objectives", payload)
         self.assertIn("plan_templates", payload)
 
+    def test_ecosystem_endpoint(self) -> None:
+        payload = self._request("GET", "/api/ecosystem")
+        self.assertIn("products", payload)
+        self.assertIn("clawcures", payload)
+        self.assertIsInstance(payload["products"], list)
+        self.assertGreaterEqual(len(payload["products"]), 1)
+        self.assertIn("default_objective", payload["clawcures"])
+
+    def test_clawcures_handoff_endpoint(self) -> None:
+        payload = self._request(
+            "POST",
+            "/api/clawcures/handoff",
+            {
+                "objective": "Offline handoff generation",
+                "plan": {
+                    "calls": [
+                        {"tool": "refua_validate_spec", "args": {}},
+                    ]
+                },
+                "write_file": False,
+            },
+        )
+        self.assertIn("artifact", payload)
+        self.assertIn("commands", payload)
+        self.assertIsNone(payload["artifact_path"])
+        self.assertGreaterEqual(len(payload["commands"]), 1)
+
     def test_drug_portfolio_endpoint(self) -> None:
         job = self.app.store.create_job(kind="candidate-run", request={"objective": "find drugs"})
         self.app.store.set_running(job["job_id"])

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -52,6 +53,34 @@ class CampaignBridgeTest(unittest.TestCase):
         self.assertIn("objectives", payload)
         self.assertIn("plan_templates", payload)
         self.assertGreaterEqual(len(payload["objectives"]), 1)
+
+    def test_ecosystem_payload(self) -> None:
+        payload = self.bridge.ecosystem()
+        self.assertIn("products", payload)
+        self.assertIn("clawcures", payload)
+        self.assertIsInstance(payload["products"], list)
+        self.assertGreaterEqual(len(payload["products"]), 1)
+        self.assertIn("default_objective", payload["clawcures"])
+
+    def test_build_clawcures_handoff(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            payload = self.bridge.build_clawcures_handoff(
+                objective="Bridge handoff test",
+                plan={"calls": [{"tool": "refua_validate_spec", "args": {}}]},
+                system_prompt=None,
+                autonomous=False,
+                dry_run=True,
+                max_calls=10,
+                allow_skip_validate_first=False,
+                write_file=True,
+                artifact_dir=Path(tmp),
+                artifact_name="bridge_test_handoff.json",
+            )
+            self.assertIn("artifact", payload)
+            self.assertIn("commands", payload)
+            self.assertIsNotNone(payload["artifact_path"])
+            assert payload["artifact_path"] is not None
+            self.assertTrue(Path(payload["artifact_path"]).exists())
 
 
 if __name__ == "__main__":

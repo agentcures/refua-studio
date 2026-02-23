@@ -8,6 +8,8 @@ It provides:
 - JSON plan editor with validation and direct execution
 - Portfolio ranking UI for disease program prioritization
 - Built-in objective/plan/portfolio templates loaded from workspace examples
+- Ecosystem health panel with cross-product discovery metadata
+- ClawCures-native handoff artifact generation and executable command suggestions
 - Promising drug portfolio section with candidate cards, scores, metrics, and full detail view
 - Persistent background job history (SQLite)
 - Job lifecycle operations (filter, cancel queued jobs, clear finished jobs)
@@ -61,6 +63,7 @@ CLI flags:
 - `GET /api/config`
 - `GET /api/tools`
 - `GET /api/examples`
+- `GET /api/ecosystem`
 - `GET /api/drug-portfolio?min_score=50&limit=60`
 - `GET /api/jobs?limit=80&status=running,failed`
 - `GET /api/jobs/{job_id}`
@@ -71,6 +74,7 @@ CLI flags:
 - `POST /api/plan/validate`
 - `POST /api/plan/execute`
 - `POST /api/portfolio/rank`
+- `POST /api/clawcures/handoff`
 
 ### `POST /api/run` payload
 
@@ -87,6 +91,24 @@ CLI flags:
   "plan": null
 }
 ```
+
+### `POST /api/clawcures/handoff` payload
+
+```json
+{
+  "objective": "Design an initial campaign against KRAS G12D",
+  "system_prompt": null,
+  "plan": {"calls": []},
+  "autonomous": false,
+  "dry_run": true,
+  "max_calls": 10,
+  "allow_skip_validate_first": false,
+  "write_file": true,
+  "artifact_name": "kras_handoff.json"
+}
+```
+
+Returns a normalized handoff artifact plus ready-to-run `ClawCures` CLI commands.
 
 ## Background Jobs
 

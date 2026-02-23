@@ -2,8 +2,10 @@ const connectionChip = document.getElementById("connectionChip");
 const resultOutput = document.getElementById("resultOutput");
 const toolsOutput = document.getElementById("toolsOutput");
 const jobsBody = document.getElementById("jobsBody");
+const jobsCountSummary = document.getElementById("jobsCountSummary");
 
 const objectiveInput = document.getElementById("objectiveInput");
+const systemPromptInput = document.getElementById("systemPromptInput");
 const planInput = document.getElementById("planInput");
 const portfolioInput = document.getElementById("portfolioInput");
 
@@ -23,6 +25,14 @@ const drugPortfolioSummary = document.getElementById("drugPortfolioSummary");
 const drugPortfolioCards = document.getElementById("drugPortfolioCards");
 const drugPortfolioDetail = document.getElementById("drugPortfolioDetail");
 
+const productGrid = document.getElementById("productGrid");
+const ecosystemWarnings = document.getElementById("ecosystemWarnings");
+const defaultObjectiveText = document.getElementById("defaultObjectiveText");
+const defaultPromptPreview = document.getElementById("defaultPromptPreview");
+const clawcuresCommandOutput = document.getElementById("clawcuresCommandOutput");
+const handoffWriteFileToggle = document.getElementById("handoffWriteFileToggle");
+const handoffArtifactNameInput = document.getElementById("handoffArtifactNameInput");
+
 const state = {
   selectedJobId: null,
   selectedCandidateId: null,
@@ -32,11 +42,22 @@ const state = {
     plan_templates: [],
     portfolio_templates: [],
   },
+  ecosystem: null,
+  handoff: null,
   drugCandidates: [],
 };
 
 function pretty(value) {
   return JSON.stringify(value, null, 2);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function setConnection(ok, text) {
@@ -48,7 +69,8 @@ function setConnection(ok, text) {
 
 function showOutput(title, payload) {
   const rendered = typeof payload === "string" ? payload : pretty(payload);
-  resultOutput.textContent = `${title}\n${"=".repeat(title.length)}\n${rendered}`;
+  const stamp = new Date().toLocaleTimeString();
+  resultOutput.textContent = `[${stamp}] ${title}\n${"=".repeat(title.length + stamp.length + 3)}\n${rendered}`;
 }
 
 async function api(path, options = {}) {
@@ -87,7 +109,7 @@ function parseJsonText(text, label) {
   }
   try {
     return JSON.parse(raw);
-  } catch (err) {
+  } catch (_err) {
     throw new Error(`${label} must be valid JSON`);
   }
 }
@@ -130,9 +152,16 @@ function shortText(value, maxLen = 30) {
   return `${text.slice(0, maxLen - 1)}...`;
 }
 
+function safeStatus(status) {
+  const normalized = String(status || "unknown")
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9_-]/g, "");
+  return normalized || "unknown";
+}
+
 function statusPill(status) {
-  const safe = String(status || "unknown");
-  return `<span class="status-pill status-${safe}">${safe}</span>`;
+  const safe = safeStatus(status);
+  return `<span class="status-pill status-${safe}">${escapeHtml(safe)}</span>`;
 }
 
 function metricText(value, digits = 3) {
@@ -165,13 +194,96 @@ function selectedTemplate(select, list) {
   return list.find((item) => item.id === id) || null;
 }
 
+function renderWarnings(warnings) {
+  if (!Array.isArray(warnings) || warnings.length === 0) {
+    ecosystemWarnings.hidden = true;
+    ecosystemWarnings.textContent = "";
+    return;
+  }
+  ecosystemWarnings.hidden = false;
+  ecosystemWarnings.textContent = warnings.join("\n");
+}
+
+function renderProductGrid(products) {
+  productGrid.innerHTML = "";
+
+  if (!Array.isArray(products) || products.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "summary-item";
+    empty.textContent = "No product metadata available.";
+    productGrid.appendChild(empty);
+    return;
+  }
+
+  for (const product of products) {
+    const card = document.createElement("article");
+    const health = String(product.health || "degraded");
+    card.className = `product-card product-card-${health}`;
+
+    const cli = product.cli ? `CLI: ${product.cli}` : "CLI: n/a";
+    const version = product.version || "unknown";
+    const reqPy = product.requires_python || "n/a";
+
+    card.innerHTML = `
+      <div class="product-top">
+        <h4 class="product-name">${escapeHtml(product.name || product.id || "unknown")}</h4>
+        <span class="health-pill health-${escapeHtml(health)}">${escapeHtml(health)}</span>
+      </div>
+      <p class="product-role">${escapeHtml(product.role || "")}</p>
+      <p class="product-meta"><strong>Version:</strong> ${escapeHtml(version)}</p>
+      <p class="product-meta"><strong>Python:</strong> ${escapeHtml(reqPy)}</p>
+      <p class="product-meta"><strong>${escapeHtml(cli)}</strong></p>
+    `;
+    productGrid.appendChild(card);
+  }
+}
+
+function renderHandoffCommands(handoffPayload) {
+  if (!handoffPayload || !Array.isArray(handoffPayload.commands)) {
+    clawcuresCommandOutput.textContent = "Generate a handoff to populate commands.";
+    return;
+  }
+
+  const lines = [];
+  if (handoffPayload.artifact_path) {
+    lines.push(`# Artifact: ${handoffPayload.artifact_path}`);
+  }
+  for (const cmd of handoffPayload.commands) {
+    lines.push(`# ${cmd.label}`);
+    lines.push(cmd.command);
+    lines.push("");
+  }
+  clawcuresCommandOutput.textContent = lines.join("\n").trim();
+}
+
+function renderEcosystem(payload) {
+  state.ecosystem = payload;
+  renderWarnings(payload.warnings || []);
+
+  renderProductGrid(payload.products || []);
+
+  const clawcures = payload.clawcures || {};
+  defaultObjectiveText.textContent = clawcures.default_objective || "Unavailable";
+  defaultPromptPreview.textContent = clawcures.default_prompt_preview || "Unavailable";
+
+  if (!objectiveInput.value.trim() && clawcures.default_objective) {
+    objectiveInput.value = clawcures.default_objective;
+  }
+}
+
 async function refreshHealth() {
   try {
     const payload = await api("/api/health", { method: "GET" });
-    setConnection(true, `Online (${payload.tools_count} tools)`);
+    const running = payload.job_counts?.running || 0;
+    setConnection(true, `Online (${payload.tools_count} tools, ${running} running)`);
   } catch (err) {
     setConnection(false, `Offline (${err.message})`);
   }
+}
+
+async function refreshEcosystem() {
+  const payload = await api("/api/ecosystem", { method: "GET" });
+  renderEcosystem(payload);
 }
 
 async function refreshTools() {
@@ -203,6 +315,17 @@ async function refreshExamples() {
   }
 }
 
+function renderJobCounts(counts) {
+  if (!counts || typeof counts !== "object") {
+    jobsCountSummary.textContent = "";
+    return;
+  }
+
+  const keys = ["queued", "running", "completed", "failed", "cancelled"];
+  const parts = keys.map((key) => `${key}: ${counts[key] || 0}`);
+  jobsCountSummary.textContent = `Job counts | ${parts.join(" | ")}`;
+}
+
 function renderJobsTable(jobs) {
   jobsBody.innerHTML = "";
 
@@ -220,11 +343,11 @@ function renderJobsTable(jobs) {
     }
 
     tr.innerHTML = `
-      <td title="${job.job_id}">${job.job_id.slice(0, 8)}...</td>
-      <td>${job.kind}</td>
+      <td title="${escapeHtml(job.job_id)}">${escapeHtml((job.job_id || "").slice(0, 8))}...</td>
+      <td>${escapeHtml(job.kind || "-")}</td>
       <td>${statusPill(job.status)}</td>
-      <td>${formatDate(job.updated_at)}</td>
-      <td>${formatDuration(job.duration_ms)}</td>
+      <td>${escapeHtml(formatDate(job.updated_at))}</td>
+      <td>${escapeHtml(formatDuration(job.duration_ms))}</td>
     `;
 
     tr.addEventListener("click", async () => {
@@ -242,6 +365,8 @@ async function refreshJobs() {
   const query = statusFilter ? `?limit=80&status=${encodeURIComponent(statusFilter)}` : "?limit=80";
   const payload = await api(`/api/jobs${query}`, { method: "GET" });
   const jobs = payload.jobs || [];
+
+  renderJobCounts(payload.counts || {});
   renderJobsTable(jobs);
 
   if (!state.selectedJobId && Array.isArray(jobs) && jobs.length > 0) {
@@ -272,11 +397,11 @@ function renderDrugSummary(summary) {
   drugPortfolioSummary.innerHTML = entries
     .map(
       (entry) => `
-        <div class="summary-item">
-          <div class="summary-label">${entry.label}</div>
-          <div class="summary-value">${entry.value}</div>
-        </div>
-      `
+      <div class="summary-item">
+        <div class="summary-label">${escapeHtml(entry.label)}</div>
+        <div class="summary-value">${escapeHtml(entry.value)}</div>
+      </div>
+    `
     )
     .join("");
 }
@@ -295,7 +420,8 @@ function renderDrugCards(candidates) {
   if (!Array.isArray(candidates) || candidates.length === 0) {
     const empty = document.createElement("div");
     empty.className = "summary-item";
-    empty.innerHTML = '<div class="summary-label">Portfolio</div><div class="summary-value">No candidates yet</div>';
+    empty.innerHTML =
+      '<div class="summary-label">Portfolio</div><div class="summary-value">No candidates yet</div>';
     drugPortfolioCards.appendChild(empty);
     renderDrugDetail(null);
     return;
@@ -311,18 +437,20 @@ function renderDrugCards(candidates) {
     const metrics = candidate.metrics || {};
     card.innerHTML = `
       <div class="drug-card-top">
-        <div class="drug-name">${shortText(candidate.name || candidate.smiles || candidate.candidate_id, 46)}</div>
-        <div class="drug-score">${metricText(candidate.score, 1)}</div>
+        <div class="drug-name">${escapeHtml(
+          shortText(candidate.name || candidate.smiles || candidate.candidate_id, 46)
+        )}</div>
+        <div class="drug-score">${escapeHtml(metricText(candidate.score, 1))}</div>
       </div>
       <div class="drug-meta">
-        Target: ${shortText(candidate.target, 28)}<br />
-        Tool: ${shortText(candidate.tool, 22)}
+        Target: ${escapeHtml(shortText(candidate.target, 28))}<br />
+        Tool: ${escapeHtml(shortText(candidate.tool, 22))}
       </div>
       <div class="metric-row">
-        <span class="metric-chip">pBind ${metricText(metrics.binding_probability, 2)}</span>
-        <span class="metric-chip">ADMET ${metricText(metrics.admet_score, 2)}</span>
-        <span class="metric-chip">Affinity ${metricText(metrics.affinity, 2)}</span>
-        <span class="metric-chip">IC50 ${metricText(metrics.ic50, 2)}</span>
+        <span class="metric-chip">pBind ${escapeHtml(metricText(metrics.binding_probability, 2))}</span>
+        <span class="metric-chip">ADMET ${escapeHtml(metricText(metrics.admet_score, 2))}</span>
+        <span class="metric-chip">Affinity ${escapeHtml(metricText(metrics.affinity, 2))}</span>
+        <span class="metric-chip">IC50 ${escapeHtml(metricText(metrics.ic50, 2))}</span>
       </div>
     `;
 
@@ -355,8 +483,10 @@ async function refreshDrugPortfolio() {
 
 function currentRunPayload() {
   const plan = parseJsonText(planInput.value, "Plan");
+  const prompt = systemPromptInput.value.trim();
   return {
     objective: objectiveInput.value,
+    system_prompt: prompt || null,
     dry_run: dryRunToggle.checked,
     async_mode: asyncToggle.checked,
     autonomous: false,
@@ -402,9 +532,20 @@ function loadPortfolioTemplate() {
   showOutput("Portfolio Template Loaded", template);
 }
 
+function loadClawCuresObjective() {
+  const objective = state.ecosystem?.clawcures?.default_objective;
+  if (!objective) {
+    throw new Error("ClawCures objective is not available yet");
+  }
+  objectiveInput.value = objective;
+  showOutput("ClawCures Objective Loaded", { objective });
+}
+
 async function doPlan() {
+  const prompt = systemPromptInput.value.trim();
   const payload = {
     objective: objectiveInput.value,
+    system_prompt: prompt || null,
   };
   const result = await api("/api/plan", {
     method: "POST",
@@ -504,6 +645,47 @@ async function doClearFinishedJobs() {
   await refreshJobs();
 }
 
+async function doGenerateHandoff() {
+  const plan = parseJsonText(planInput.value, "Plan");
+  const payload = {
+    objective: objectiveInput.value,
+    system_prompt: systemPromptInput.value.trim() || null,
+    plan,
+    autonomous: false,
+    dry_run: dryRunToggle.checked,
+    max_calls: Number(maxCallsInput.value || 10),
+    allow_skip_validate_first: skipValidateFirstToggle.checked,
+    write_file: handoffWriteFileToggle.checked,
+    artifact_name: handoffArtifactNameInput.value.trim() || null,
+  };
+
+  const result = await api("/api/clawcures/handoff", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  state.handoff = result;
+  renderHandoffCommands(result);
+  showOutput("ClawCures Handoff", result);
+}
+
+function bindKeyboardShortcuts() {
+  document.addEventListener("keydown", (event) => {
+    if (!event.metaKey && !event.ctrlKey) {
+      return;
+    }
+    if (event.key === "Enter" && event.shiftKey) {
+      event.preventDefault();
+      wrapAction(() => doRun({ autonomous: true }));
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      wrapAction(() => doRun({ autonomous: false }));
+    }
+  });
+}
+
 function bindActions() {
   document.getElementById("planButton").addEventListener("click", () => wrapAction(doPlan));
   document.getElementById("runButton").addEventListener("click", () =>
@@ -513,38 +695,37 @@ function bindActions() {
     wrapAction(() => doRun({ autonomous: true }))
   );
 
-  document
-    .getElementById("validatePlanButton")
-    .addEventListener("click", () => wrapAction(doValidatePlan));
-  document
-    .getElementById("executePlanButton")
-    .addEventListener("click", () => wrapAction(doExecutePlan));
-  document
-    .getElementById("rankPortfolioButton")
-    .addEventListener("click", () => wrapAction(doRankPortfolio));
-
-  document
-    .getElementById("loadObjectiveTemplateButton")
-    .addEventListener("click", () => wrapAction(() => loadObjectiveTemplate()));
-  document
-    .getElementById("loadPlanTemplateButton")
-    .addEventListener("click", () => wrapAction(() => loadPlanTemplate()));
-  document
-    .getElementById("loadPortfolioTemplateButton")
-    .addEventListener("click", () => wrapAction(() => loadPortfolioTemplate()));
-
-  document
-    .getElementById("formatPlanButton")
-    .addEventListener("click", () => wrapAction(() => formatJsonTextarea(planInput, "Plan")));
-  document
-    .getElementById("formatPortfolioButton")
-    .addEventListener("click", () =>
-      wrapAction(() => formatJsonTextarea(portfolioInput, "Portfolio"))
-    );
-
-  document.getElementById("refreshJobsButton").addEventListener("click", () =>
-    wrapAction(refreshJobs)
+  document.getElementById("validatePlanButton").addEventListener("click", () =>
+    wrapAction(doValidatePlan)
   );
+  document.getElementById("executePlanButton").addEventListener("click", () =>
+    wrapAction(doExecutePlan)
+  );
+  document.getElementById("rankPortfolioButton").addEventListener("click", () =>
+    wrapAction(doRankPortfolio)
+  );
+
+  document.getElementById("loadObjectiveTemplateButton").addEventListener("click", () =>
+    wrapAction(loadObjectiveTemplate)
+  );
+  document.getElementById("loadPlanTemplateButton").addEventListener("click", () =>
+    wrapAction(loadPlanTemplate)
+  );
+  document.getElementById("loadPortfolioTemplateButton").addEventListener("click", () =>
+    wrapAction(loadPortfolioTemplate)
+  );
+  document.getElementById("loadClawCuresObjectiveButton").addEventListener("click", () =>
+    wrapAction(loadClawCuresObjective)
+  );
+
+  document.getElementById("formatPlanButton").addEventListener("click", () =>
+    wrapAction(() => formatJsonTextarea(planInput, "Plan"))
+  );
+  document.getElementById("formatPortfolioButton").addEventListener("click", () =>
+    wrapAction(() => formatJsonTextarea(portfolioInput, "Portfolio"))
+  );
+
+  document.getElementById("refreshJobsButton").addEventListener("click", () => wrapAction(refreshJobs));
   document.getElementById("cancelJobButton").addEventListener("click", () =>
     wrapAction(doCancelSelectedJob)
   );
@@ -560,6 +741,15 @@ function bindActions() {
   );
   document.getElementById("refreshDrugPortfolioButton").addEventListener("click", () =>
     wrapAction(refreshDrugPortfolio)
+  );
+  document.getElementById("refreshEcosystemButton").addEventListener("click", () =>
+    wrapAction(async () => {
+      await refreshEcosystem();
+      await refreshHealth();
+    })
+  );
+  document.getElementById("generateHandoffButton").addEventListener("click", () =>
+    wrapAction(doGenerateHandoff)
   );
 
   document.getElementById("clearOutputButton").addEventListener("click", () => {
@@ -579,6 +769,10 @@ function seedFallbackDefaults() {
   if (!objectiveInput.value.trim()) {
     objectiveInput.value =
       "Design an initial campaign against KRAS G12D with ranked candidates and clear validation milestones.";
+  }
+
+  if (!systemPromptInput.value.trim()) {
+    systemPromptInput.value = "";
   }
 
   if (!planInput.value.trim()) {
@@ -635,8 +829,10 @@ function seedFallbackDefaults() {
 async function init() {
   seedFallbackDefaults();
   bindActions();
+  bindKeyboardShortcuts();
 
   await wrapAction(refreshExamples);
+  await wrapAction(refreshEcosystem);
   await wrapAction(refreshHealth);
   await wrapAction(refreshTools);
   await wrapAction(refreshJobs);
