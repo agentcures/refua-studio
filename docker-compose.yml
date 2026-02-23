@@ -1,0 +1,42 @@
+services:
+  refua-studio:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: refua-studio:local
+    container_name: refua-studio
+    restart: unless-stopped
+    init: true
+    ports:
+      - "8787:8787"
+    environment:
+      REFUA_CAMPAIGN_OPENCLAW_BASE_URL: ${REFUA_CAMPAIGN_OPENCLAW_BASE_URL:-http://host.containers.internal:18789}
+      REFUA_CAMPAIGN_OPENCLAW_MODEL: ${REFUA_CAMPAIGN_OPENCLAW_MODEL:-openclaw:main}
+      REFUA_CAMPAIGN_TIMEOUT_SECONDS: ${REFUA_CAMPAIGN_TIMEOUT_SECONDS:-180}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+      REFUA_CAMPAIGN_OPENCLAW_TOKEN: ${REFUA_CAMPAIGN_OPENCLAW_TOKEN:-}
+    command:
+      - refua-studio
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8787"
+      - --data-dir
+      - /data
+      - --workspace-root
+      - /workspace
+      - --max-workers
+      - "2"
+    volumes:
+      - ./.refua-studio-data:/data
+      - ../:/workspace:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import json,urllib.request; json.load(urllib.request.urlopen('http://127.0.0.1:8787/api/health', timeout=3))\"",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s

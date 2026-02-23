@@ -28,4 +28,5 @@ artifacts/
 poetry.toml
 
 .refua-studio/
+.refua-studio-data/
 *.db

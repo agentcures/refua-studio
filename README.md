@@ -40,6 +40,41 @@ cd path/to/refua-studio
 PYTHONPATH=src python -m refua_studio --host 127.0.0.1 --port 8787
 ```
 
+## Podman
+
+Build image:
+
+```bash
+cd path/to/refua-studio
+podman build -t refua-studio:local -f Containerfile .
+```
+
+Run container:
+
+```bash
+podman run --rm -p 8787:8787 \
+  -e REFUA_CAMPAIGN_OPENCLAW_BASE_URL=http://host.containers.internal:18789 \
+  -v "$(pwd)/.refua-studio-data:/data" \
+  -v "$(pwd)/..:/workspace:ro" \
+  refua-studio:local
+```
+
+Notes:
+
+- The container starts `refua-studio` on `0.0.0.0:8787`.
+- Mount the monorepo root at `/workspace` so Studio can integrate with `ClawCures`, `refua-mcp`, and other sibling projects.
+- Persistent job database lives in `.refua-studio-data/`.
+
+## Podman Compose
+
+From `refua-studio/`:
+
+```bash
+podman compose -f docker-compose.yml up --build
+```
+
+Then open `http://127.0.0.1:8787`.
+
 ## Configuration
 
 Studio uses the same OpenClaw-related environment variables as `ClawCures`:
@@ -137,6 +172,8 @@ python -m unittest discover -s tests -v
 
 ```text
 refua-studio/
+  Containerfile
+  docker-compose.yml
   src/refua_studio/
     app.py
     bridge.py
