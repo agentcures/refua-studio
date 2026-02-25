@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import threading
@@ -22,6 +23,10 @@ from refua_studio.config import StudioConfig
 class StudioApiTest(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
+        self._prev_trial_store = os.environ.get("REFUA_CLINICAL_TRIAL_STORE")
+        os.environ["REFUA_CLINICAL_TRIAL_STORE"] = str(
+            Path(self._tmp.name) / "data" / "clinical_trials.json"
+        )
         config = StudioConfig(
             host="127.0.0.1",
             port=0,
@@ -39,6 +44,10 @@ class StudioApiTest(unittest.TestCase):
         self.server.server_close()
         self.app.shutdown()
         self._thread.join(timeout=2)
+        if self._prev_trial_store is None:
+            os.environ.pop("REFUA_CLINICAL_TRIAL_STORE", None)
+        else:
+            os.environ["REFUA_CLINICAL_TRIAL_STORE"] = self._prev_trial_store
         self._tmp.cleanup()
 
     def _request(self, method: str, path: str, payload: dict | None = None) -> dict:
@@ -189,6 +198,89 @@ class StudioApiTest(unittest.TestCase):
             },
         )
         self.assertEqual(len(payload["ranked"]), 2)
+
+    def test_clinical_trial_management_endpoints(self) -> None:
+        created = self._request(
+            "POST",
+            "/api/clinical/trials/add",
+            {
+                "trial_id": "studio-clinical",
+                "indication": "Oncology",
+                "phase": "Phase II",
+                "objective": "Manage adaptive trial operations",
+                "status": "planned",
+            },
+        )
+        self.assertIn("trial", created)
+        self.assertEqual(created["trial"]["trial_id"], "studio-clinical")
+
+        listing = self._request("GET", "/api/clinical/trials")
+        self.assertGreaterEqual(listing["count"], 1)
+        trial_ids = [item["trial_id"] for item in listing["trials"]]
+        self.assertIn("studio-clinical", trial_ids)
+
+        detail = self._request("GET", "/api/clinical/trials/studio-clinical")
+        self.assertIn("trial", detail)
+        self.assertEqual(detail["trial"]["trial_id"], "studio-clinical")
+
+        _ = self._request(
+            "POST",
+            "/api/clinical/trials/update",
+            {
+                "trial_id": "studio-clinical",
+                "updates": {
+                    "status": "active",
+                    "config": {
+                        "replicates": 6,
+                        "enrollment": {"total_n": 60},
+                        "adaptive": {"burn_in_n": 20, "interim_every": 20},
+                    },
+                },
+            },
+        )
+
+        enrolled = self._request(
+            "POST",
+            "/api/clinical/trials/enroll",
+            {
+                "trial_id": "studio-clinical",
+                "patient_id": "human-001",
+                "source": "human",
+                "arm_id": "control",
+                "demographics": {"age": 62},
+            },
+        )
+        self.assertIn("patient", enrolled)
+        self.assertEqual(enrolled["patient"]["patient_id"], "human-001")
+
+        _ = self._request(
+            "POST",
+            "/api/clinical/trials/result",
+            {
+                "trial_id": "studio-clinical",
+                "patient_id": "human-001",
+                "values": {
+                    "arm_id": "control",
+                    "change": 4.4,
+                    "responder": False,
+                    "safety_event": False,
+                },
+            },
+        )
+
+        simulated = self._request(
+            "POST",
+            "/api/clinical/trials/simulate",
+            {
+                "trial_id": "studio-clinical",
+                "replicates": 3,
+                "seed": 7,
+                "async_mode": False,
+            },
+        )
+        self.assertIn("result", simulated)
+        summary = simulated["result"]["simulation"]["summary"]
+        self.assertIn("blended_effect_estimate", summary)
 
     def test_async_run_job(self) -> None:
         run_payload = self._request(

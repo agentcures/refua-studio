@@ -191,6 +191,83 @@
         </div>
       </section>
 
+      <section class="panel panel-full reveal" style="--delay: 0.26s">
+        <div class="panel-head">
+          <h2>Clinical Trial Management</h2>
+          <div class="inline-controls">
+            <button id="refreshClinicalTrialsButton" class="btn btn-outline btn-small">Refresh Trials</button>
+            <button id="simulateClinicalTrialButton" class="btn btn-accent btn-small">Simulate Trial</button>
+          </div>
+        </div>
+
+        <div class="platform-columns">
+          <article class="subpanel">
+            <h3>Trial Registry</h3>
+            <label for="clinicalTrialSelect">Managed Trials</label>
+            <select id="clinicalTrialSelect" size="9"></select>
+            <div class="button-row">
+              <button id="loadClinicalTrialButton" class="btn btn-outline btn-small">Load Trial</button>
+              <button id="removeClinicalTrialButton" class="btn btn-outline btn-small">Remove Trial</button>
+            </div>
+            <pre id="clinicalTrialSummary" class="compact-pre">No trial selected.</pre>
+          </article>
+
+          <article class="subpanel">
+            <h3>Trial Config</h3>
+            <div class="row">
+              <label>
+                Trial ID
+                <input type="text" id="clinicalTrialIdInput" placeholder="trial-001" spellcheck="false" />
+              </label>
+              <label>
+                Status
+                <select id="clinicalTrialStatusInput">
+                  <option value="planned">planned</option>
+                  <option value="enrolling">enrolling</option>
+                  <option value="active">active</option>
+                  <option value="paused">paused</option>
+                  <option value="completed">completed</option>
+                  <option value="terminated">terminated</option>
+                </select>
+              </label>
+            </div>
+            <label for="clinicalTrialConfigInput">Config Patch JSON (optional)</label>
+            <textarea id="clinicalTrialConfigInput" rows="9" spellcheck="false"></textarea>
+            <div class="button-row">
+              <button id="addClinicalTrialButton" class="btn btn-primary btn-small">Add Trial</button>
+              <button id="updateClinicalTrialButton" class="btn btn-outline btn-small">Update Trial</button>
+            </div>
+          </article>
+
+          <article class="subpanel">
+            <h3>Patients & Results</h3>
+            <label for="clinicalPatientInput">Patient JSON</label>
+            <textarea id="clinicalPatientInput" rows="4" spellcheck="false"></textarea>
+            <label for="clinicalResultInput">Result JSON</label>
+            <textarea id="clinicalResultInput" rows="4" spellcheck="false"></textarea>
+            <div class="row three">
+              <label>
+                Simulated Patients
+                <input type="number" id="clinicalSimCountInput" min="1" value="10" />
+              </label>
+              <label>
+                Replicates
+                <input type="number" id="clinicalReplicatesInput" min="1" value="6" />
+              </label>
+              <label>
+                Seed
+                <input type="number" id="clinicalSeedInput" min="0" value="7" />
+              </label>
+            </div>
+            <div class="button-row">
+              <button id="enrollClinicalPatientButton" class="btn btn-outline btn-small">Enroll Patient</button>
+              <button id="enrollClinicalSimulatedButton" class="btn btn-outline btn-small">Enroll Simulated</button>
+              <button id="addClinicalResultButton" class="btn btn-outline btn-small">Add Result</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="panel reveal" style="--delay: 0.28s">
         <div class="panel-head">
           <h2>Tooling & Runtime</h2>

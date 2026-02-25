@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import unittest
@@ -81,6 +82,63 @@ class CampaignBridgeTest(unittest.TestCase):
             self.assertIsNotNone(payload["artifact_path"])
             assert payload["artifact_path"] is not None
             self.assertTrue(Path(payload["artifact_path"]).exists())
+
+    def test_clinical_trial_bridge_flow(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            previous = os.environ.get("REFUA_CLINICAL_TRIAL_STORE")
+            os.environ["REFUA_CLINICAL_TRIAL_STORE"] = str(Path(tmp) / "clinical_trials.json")
+            try:
+                created = self.bridge.add_clinical_trial(
+                    trial_id="bridge-clinical",
+                    config=None,
+                    indication="Oncology",
+                    phase="Phase II",
+                    objective="Bridge clinical flow",
+                    status="planned",
+                    metadata=None,
+                )
+                self.assertEqual(created["trial"]["trial_id"], "bridge-clinical")
+
+                listing = self.bridge.list_clinical_trials()
+                self.assertGreaterEqual(listing["count"], 1)
+
+                enrolled = self.bridge.enroll_clinical_patient(
+                    trial_id="bridge-clinical",
+                    patient_id="human-001",
+                    source="human",
+                    arm_id="control",
+                    demographics={"age": 60},
+                    baseline={"endpoint_value": 50.0},
+                    metadata={},
+                )
+                self.assertEqual(enrolled["patient"]["patient_id"], "human-001")
+
+                result = self.bridge.add_clinical_result(
+                    trial_id="bridge-clinical",
+                    patient_id="human-001",
+                    values={
+                        "arm_id": "control",
+                        "change": 4.2,
+                        "responder": False,
+                        "safety_event": False,
+                    },
+                    result_type="endpoint",
+                    visit="week-12",
+                    source="human",
+                )
+                self.assertIn("result", result)
+
+                simulated = self.bridge.simulate_clinical_trial(
+                    trial_id="bridge-clinical",
+                    replicates=3,
+                    seed=7,
+                )
+                self.assertIn("simulation", simulated)
+            finally:
+                if previous is None:
+                    os.environ.pop("REFUA_CLINICAL_TRIAL_STORE", None)
+                else:
+                    os.environ["REFUA_CLINICAL_TRIAL_STORE"] = previous
 
 
 if __name__ == "__main__":

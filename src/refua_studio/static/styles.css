@@ -218,6 +218,10 @@ select {
   padding: 0.48rem 0.66rem;
 }
 
+#clinicalTrialSelect {
+  min-height: 13rem;
+}
+
 .row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

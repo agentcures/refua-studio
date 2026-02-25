@@ -178,6 +178,7 @@ class CampaignBridge:
             ("ClawCures", "src"),
             ("refua-mcp", "src"),
             ("refua", "src"),
+            ("refua-clinical", "src"),
         ):
             candidate = self._workspace_root.joinpath(*relative)
             if candidate.exists():
@@ -414,7 +415,8 @@ class CampaignBridge:
                 "Falling back to static tool list because refua-mcp runtime is unavailable: "
                 f"{error}"
             )
-        return sorted(adapter.available_tools()), warnings
+        tool_names = sorted(set(adapter.available_tools()) | set(STATIC_TOOL_LIST))
+        return tool_names, warnings
 
     def runtime_config(self) -> dict[str, Any]:
         config_mod = self._import("refua_campaign.config")
@@ -865,3 +867,125 @@ class CampaignBridge:
             "weights": _to_plain_data(weights_obj),
             "ranked": [entry.to_json() for entry in ranked],
         }
+
+    def _clinical_controller(self) -> Any:
+        clinical_mod = self._import("refua_campaign.clinical_trials")
+        return clinical_mod.ClawCuresClinicalController(workspace_root=self._workspace_root)
+
+    def list_clinical_trials(self) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(controller.list_trials())
+
+    def get_clinical_trial(self, *, trial_id: str) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(controller.get_trial(trial_id))
+
+    def add_clinical_trial(
+        self,
+        *,
+        trial_id: str | None,
+        config: dict[str, Any] | None,
+        indication: str | None,
+        phase: str | None,
+        objective: str | None,
+        status: str | None,
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.add_trial(
+                trial_id=trial_id,
+                config=config,
+                indication=indication,
+                phase=phase,
+                objective=objective,
+                status=status,
+                metadata=metadata,
+            )
+        )
+
+    def update_clinical_trial(self, *, trial_id: str, updates: dict[str, Any]) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(controller.update_trial(trial_id, updates=updates))
+
+    def remove_clinical_trial(self, *, trial_id: str) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(controller.remove_trial(trial_id))
+
+    def enroll_clinical_patient(
+        self,
+        *,
+        trial_id: str,
+        patient_id: str | None,
+        source: str | None,
+        arm_id: str | None,
+        demographics: dict[str, Any] | None,
+        baseline: dict[str, Any] | None,
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.enroll_patient(
+                trial_id,
+                patient_id=patient_id,
+                source=source,
+                arm_id=arm_id,
+                demographics=demographics,
+                baseline=baseline,
+                metadata=metadata,
+            )
+        )
+
+    def enroll_simulated_clinical_patients(
+        self,
+        *,
+        trial_id: str,
+        count: int,
+        seed: int | None,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.enroll_simulated_patients(
+                trial_id,
+                count=count,
+                seed=seed,
+            )
+        )
+
+    def add_clinical_result(
+        self,
+        *,
+        trial_id: str,
+        patient_id: str,
+        values: dict[str, Any],
+        result_type: str,
+        visit: str | None,
+        source: str | None,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.add_result(
+                trial_id,
+                patient_id=patient_id,
+                values=values,
+                result_type=result_type,
+                visit=visit,
+                source=source,
+            )
+        )
+
+    def simulate_clinical_trial(
+        self,
+        *,
+        trial_id: str,
+        replicates: int | None,
+        seed: int | None,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.simulate_trial(
+                trial_id,
+                replicates=replicates,
+                seed=seed,
+            )
+        )

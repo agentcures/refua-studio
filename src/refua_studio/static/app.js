@@ -37,10 +37,21 @@ const defaultPromptPreview = document.getElementById("defaultPromptPreview");
 const clawcuresCommandOutput = document.getElementById("clawcuresCommandOutput");
 const handoffWriteFileToggle = document.getElementById("handoffWriteFileToggle");
 const handoffArtifactNameInput = document.getElementById("handoffArtifactNameInput");
+const clinicalTrialSelect = document.getElementById("clinicalTrialSelect");
+const clinicalTrialSummary = document.getElementById("clinicalTrialSummary");
+const clinicalTrialIdInput = document.getElementById("clinicalTrialIdInput");
+const clinicalTrialStatusInput = document.getElementById("clinicalTrialStatusInput");
+const clinicalTrialConfigInput = document.getElementById("clinicalTrialConfigInput");
+const clinicalPatientInput = document.getElementById("clinicalPatientInput");
+const clinicalResultInput = document.getElementById("clinicalResultInput");
+const clinicalSimCountInput = document.getElementById("clinicalSimCountInput");
+const clinicalReplicatesInput = document.getElementById("clinicalReplicatesInput");
+const clinicalSeedInput = document.getElementById("clinicalSeedInput");
 
 const state = {
   selectedJobId: null,
   selectedCandidateId: null,
+  selectedClinicalTrialId: null,
   pollTimer: null,
   examples: {
     objectives: [],
@@ -50,6 +61,7 @@ const state = {
   ecosystem: null,
   handoff: null,
   drugCandidates: [],
+  clinicalTrials: [],
 };
 
 function pretty(value) {
@@ -595,6 +607,294 @@ async function refreshDrugPortfolio() {
   renderDrugCards(state.drugCandidates);
 }
 
+function resolveClinicalTrialId() {
+  const selected = state.selectedClinicalTrialId || clinicalTrialSelect.value;
+  if (selected) {
+    return selected;
+  }
+  const fromInput = clinicalTrialIdInput.value.trim();
+  return fromInput || null;
+}
+
+function renderClinicalTrialOptions(trials) {
+  clinicalTrialSelect.innerHTML = "";
+
+  if (!Array.isArray(trials) || trials.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No managed trials";
+    clinicalTrialSelect.appendChild(option);
+    clinicalTrialSummary.textContent = "No trial selected.";
+    return;
+  }
+
+  for (const trial of trials) {
+    const option = document.createElement("option");
+    option.value = trial.trial_id;
+    const human = trial.patient_count_human ?? 0;
+    const sim = trial.patient_count_simulated ?? 0;
+    option.textContent = `${trial.trial_id} | ${trial.status || "draft"} | H:${human} S:${sim}`;
+    if (trial.trial_id === state.selectedClinicalTrialId) {
+      option.selected = true;
+    }
+    clinicalTrialSelect.appendChild(option);
+  }
+
+  if (!state.selectedClinicalTrialId && trials.length > 0) {
+    state.selectedClinicalTrialId = trials[0].trial_id;
+    clinicalTrialSelect.value = state.selectedClinicalTrialId;
+  }
+
+  let selected = trials.find((item) => item.trial_id === state.selectedClinicalTrialId) || null;
+  if (!selected && trials.length > 0) {
+    state.selectedClinicalTrialId = trials[0].trial_id;
+    clinicalTrialSelect.value = state.selectedClinicalTrialId;
+    selected = trials[0];
+  }
+  if (selected) {
+    clinicalTrialSummary.textContent = pretty(selected);
+  }
+}
+
+async function refreshClinicalTrials() {
+  const payload = await api("/api/clinical/trials", { method: "GET" });
+  state.clinicalTrials = payload.trials || [];
+  renderClinicalTrialOptions(state.clinicalTrials);
+}
+
+async function loadClinicalTrial() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+
+  const payload = await api(`/api/clinical/trials/${encodeURIComponent(trialId)}`, { method: "GET" });
+  const trial = payload.trial || {};
+  state.selectedClinicalTrialId = trial.trial_id || trialId;
+  clinicalTrialSelect.value = state.selectedClinicalTrialId;
+
+  clinicalTrialIdInput.value = state.selectedClinicalTrialId;
+  if (trial.status) {
+    clinicalTrialStatusInput.value = trial.status;
+  }
+  if (trial.config) {
+    clinicalTrialConfigInput.value = pretty(trial.config);
+  }
+
+  clinicalTrialSummary.textContent = pretty(trial);
+  showOutput("Clinical Trial Detail", payload);
+}
+
+async function doAddClinicalTrial() {
+  const trialId = clinicalTrialIdInput.value.trim() || null;
+  const configPatch = parseJsonText(clinicalTrialConfigInput.value, "Clinical config");
+  if (
+    configPatch !== null &&
+    (typeof configPatch !== "object" || Array.isArray(configPatch))
+  ) {
+    throw new Error("Clinical config patch must be a JSON object");
+  }
+
+  const payload = {
+    trial_id: trialId,
+    status: clinicalTrialStatusInput.value || "planned",
+    config: null,
+  };
+  const result = await api("/api/clinical/trials/add", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  const resolvedTrialId = result.trial?.trial_id || trialId;
+  if (!resolvedTrialId) {
+    throw new Error("Could not resolve created trial id");
+  }
+
+  if (configPatch && Object.keys(configPatch).length > 0) {
+    await api("/api/clinical/trials/update", {
+      method: "POST",
+      body: JSON.stringify({
+        trial_id: resolvedTrialId,
+        updates: { config: configPatch },
+      }),
+    });
+  }
+
+  state.selectedClinicalTrialId = resolvedTrialId;
+  showOutput("Clinical Trial Added", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doUpdateClinicalTrial() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select or enter a trial id");
+  }
+  const config = parseJsonText(clinicalTrialConfigInput.value, "Clinical config");
+  if (config !== null && (typeof config !== "object" || Array.isArray(config))) {
+    throw new Error("Clinical config must be a JSON object");
+  }
+
+  const updates = {
+    status: clinicalTrialStatusInput.value || null,
+  };
+  if (config) {
+    updates.config = config;
+  }
+
+  const result = await api("/api/clinical/trials/update", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      updates,
+    }),
+  });
+  state.selectedClinicalTrialId = trialId;
+  showOutput("Clinical Trial Updated", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doRemoveClinicalTrial() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial to remove");
+  }
+
+  const result = await api("/api/clinical/trials/remove", {
+    method: "POST",
+    body: JSON.stringify({ trial_id: trialId }),
+  });
+  showOutput("Clinical Trial Removed", result);
+  state.selectedClinicalTrialId = null;
+  clinicalTrialSummary.textContent = "No trial selected.";
+  await refreshClinicalTrials();
+}
+
+async function doEnrollClinicalPatient() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const patient = parseJsonText(clinicalPatientInput.value, "Patient payload");
+  if (!patient || typeof patient !== "object") {
+    throw new Error("Patient payload must be a JSON object");
+  }
+
+  const result = await api("/api/clinical/trials/enroll", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      patient_id: patient.patient_id || null,
+      source: patient.source || "human",
+      arm_id: patient.arm_id || null,
+      demographics: patient.demographics || {},
+      baseline: patient.baseline || {},
+      metadata: patient.metadata || {},
+    }),
+  });
+  showOutput("Clinical Patient Enrolled", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doEnrollClinicalSimulated() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const count = Number(clinicalSimCountInput.value || 0);
+  if (!Number.isFinite(count) || count < 1) {
+    throw new Error("Simulated patient count must be >= 1");
+  }
+  const seedValue = clinicalSeedInput.value.trim();
+
+  const result = await api("/api/clinical/trials/enroll-simulated", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      count: Number(count),
+      seed: seedValue ? Number(seedValue) : null,
+    }),
+  });
+  showOutput("Simulated Patients Enrolled", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doAddClinicalResult() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const rawResult = parseJsonText(clinicalResultInput.value, "Result payload");
+  if (!rawResult || typeof rawResult !== "object") {
+    throw new Error("Result payload must be a JSON object");
+  }
+
+  const patientId = rawResult.patient_id;
+  if (!patientId || typeof patientId !== "string") {
+    throw new Error("Result payload must include patient_id");
+  }
+
+  let values = rawResult.values;
+  if (!values || typeof values !== "object") {
+    const clone = { ...rawResult };
+    delete clone.patient_id;
+    delete clone.result_type;
+    delete clone.visit;
+    delete clone.source;
+    values = clone;
+  }
+
+  const result = await api("/api/clinical/trials/result", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      patient_id: patientId,
+      result_type: rawResult.result_type || "endpoint",
+      visit: rawResult.visit || null,
+      source: rawResult.source || null,
+      values,
+    }),
+  });
+  showOutput("Clinical Result Added", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doSimulateClinicalTrial() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+
+  const replicates = Number(clinicalReplicatesInput.value || 0);
+  if (!Number.isFinite(replicates) || replicates < 1) {
+    throw new Error("Replicates must be >= 1");
+  }
+  const seedValue = clinicalSeedInput.value.trim();
+
+  const result = await api("/api/clinical/trials/simulate", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      replicates: Number(replicates),
+      seed: seedValue ? Number(seedValue) : null,
+      async_mode: asyncToggle.checked,
+    }),
+  });
+
+  showOutput("Clinical Simulation", result);
+  await refreshClinicalTrials();
+  if (asyncToggle.checked) {
+    await refreshJobs();
+  } else {
+    await loadClinicalTrial();
+  }
+}
+
 function currentRunPayload() {
   const plan = parseJsonText(planInput.value, "Plan");
   const prompt = systemPromptInput.value.trim();
@@ -865,6 +1165,39 @@ function bindActions() {
   document.getElementById("generateHandoffButton").addEventListener("click", () =>
     wrapAction(doGenerateHandoff)
   );
+  document.getElementById("refreshClinicalTrialsButton").addEventListener("click", () =>
+    wrapAction(refreshClinicalTrials)
+  );
+  document.getElementById("loadClinicalTrialButton").addEventListener("click", () =>
+    wrapAction(loadClinicalTrial)
+  );
+  document.getElementById("addClinicalTrialButton").addEventListener("click", () =>
+    wrapAction(doAddClinicalTrial)
+  );
+  document.getElementById("updateClinicalTrialButton").addEventListener("click", () =>
+    wrapAction(doUpdateClinicalTrial)
+  );
+  document.getElementById("removeClinicalTrialButton").addEventListener("click", () =>
+    wrapAction(doRemoveClinicalTrial)
+  );
+  document.getElementById("enrollClinicalPatientButton").addEventListener("click", () =>
+    wrapAction(doEnrollClinicalPatient)
+  );
+  document.getElementById("enrollClinicalSimulatedButton").addEventListener("click", () =>
+    wrapAction(doEnrollClinicalSimulated)
+  );
+  document.getElementById("addClinicalResultButton").addEventListener("click", () =>
+    wrapAction(doAddClinicalResult)
+  );
+  document.getElementById("simulateClinicalTrialButton").addEventListener("click", () =>
+    wrapAction(doSimulateClinicalTrial)
+  );
+  clinicalTrialSelect.addEventListener("change", () => {
+    state.selectedClinicalTrialId = clinicalTrialSelect.value || null;
+    if (state.selectedClinicalTrialId) {
+      clinicalTrialIdInput.value = state.selectedClinicalTrialId;
+    }
+  });
 
   document.getElementById("clearOutputButton").addEventListener("click", () => {
     resultOutput.textContent = "";
@@ -938,6 +1271,56 @@ function seedFallbackDefaults() {
       },
     ]);
   }
+
+  if (!clinicalTrialIdInput.value.trim()) {
+    clinicalTrialIdInput.value = "studio-clinical-demo";
+  }
+
+  if (!clinicalTrialConfigInput.value.trim()) {
+    clinicalTrialConfigInput.value = pretty({
+      replicates: 8,
+      enrollment: {
+        total_n: 80,
+      },
+      adaptive: {
+        burn_in_n: 20,
+        interim_every: 20,
+      },
+    });
+  }
+
+  if (!clinicalPatientInput.value.trim()) {
+    clinicalPatientInput.value = pretty({
+      patient_id: "human-001",
+      source: "human",
+      arm_id: "control",
+      demographics: {
+        age: 62,
+        weight: 76,
+      },
+      baseline: {
+        endpoint_value: 48.1,
+      },
+      metadata: {
+        site_id: "site-01",
+      },
+    });
+  }
+
+  if (!clinicalResultInput.value.trim()) {
+    clinicalResultInput.value = pretty({
+      patient_id: "human-001",
+      result_type: "endpoint",
+      visit: "week-12",
+      source: "human",
+      values: {
+        arm_id: "control",
+        change: 4.6,
+        responder: false,
+        safety_event: false,
+      },
+    });
+  }
 }
 
 async function init() {
@@ -951,6 +1334,7 @@ async function init() {
   await wrapAction(refreshTools);
   await wrapAction(refreshJobs);
   await wrapAction(refreshDrugPortfolio);
+  await wrapAction(refreshClinicalTrials);
 
   if (state.pollTimer) {
     clearInterval(state.pollTimer);
@@ -959,6 +1343,7 @@ async function init() {
     wrapAction(refreshHealth);
     wrapAction(refreshJobs);
     wrapAction(refreshDrugPortfolio);
+    wrapAction(refreshClinicalTrials);
   }, 5000);
 }
 

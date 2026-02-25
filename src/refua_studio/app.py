@@ -286,6 +286,174 @@ class StudioApp:
             artifact_name=artifact_name,
         )
 
+    def clinical_trials(self) -> dict[str, Any]:
+        return self.bridge.list_clinical_trials()
+
+    def clinical_trial(self, trial_id: str) -> dict[str, Any]:
+        try:
+            return self.bridge.get_clinical_trial(trial_id=trial_id)
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+
+    def add_clinical_trial(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _optional_nonempty_string(payload.get("trial_id"), "trial_id")
+        indication = _optional_nonempty_string(payload.get("indication"), "indication")
+        phase = _optional_nonempty_string(payload.get("phase"), "phase")
+        objective = _optional_nonempty_string(payload.get("objective"), "objective")
+        status = _optional_nonempty_string(payload.get("status"), "status")
+        config = _optional_mapping(payload.get("config"), "config")
+        metadata = _optional_mapping(payload.get("metadata"), "metadata")
+
+        try:
+            return self.bridge.add_clinical_trial(
+                trial_id=trial_id,
+                config=config,
+                indication=indication,
+                phase=phase,
+                objective=objective,
+                status=status,
+                metadata=metadata,
+            )
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def update_clinical_trial(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        updates = payload.get("updates")
+        if not isinstance(updates, dict):
+            raise BadRequestError("updates must be a JSON object")
+
+        try:
+            return self.bridge.update_clinical_trial(trial_id=trial_id, updates=updates)
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def remove_clinical_trial(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        try:
+            return self.bridge.remove_clinical_trial(trial_id=trial_id)
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def enroll_clinical_patient(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        patient_id = _optional_nonempty_string(payload.get("patient_id"), "patient_id")
+        source = _optional_nonempty_string(payload.get("source"), "source")
+        arm_id = _optional_nonempty_string(payload.get("arm_id"), "arm_id")
+        demographics = _optional_mapping(payload.get("demographics"), "demographics")
+        baseline = _optional_mapping(payload.get("baseline"), "baseline")
+        metadata = _optional_mapping(payload.get("metadata"), "metadata")
+
+        try:
+            return self.bridge.enroll_clinical_patient(
+                trial_id=trial_id,
+                patient_id=patient_id,
+                source=source,
+                arm_id=arm_id,
+                demographics=demographics,
+                baseline=baseline,
+                metadata=metadata,
+            )
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def enroll_simulated_clinical_patients(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        count = _coerce_int(payload.get("count", 0), "count", minimum=1)
+
+        seed_raw = payload.get("seed")
+        seed: int | None = None
+        if seed_raw is not None:
+            seed = _coerce_int(seed_raw, "seed")
+
+        try:
+            return self.bridge.enroll_simulated_clinical_patients(
+                trial_id=trial_id,
+                count=count,
+                seed=seed,
+            )
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def add_clinical_result(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        patient_id = _require_nonempty_string(payload.get("patient_id"), "patient_id")
+        values = payload.get("values")
+        if not isinstance(values, dict):
+            raise BadRequestError("values must be a JSON object")
+        result_type = _optional_nonempty_string(payload.get("result_type"), "result_type") or "endpoint"
+        visit = _optional_nonempty_string(payload.get("visit"), "visit")
+        source = _optional_nonempty_string(payload.get("source"), "source")
+
+        try:
+            return self.bridge.add_clinical_result(
+                trial_id=trial_id,
+                patient_id=patient_id,
+                values=values,
+                result_type=result_type,
+                visit=visit,
+                source=source,
+            )
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def simulate_clinical_trial(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        async_mode = bool(payload.get("async_mode", True))
+
+        replicates_raw = payload.get("replicates")
+        replicates: int | None = None
+        if replicates_raw is not None:
+            replicates = _coerce_int(replicates_raw, "replicates", minimum=1)
+
+        seed_raw = payload.get("seed")
+        seed: int | None = None
+        if seed_raw is not None:
+            seed = _coerce_int(seed_raw, "seed")
+
+        request_payload = {
+            "trial_id": trial_id,
+            "replicates": replicates,
+            "seed": seed,
+        }
+
+        if async_mode:
+            job = self.runner.submit(
+                kind="clinical_trial_simulation",
+                request=request_payload,
+                fn=lambda: self.bridge.simulate_clinical_trial(
+                    trial_id=trial_id,
+                    replicates=replicates,
+                    seed=seed,
+                ),
+            )
+            return {
+                "job": job,
+            }
+
+        try:
+            result = self.bridge.simulate_clinical_trial(
+                trial_id=trial_id,
+                replicates=replicates,
+                seed=seed,
+            )
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+        return {
+            "result": result,
+        }
+
 
 def _parse_statuses_query(query: dict[str, list[str]]) -> tuple[str, ...] | None:
     if "status" not in query:
@@ -333,6 +501,14 @@ def _optional_nonempty_string(value: Any, field_name: str) -> str | None:
         raise BadRequestError(f"{field_name} must be a string when provided")
     stripped = value.strip()
     return stripped or None
+
+
+def _optional_mapping(value: Any, field_name: str) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise BadRequestError(f"{field_name} must be a JSON object when provided")
+    return value
 
 
 def _coerce_int(value: Any, field_name: str, *, minimum: int = 0) -> int:
@@ -505,6 +681,15 @@ def create_handler(app: StudioApp):
                     query = parse_qs(parsed.query, keep_blank_values=False)
                     _json_response(self, HTTPStatus.OK, app.promising_cures(query=query))
                     return
+                if path == "/api/clinical/trials":
+                    _json_response(self, HTTPStatus.OK, app.clinical_trials())
+                    return
+                if path.startswith("/api/clinical/trials/"):
+                    trial_id = path.removeprefix("/api/clinical/trials/").strip("/")
+                    if not trial_id:
+                        raise BadRequestError("trial_id is required")
+                    _json_response(self, HTTPStatus.OK, app.clinical_trial(trial_id))
+                    return
                 if path == "/api/jobs":
                     query = parse_qs(parsed.query, keep_blank_values=False)
                     _json_response(self, HTTPStatus.OK, app.list_jobs(query=query))
@@ -575,6 +760,31 @@ def create_handler(app: StudioApp):
                     return
                 if path == "/api/clawcures/handoff":
                     _json_response(self, HTTPStatus.OK, app.clawcures_handoff(payload))
+                    return
+                if path == "/api/clinical/trials/add":
+                    _json_response(self, HTTPStatus.OK, app.add_clinical_trial(payload))
+                    return
+                if path == "/api/clinical/trials/update":
+                    _json_response(self, HTTPStatus.OK, app.update_clinical_trial(payload))
+                    return
+                if path == "/api/clinical/trials/remove":
+                    _json_response(self, HTTPStatus.OK, app.remove_clinical_trial(payload))
+                    return
+                if path == "/api/clinical/trials/enroll":
+                    _json_response(self, HTTPStatus.OK, app.enroll_clinical_patient(payload))
+                    return
+                if path == "/api/clinical/trials/enroll-simulated":
+                    _json_response(
+                        self,
+                        HTTPStatus.OK,
+                        app.enroll_simulated_clinical_patients(payload),
+                    )
+                    return
+                if path == "/api/clinical/trials/result":
+                    _json_response(self, HTTPStatus.OK, app.add_clinical_result(payload))
+                    return
+                if path == "/api/clinical/trials/simulate":
+                    _json_response(self, HTTPStatus.OK, app.simulate_clinical_trial(payload))
                     return
                 if path == "/api/jobs/clear":
                     _json_response(self, HTTPStatus.OK, app.clear_jobs(payload))
