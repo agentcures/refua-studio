@@ -47,6 +47,11 @@ const clinicalResultInput = document.getElementById("clinicalResultInput");
 const clinicalSimCountInput = document.getElementById("clinicalSimCountInput");
 const clinicalReplicatesInput = document.getElementById("clinicalReplicatesInput");
 const clinicalSeedInput = document.getElementById("clinicalSeedInput");
+const widgetRunningJobs = document.getElementById("widgetRunningJobs");
+const widgetTrialCount = document.getElementById("widgetTrialCount");
+const widgetHumanPatients = document.getElementById("widgetHumanPatients");
+const widgetPromisingLeads = document.getElementById("widgetPromisingLeads");
+const widgetToolsOnline = document.getElementById("widgetToolsOnline");
 
 const state = {
   selectedJobId: null,
@@ -62,6 +67,13 @@ const state = {
   handoff: null,
   drugCandidates: [],
   clinicalTrials: [],
+  telemetry: {
+    runningJobs: 0,
+    trialCount: 0,
+    humanPatients: 0,
+    promisingLeads: 0,
+    toolsOnline: 0,
+  },
 };
 
 function pretty(value) {
@@ -82,6 +94,43 @@ function setConnection(ok, text) {
   connectionChip.classList.toggle("offline", !ok);
   const node = connectionChip.querySelector(".status-text");
   node.textContent = text;
+}
+
+function bootstrapWidgetSparks() {
+  const sparks = document.querySelectorAll(".widget-spark");
+  for (const spark of sparks) {
+    if (spark.children.length > 0) {
+      continue;
+    }
+    for (let idx = 0; idx < 14; idx += 1) {
+      const bar = document.createElement("span");
+      bar.style.setProperty("--i", String(idx));
+      bar.style.height = `${35 + ((idx * 17) % 55)}%`;
+      spark.appendChild(bar);
+    }
+  }
+}
+
+function setWidgetValue(node, value) {
+  if (!node) {
+    return;
+  }
+  const nextText = String(value);
+  if (node.textContent !== nextText) {
+    node.classList.remove("flash");
+    // Restart animation when value changes.
+    node.offsetWidth;
+    node.classList.add("flash");
+  }
+  node.textContent = nextText;
+}
+
+function updateTelemetryWidgets() {
+  setWidgetValue(widgetRunningJobs, state.telemetry.runningJobs ?? 0);
+  setWidgetValue(widgetTrialCount, state.telemetry.trialCount ?? 0);
+  setWidgetValue(widgetHumanPatients, state.telemetry.humanPatients ?? 0);
+  setWidgetValue(widgetPromisingLeads, state.telemetry.promisingLeads ?? 0);
+  setWidgetValue(widgetToolsOnline, state.telemetry.toolsOnline ?? 0);
 }
 
 function showOutput(title, payload) {
@@ -326,6 +375,9 @@ async function refreshHealth() {
   try {
     const payload = await api("/api/health", { method: "GET" });
     const running = payload.job_counts?.running || 0;
+    state.telemetry.runningJobs = Number(running) || 0;
+    state.telemetry.toolsOnline = Number(payload.tools_count) || 0;
+    updateTelemetryWidgets();
     setConnection(true, `Online (${payload.tools_count} tools, ${running} running)`);
   } catch (err) {
     setConnection(false, `Offline (${err.message})`);
@@ -342,6 +394,8 @@ async function refreshTools() {
     api("/api/tools", { method: "GET" }),
     api("/api/config", { method: "GET" }),
   ]);
+  state.telemetry.toolsOnline = Array.isArray(toolsPayload.tools) ? toolsPayload.tools.length : 0;
+  updateTelemetryWidgets();
   toolsOutput.textContent = pretty({
     tools: toolsPayload.tools,
     warnings: toolsPayload.warnings,
@@ -419,6 +473,8 @@ async function refreshJobs() {
 
   renderJobCounts(payload.counts || {});
   renderJobsTable(jobs);
+  state.telemetry.runningJobs = Number(payload.counts?.running || 0);
+  updateTelemetryWidgets();
 
   if (!state.selectedJobId && Array.isArray(jobs) && jobs.length > 0) {
     state.selectedJobId = jobs[0].job_id;
@@ -603,6 +659,8 @@ async function refreshDrugPortfolio() {
   const payload = await api(`/api/promising-cures${query}`, { method: "GET" });
 
   state.drugCandidates = payload.candidates || [];
+  state.telemetry.promisingLeads = Number(payload.summary?.promising_count || 0);
+  updateTelemetryWidgets();
   renderDrugSummary(payload.summary || {});
   renderDrugCards(state.drugCandidates);
 }
@@ -659,6 +717,13 @@ function renderClinicalTrialOptions(trials) {
 async function refreshClinicalTrials() {
   const payload = await api("/api/clinical/trials", { method: "GET" });
   state.clinicalTrials = payload.trials || [];
+  const trials = Array.isArray(payload.trials) ? payload.trials : [];
+  state.telemetry.trialCount = trials.length;
+  state.telemetry.humanPatients = trials.reduce(
+    (sum, trial) => sum + Number(trial?.patient_count_human || 0),
+    0
+  );
+  updateTelemetryWidgets();
   renderClinicalTrialOptions(state.clinicalTrials);
 }
 
@@ -1325,6 +1390,8 @@ function seedFallbackDefaults() {
 
 async function init() {
   seedFallbackDefaults();
+  bootstrapWidgetSparks();
+  updateTelemetryWidgets();
   bindActions();
   bindKeyboardShortcuts();
 

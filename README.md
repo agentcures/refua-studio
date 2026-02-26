@@ -7,6 +7,8 @@ It provides:
 - Mission control UI for planning (`plan`), execution (`run`), and autonomous loops (`run-autonomous` behavior)
 - JSON plan editor with validation and direct execution
 - Portfolio ranking UI for disease program prioritization
+- Clinical trial management UI (trial CRUD, human/simulated enrollment, outcome capture, simulation refresh)
+- Animated telemetry widgets for running jobs, managed trials, patient counts, promising leads, and tools online
 - Built-in objective/plan/portfolio templates loaded from workspace examples
 - Ecosystem health panel with cross-product discovery metadata
 - ClawCures-native handoff artifact generation and executable command suggestions
@@ -101,6 +103,8 @@ CLI flags:
 - `GET /api/ecosystem`
 - `GET /api/drug-portfolio?min_score=50&limit=60`
 - `GET /api/promising-cures?min_score=50&limit=60`
+- `GET /api/clinical/trials`
+- `GET /api/clinical/trials/{trial_id}`
 - `GET /api/jobs?limit=80&status=running,failed`
 - `GET /api/jobs/{job_id}`
 - `POST /api/jobs/{job_id}/cancel`
@@ -111,6 +115,13 @@ CLI flags:
 - `POST /api/plan/execute`
 - `POST /api/portfolio/rank`
 - `POST /api/clawcures/handoff`
+- `POST /api/clinical/trials/add`
+- `POST /api/clinical/trials/update`
+- `POST /api/clinical/trials/remove`
+- `POST /api/clinical/trials/enroll`
+- `POST /api/clinical/trials/enroll-simulated`
+- `POST /api/clinical/trials/result`
+- `POST /api/clinical/trials/simulate`
 
 ### `POST /api/run` payload
 
@@ -146,6 +157,41 @@ CLI flags:
 
 Returns a normalized handoff artifact plus ready-to-run `ClawCures` CLI commands.
 
+### `POST /api/clinical/trials/add` payload
+
+```json
+{
+  "trial_id": "studio-clinical-demo",
+  "status": "planned",
+  "config": null
+}
+```
+
+### `POST /api/clinical/trials/enroll` payload
+
+```json
+{
+  "trial_id": "studio-clinical-demo",
+  "patient_id": "human-001",
+  "source": "human",
+  "arm_id": "control",
+  "demographics": {"age": 62, "weight": 76},
+  "baseline": {"endpoint_value": 48.1},
+  "metadata": {"site_id": "site-01"}
+}
+```
+
+### `POST /api/clinical/trials/simulate` payload
+
+```json
+{
+  "trial_id": "studio-clinical-demo",
+  "replicates": 8,
+  "seed": 7,
+  "async_mode": true
+}
+```
+
 ## Background Jobs
 
 Jobs are persisted in SQLite at:
@@ -160,6 +206,7 @@ Each job records request payload, status transitions (`queued` -> `running` -> `
 - If `refua-mcp` runtime dependencies are available, Studio executes plans through `RefuaMcpAdapter`.
 - If unavailable, Studio falls back to a static tool list for planning/validation and emits warnings.
 - Dry-run workflows and policy validation remain usable even without heavy runtime dependencies.
+- Clinical trial endpoints require the scientific stack shipped in package dependencies (`numpy`, `pandas`, `scipy`, `pyyaml`) and workspace access to sibling repos for bridge integrations.
 
 ## Tests
 
@@ -167,6 +214,15 @@ Each job records request payload, status transitions (`queued` -> `running` -> `
 cd path/to/refua-studio
 python -m unittest discover -s tests -v
 ```
+
+## Build
+
+```bash
+cd path/to/refua-studio
+python -m build
+```
+
+Build artifacts are written to `dist/` (`.tar.gz` and `.whl`).
 
 ## Project Layout
 
@@ -192,4 +248,4 @@ refua-studio/
 
 - The Studio UI is a static single-page app served by the Python server.
 - No third-party web framework is required.
-- This keeps installation lightweight while still integrating with the existing Refua ecosystem.
+- Studio now includes scientific dependencies to support embedded clinical operations alongside campaign orchestration.

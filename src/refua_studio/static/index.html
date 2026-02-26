@@ -15,7 +15,7 @@
         <p class="kicker">Refua Platform</p>
         <h1>Refua Studio</h1>
         <p class="subtitle">
-          Enterprise control plane for ClawCures campaign planning, execution, validation, and portfolio review.
+          Unified command center for molecule discovery, translational modeling, and clinical trial operations.
         </p>
       </div>
       <div class="header-actions">
@@ -28,9 +28,60 @@
     </header>
 
     <main class="dashboard">
+      <section class="command-strip reveal" style="--delay: 0.06s">
+        <article class="command-card">
+          <p class="command-label">Design</p>
+          <p class="command-value">Molecules + Proteins + ADMET</p>
+          <p class="command-note">From target concept to lead-ready candidates</p>
+        </article>
+        <article class="command-card">
+          <p class="command-label">Trials</p>
+          <p class="command-value">Human + Simulated Cohorts</p>
+          <p class="command-note">Operational trial management with simulation feedback</p>
+        </article>
+        <article class="command-card">
+          <p class="command-label">Run Mode</p>
+          <p class="command-value">Autonomous + Manual</p>
+          <p class="command-note">Policy-gated workflows with runtime traceability</p>
+        </article>
+        <article class="command-card">
+          <p class="command-label">Evidence</p>
+          <p class="command-value">Leads + Portfolio + Logs</p>
+          <p class="command-note">Decision snapshots for design reviews</p>
+        </article>
+      </section>
+
+      <section class="widget-grid reveal" style="--delay: 0.07s">
+        <article class="widget-card">
+          <p class="widget-label">Running Jobs</p>
+          <p class="widget-value" id="widgetRunningJobs">0</p>
+          <div class="widget-spark" id="widgetRunningJobsSpark"></div>
+        </article>
+        <article class="widget-card">
+          <p class="widget-label">Managed Trials</p>
+          <p class="widget-value" id="widgetTrialCount">0</p>
+          <div class="widget-spark" id="widgetTrialCountSpark"></div>
+        </article>
+        <article class="widget-card">
+          <p class="widget-label">Human Patients</p>
+          <p class="widget-value" id="widgetHumanPatients">0</p>
+          <div class="widget-spark" id="widgetHumanPatientsSpark"></div>
+        </article>
+        <article class="widget-card">
+          <p class="widget-label">Promising Leads</p>
+          <p class="widget-value" id="widgetPromisingLeads">0</p>
+          <div class="widget-spark" id="widgetPromisingLeadsSpark"></div>
+        </article>
+        <article class="widget-card">
+          <p class="widget-label">Tools Online</p>
+          <p class="widget-value" id="widgetToolsOnline">0</p>
+          <div class="widget-spark" id="widgetToolsOnlineSpark"></div>
+        </article>
+      </section>
+
       <section class="panel panel-full reveal" style="--delay: 0.08s">
         <div class="panel-head">
-          <h2>Platform & ClawCures Alignment</h2>
+          <h2>Platform</h2>
           <div class="inline-controls">
             <label class="toggle compact-toggle">
               <input type="checkbox" id="handoffWriteFileToggle" checked />
@@ -46,18 +97,18 @@
 
         <div class="platform-columns">
           <article class="subpanel">
-            <h3>ClawCures Default Objective</h3>
+            <h3>Objective</h3>
             <p id="defaultObjectiveText" class="subpanel-text">Loading...</p>
             <button id="loadClawCuresObjectiveButton" class="btn btn-outline btn-small">Use Objective</button>
           </article>
 
           <article class="subpanel">
-            <h3>Default System Prompt Preview</h3>
+            <h3>Prompt</h3>
             <pre id="defaultPromptPreview" class="compact-pre">Loading...</pre>
           </article>
 
           <article class="subpanel">
-            <h3>ClawCures Commands</h3>
+            <h3>Handoff</h3>
             <label for="handoffArtifactNameInput">Artifact Name (optional)</label>
             <input
               type="text"
@@ -71,7 +122,7 @@
       </section>
 
       <section class="panel reveal" style="--delay: 0.12s">
-        <h2>Mission Run</h2>
+        <h2>Design</h2>
 
         <label for="objectiveTemplateSelect">Objective Template</label>
         <div class="row actions-row">
@@ -119,7 +170,7 @@
       </section>
 
       <section class="panel reveal" style="--delay: 0.16s">
-        <h2>Plan Editor</h2>
+        <h2>Plan</h2>
 
         <label for="planTemplateSelect">Plan Template</label>
         <div class="row actions-row">
@@ -138,7 +189,7 @@
       </section>
 
       <section class="panel reveal" style="--delay: 0.20s">
-        <h2>Portfolio Ranker</h2>
+        <h2>Portfolio</h2>
 
         <label for="portfolioTemplateSelect">Portfolio Template</label>
         <div class="row actions-row">
@@ -157,7 +208,7 @@
 
       <section class="panel panel-wide reveal" style="--delay: 0.24s">
         <div class="panel-head">
-          <h2>Job History</h2>
+          <h2>Jobs</h2>
           <div class="inline-controls">
             <select id="jobStatusFilter">
               <option value="">All</option>
@@ -193,7 +244,7 @@
 
       <section class="panel panel-full reveal" style="--delay: 0.26s">
         <div class="panel-head">
-          <h2>Clinical Trial Management</h2>
+          <h2>Trials</h2>
           <div class="inline-controls">
             <button id="refreshClinicalTrialsButton" class="btn btn-outline btn-small">Refresh Trials</button>
             <button id="simulateClinicalTrialButton" class="btn btn-accent btn-small">Simulate Trial</button>
@@ -202,7 +253,7 @@
 
         <div class="platform-columns">
           <article class="subpanel">
-            <h3>Trial Registry</h3>
+            <h3>Registry</h3>
             <label for="clinicalTrialSelect">Managed Trials</label>
             <select id="clinicalTrialSelect" size="9"></select>
             <div class="button-row">
@@ -213,7 +264,7 @@
           </article>
 
           <article class="subpanel">
-            <h3>Trial Config</h3>
+            <h3>Config</h3>
             <div class="row">
               <label>
                 Trial ID
@@ -240,7 +291,7 @@
           </article>
 
           <article class="subpanel">
-            <h3>Patients & Results</h3>
+            <h3>Patients</h3>
             <label for="clinicalPatientInput">Patient JSON</label>
             <textarea id="clinicalPatientInput" rows="4" spellcheck="false"></textarea>
             <label for="clinicalResultInput">Result JSON</label>
@@ -270,7 +321,7 @@
 
       <section class="panel reveal" style="--delay: 0.28s">
         <div class="panel-head">
-          <h2>Tooling & Runtime</h2>
+          <h2>Tools</h2>
           <button id="refreshToolsButton" class="btn btn-outline btn-small">Refresh</button>
         </div>
         <pre id="toolsOutput"></pre>
@@ -279,8 +330,8 @@
       <section class="panel panel-full panel-cures reveal" style="--delay: 0.32s">
         <div class="panel-head">
           <div>
-            <p class="cures-kicker">Unicorn Tier Discovery</p>
-            <h2>Promising Cures</h2>
+            <p class="cures-kicker">Discovery Signal</p>
+            <h2>Leads</h2>
           </div>
           <div class="inline-controls">
             <label class="inline-label" for="drugMinScoreInput">Min Score</label>
@@ -314,7 +365,7 @@
 
       <section class="panel panel-full reveal" style="--delay: 0.36s">
         <div class="panel-head">
-          <h2>Output</h2>
+          <h2>Logs</h2>
           <button id="clearOutputButton" class="btn btn-outline btn-small">Clear</button>
         </div>
         <pre id="resultOutput"></pre>
