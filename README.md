@@ -8,6 +8,12 @@ It provides:
 - JSON plan editor with validation and direct execution
 - Portfolio ranking UI for disease program prioritization
 - Clinical trial management UI (trial CRUD, human/simulated enrollment, outcome capture, simulation refresh)
+- Program graph command center (program registry, timeline events, stage-gate approvals/e-signature capture)
+- Cross-package orchestration for `refua-data`, `refua-bench`, `refua-wetlab`, and `refua-regulatory`
+- Dataset catalog and materialization controls with provenance extraction
+- Benchmark gate execution against baselines for release decisions
+- Wet-lab protocol validation/compile/run controls with lineage events
+- Regulatory evidence bundle build/verify workflows from campaign jobs or direct payloads
 - Animated telemetry widgets for running jobs, managed trials, patient counts, promising leads, and tools online
 - Built-in objective/plan/portfolio templates loaded from workspace examples
 - Ecosystem health panel with cross-product discovery metadata
@@ -101,6 +107,27 @@ CLI flags:
 - `GET /api/tools`
 - `GET /api/examples`
 - `GET /api/ecosystem`
+- `GET /api/command-center/capabilities`
+- `GET /api/program-gates/templates`
+- `GET /api/programs?limit=100&stage=lead_optimization`
+- `GET /api/programs/{program_id}`
+- `GET /api/programs/{program_id}/events?limit=200`
+- `GET /api/programs/{program_id}/approvals?limit=200`
+- `POST /api/programs/upsert`
+- `POST /api/programs/sync-jobs`
+- `POST /api/programs/{program_id}/events/add`
+- `POST /api/programs/{program_id}/approve`
+- `POST /api/programs/{program_id}/gate-evaluate`
+- `GET /api/data/datasets?tag=admet&limit=60`
+- `POST /api/data/materialize`
+- `POST /api/bench/gate`
+- `GET /api/wetlab/providers`
+- `POST /api/wetlab/protocol/validate`
+- `POST /api/wetlab/protocol/compile`
+- `POST /api/wetlab/run`
+- `GET /api/regulatory/bundles?limit=100`
+- `POST /api/regulatory/bundle/build`
+- `POST /api/regulatory/bundle/verify`
 - `GET /api/drug-portfolio?min_score=50&limit=60`
 - `GET /api/promising-cures?min_score=50&limit=60`
 - `GET /api/clinical/trials`
@@ -206,7 +233,9 @@ Each job records request payload, status transitions (`queued` -> `running` -> `
 - If `refua-mcp` runtime dependencies are available, Studio executes plans through `RefuaMcpAdapter`.
 - If unavailable, Studio falls back to a static tool list for planning/validation and emits warnings.
 - Dry-run workflows and policy validation remain usable even without heavy runtime dependencies.
-- Clinical trial endpoints require the scientific stack shipped in package dependencies (`numpy`, `pandas`, `scipy`, `pyyaml`) and workspace access to sibling repos for bridge integrations.
+- Clinical trial endpoints require the scientific stack shipped in package dependencies (`numpy`, `pandas`, `scipy`, `pyyaml`).
+- Command-center integrations require workspace access to sibling repos for bridge imports:
+  `refua-data`, `refua-bench`, `refua-regulatory`, and `refua-wetlab`.
 
 ## Tests
 
@@ -214,6 +243,19 @@ Each job records request payload, status transitions (`queued` -> `running` -> `
 cd path/to/refua-studio
 python -m unittest discover -s tests -v
 ```
+
+Playwright E2E suite:
+
+```bash
+cd path/to/refua-studio
+npm install
+npx playwright install chromium
+npm run test:e2e
+```
+
+The E2E runner boots a real Studio server via `.venv_release` on an isolated
+`.playwright-data/` directory and exercises mission-control workflows across
+command center, planning/jobs, clinical operations, and wet-lab/regulatory flows.
 
 ## Build
 

@@ -125,6 +125,13 @@ _PRODUCT_REGISTRY: tuple[dict[str, str], ...] = (
         "module": "refua_deploy",
         "role": "Deployment and environment rendering",
     },
+    {
+        "id": "refua_wetlab",
+        "name": "refua-wetlab",
+        "repo": "refua-wetlab",
+        "module": "refua_wetlab",
+        "role": "Wet-lab protocol orchestration and execution",
+    },
 )
 
 _DEFAULT_CLAWCURES_OBJECTIVE = (
@@ -151,6 +158,8 @@ class _StaticToolAdapter:
 
 
 def _to_plain_data(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
     if hasattr(value, "model_dump"):
         return value.model_dump(mode="json")
     if is_dataclass(value):
@@ -179,6 +188,10 @@ class CampaignBridge:
             ("refua-mcp", "src"),
             ("refua", "src"),
             ("refua-clinical", "src"),
+            ("refua-data", "src"),
+            ("refua-bench", "src"),
+            ("refua-regulatory", "src"),
+            ("refua-wetlab", "src"),
         ):
             candidate = self._workspace_root.joinpath(*relative)
             if candidate.exists():
@@ -989,3 +1002,266 @@ class CampaignBridge:
                 seed=seed,
             )
         )
+
+    def _resolve_workspace_path(self, raw_path: str) -> Path:
+        candidate = Path(raw_path).expanduser()
+        if not candidate.is_absolute():
+            candidate = self._workspace_root / candidate
+        return candidate.resolve()
+
+    def command_center_capabilities(self) -> dict[str, Any]:
+        checks: tuple[tuple[str, str], ...] = (
+            ("refua_data", "dataset_registry"),
+            ("refua_bench", "benchmark_gating"),
+            ("refua_regulatory", "regulatory_evidence"),
+            ("refua_wetlab", "wetlab_orchestration"),
+        )
+
+        integrations: list[dict[str, Any]] = []
+        warnings: list[str] = []
+        for module_name, capability in checks:
+            payload = {
+                "module": module_name,
+                "capability": capability,
+                "available": False,
+                "version": None,
+            }
+            try:
+                module = self._import(module_name)
+                payload["available"] = True
+                payload["version"] = getattr(module, "__version__", None)
+            except Exception as exc:  # noqa: BLE001
+                warnings.append(f"{module_name} unavailable: {exc}")
+            integrations.append(payload)
+
+        return {
+            "generated_at": datetime.now(UTC).isoformat(),
+            "integrations": integrations,
+            "warnings": warnings,
+        }
+
+    def list_data_datasets(
+        self,
+        *,
+        tag: str | None,
+        limit: int,
+    ) -> dict[str, Any]:
+        warnings: list[str] = []
+        try:
+            refua_data_mod = self._import("refua_data")
+            manager = refua_data_mod.DatasetManager()
+            datasets = manager.list_datasets(tag=tag)
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"Fell back to static catalog because refua_data import failed: {exc}")
+            catalog_mod = self._import("refua_data.catalog")
+            catalog = catalog_mod.get_default_catalog()
+            datasets = catalog.filter_by_tag(tag) if tag else catalog.list()
+        snapshots = [item.metadata_snapshot() for item in datasets]
+        safe_limit = min(max(int(limit), 1), 2000)
+        selected = snapshots[:safe_limit]
+        payload = {
+            "count": len(selected),
+            "total": len(snapshots),
+            "tag": tag,
+            "datasets": selected,
+        }
+        if warnings:
+            payload["warnings"] = warnings
+        return payload
+
+    def materialize_dataset(
+        self,
+        *,
+        dataset_id: str,
+        force: bool,
+        refresh: bool,
+        chunksize: int,
+        timeout_seconds: float,
+    ) -> dict[str, Any]:
+        refua_data_mod = self._import("refua_data")
+        manager = refua_data_mod.DatasetManager()
+        result = manager.materialize(
+            dataset_id,
+            force=force,
+            refresh=refresh,
+            chunksize=int(chunksize),
+            timeout_seconds=float(timeout_seconds),
+        )
+        provenance_mod = self._import("refua_data.provenance")
+        provenance = provenance_mod.summarize_materialized_dataset(result.manifest_path)
+        return {
+            "dataset_id": dataset_id,
+            "materialize": _to_plain_data(result),
+            "provenance": _to_plain_data(provenance),
+        }
+
+    def gate_benchmark(
+        self,
+        *,
+        suite_path: str,
+        baseline_run_path: str,
+        adapter_spec: str,
+        adapter_config: dict[str, Any] | None,
+        model_name: str | None,
+        model_version: str | None,
+        min_effect_size: float,
+        bootstrap_resamples: int,
+        confidence_level: float,
+        bootstrap_seed: int | None,
+        fail_on_uncertain: bool,
+        candidate_output_path: str | None,
+        comparison_output_path: str | None,
+    ) -> dict[str, Any]:
+        gating_mod = self._import("refua_bench.gating")
+        compare_mod = self._import("refua_bench.compare")
+        policy = compare_mod.StatisticalPolicy(
+            min_effect_size=float(min_effect_size),
+            bootstrap_resamples=int(bootstrap_resamples),
+            confidence_level=float(confidence_level),
+            bootstrap_seed=bootstrap_seed,
+            fail_on_uncertain=bool(fail_on_uncertain),
+        )
+
+        provenance = {
+            "model": {
+                "name": model_name,
+                "version": model_version,
+            }
+        }
+        if model_name is None and model_version is None:
+            provenance = {}
+
+        normalized_adapter_config: dict[str, Any] | None = None
+        if adapter_config is not None:
+            normalized_adapter_config = dict(adapter_config)
+            predictions_path = normalized_adapter_config.get("predictions_path")
+            if (
+                isinstance(predictions_path, str)
+                and predictions_path.strip()
+                and adapter_spec == "file"
+            ):
+                normalized_adapter_config["predictions_path"] = str(
+                    self._resolve_workspace_path(predictions_path)
+                )
+        else:
+            normalized_adapter_config = None
+
+        payload = gating_mod.gate_suite(
+            suite_path=self._resolve_workspace_path(suite_path),
+            baseline_run_path=self._resolve_workspace_path(baseline_run_path),
+            adapter_spec=adapter_spec,
+            adapter_config=normalized_adapter_config,
+            policy=policy,
+            provenance=provenance,
+            candidate_output_path=(
+                self._resolve_workspace_path(candidate_output_path)
+                if isinstance(candidate_output_path, str) and candidate_output_path.strip()
+                else None
+            ),
+            comparison_output_path=(
+                self._resolve_workspace_path(comparison_output_path)
+                if isinstance(comparison_output_path, str) and comparison_output_path.strip()
+                else None
+            ),
+        )
+        return _to_plain_data(payload)
+
+    def wetlab_providers(self) -> dict[str, Any]:
+        engine_mod = self._import("refua_wetlab.engine")
+        engine = engine_mod.UnifiedWetLabEngine()
+        providers = engine.list_providers()
+        return {
+            "providers": _to_plain_data(providers),
+            "count": len(providers),
+        }
+
+    def wetlab_validate_protocol(self, *, protocol: dict[str, Any]) -> dict[str, Any]:
+        engine_mod = self._import("refua_wetlab.engine")
+        engine = engine_mod.UnifiedWetLabEngine()
+        normalized = engine.validate_protocol(protocol)
+        return {
+            "valid": True,
+            "protocol": _to_plain_data(normalized),
+        }
+
+    def wetlab_compile_protocol(
+        self,
+        *,
+        provider: str,
+        protocol: dict[str, Any],
+    ) -> dict[str, Any]:
+        engine_mod = self._import("refua_wetlab.engine")
+        engine = engine_mod.UnifiedWetLabEngine()
+        payload = engine.compile_protocol(provider_id=provider, protocol_payload=protocol)
+        return _to_plain_data(payload)
+
+    def wetlab_run_protocol(
+        self,
+        *,
+        provider: str,
+        protocol: dict[str, Any],
+        dry_run: bool,
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        engine_mod = self._import("refua_wetlab.engine")
+        lineage_mod = self._import("refua_wetlab.lineage")
+        engine = engine_mod.UnifiedWetLabEngine()
+        result = engine.run_protocol(
+            provider_id=provider,
+            protocol_payload=protocol,
+            dry_run=bool(dry_run),
+            metadata=metadata or {},
+        )
+        lineage = lineage_mod.build_wetlab_lineage_event(result)
+        return {
+            "result": _to_plain_data(result),
+            "lineage_event": _to_plain_data(lineage),
+        }
+
+    def build_regulatory_bundle(
+        self,
+        *,
+        campaign_run: dict[str, Any],
+        output_dir: str,
+        data_manifest_paths: list[str] | None,
+        extra_artifacts: list[str] | None,
+        include_checklists: bool,
+        checklist_templates: list[str] | None,
+        checklist_strict: bool,
+        checklist_require_no_manual_review: bool,
+        overwrite: bool,
+    ) -> dict[str, Any]:
+        studio_mod = self._import("refua_regulatory.studio")
+        resolved_output_dir = self._resolve_workspace_path(output_dir)
+        resolved_data = [
+            self._resolve_workspace_path(path) for path in (data_manifest_paths or [])
+        ]
+        resolved_extras = [
+            self._resolve_workspace_path(path) for path in (extra_artifacts or [])
+        ]
+        manifest = studio_mod.build_evidence_bundle_from_payload(
+            campaign_run=campaign_run,
+            output_dir=resolved_output_dir,
+            source_kind="refua-studio",
+            data_manifest_paths=resolved_data,
+            extra_artifacts=resolved_extras,
+            include_checklists=bool(include_checklists),
+            checklist_templates=checklist_templates,
+            checklist_strict=bool(checklist_strict),
+            checklist_require_no_manual_review=bool(checklist_require_no_manual_review),
+            overwrite=bool(overwrite),
+        )
+        verification = studio_mod.verify_bundle_with_summary(resolved_output_dir)
+        return {
+            "bundle_dir": str(resolved_output_dir),
+            "manifest": _to_plain_data(manifest),
+            "verification": _to_plain_data(verification.get("verification", {})),
+            "summary": _to_plain_data(verification.get("summary", {})),
+        }
+
+    def verify_regulatory_bundle(self, *, bundle_dir: str) -> dict[str, Any]:
+        studio_mod = self._import("refua_regulatory.studio")
+        payload = studio_mod.verify_bundle_with_summary(
+            self._resolve_workspace_path(bundle_dir)
+        )
+        return _to_plain_data(payload)

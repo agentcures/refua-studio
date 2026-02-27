@@ -678,11 +678,234 @@ select {
   gap: 0.64rem;
 }
 
+.command-cap-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.56rem;
+  margin-bottom: 0.72rem;
+}
+
+.command-cap {
+  border-radius: 12px;
+  border: 1px solid rgba(133, 185, 214, 0.24);
+  background:
+    linear-gradient(130deg, rgba(255, 158, 82, 0.14), rgba(71, 200, 187, 0.1)),
+    rgba(7, 18, 25, 0.9);
+  padding: 0.56rem 0.62rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.command-cap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+}
+
+.command-cap-label {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.command-cap-value {
+  margin: 0.22rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fff6ea;
+}
+
+.command-cap-good {
+  border-color: rgba(63, 208, 137, 0.34);
+}
+
+.command-cap-warn {
+  border-color: rgba(255, 208, 128, 0.38);
+}
+
+.command-cap-alert {
+  border-color: rgba(255, 107, 107, 0.4);
+}
+
 .subpanel {
   border: 1px solid rgba(133, 185, 214, 0.2);
   border-radius: 14px;
   background: var(--bg-panel-strong);
   padding: 0.7rem;
+}
+
+.gate-template-summary {
+  margin: 0.34rem 0 0.4rem;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.gate-criteria-list {
+  display: grid;
+  gap: 0.36rem;
+  margin-bottom: 0.52rem;
+}
+
+.gate-criterion {
+  border: 1px solid rgba(133, 185, 214, 0.24);
+  border-radius: 10px;
+  padding: 0.42rem 0.52rem;
+  background: rgba(8, 18, 25, 0.84);
+}
+
+.gate-criterion-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.gate-criterion-label {
+  font-size: 0.74rem;
+  color: #edf7ff;
+  font-weight: 600;
+}
+
+.gate-criterion-status {
+  border-radius: 999px;
+  padding: 0.08rem 0.4rem;
+  border: 1px solid rgba(133, 185, 214, 0.24);
+  font-family: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+  font-size: 0.57rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.gate-criterion-meta {
+  margin-top: 0.2rem;
+  display: flex;
+  gap: 0.42rem;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+  font-family: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+  font-size: 0.6rem;
+}
+
+.gate-criterion-pass {
+  border-color: rgba(63, 208, 137, 0.36);
+  background: rgba(18, 41, 31, 0.7);
+}
+
+.gate-criterion-pass .gate-criterion-status {
+  color: #e5fff0;
+  border-color: rgba(63, 208, 137, 0.42);
+  background: rgba(63, 208, 137, 0.18);
+}
+
+.gate-criterion-fail {
+  border-color: rgba(255, 107, 107, 0.38);
+  background: rgba(43, 17, 17, 0.72);
+}
+
+.gate-criterion-fail .gate-criterion-status {
+  color: #ffdede;
+  border-color: rgba(255, 107, 107, 0.45);
+  background: rgba(255, 107, 107, 0.16);
+}
+
+.gate-criterion-missing {
+  border-color: rgba(255, 208, 128, 0.34);
+}
+
+.gate-criterion-missing .gate-criterion-status {
+  color: #ffe8bf;
+  border-color: rgba(255, 208, 128, 0.42);
+  background: rgba(255, 208, 128, 0.14);
+}
+
+.gate-criterion-empty {
+  border-style: dashed;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+}
+
+.program-timeline {
+  display: grid;
+  gap: 0.46rem;
+  max-height: 16rem;
+  overflow: auto;
+  padding-right: 0.12rem;
+}
+
+.timeline-empty {
+  border: 1px dashed rgba(133, 185, 214, 0.28);
+  border-radius: 10px;
+  background: rgba(6, 16, 24, 0.7);
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  padding: 0.58rem;
+}
+
+.timeline-item {
+  border: 1px solid rgba(133, 185, 214, 0.2);
+  border-radius: 12px;
+  background: rgba(8, 18, 25, 0.88);
+  padding: 0.52rem 0.6rem;
+}
+
+.timeline-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.timeline-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #f2f8fd;
+}
+
+.timeline-status {
+  border-radius: 999px;
+  padding: 0.14rem 0.44rem;
+  border: 1px solid rgba(133, 185, 214, 0.24);
+  background: rgba(11, 24, 33, 0.9);
+  font-family: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+  font-size: 0.59rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.timeline-status-pass {
+  color: #ddffec;
+  border-color: rgba(63, 208, 137, 0.45);
+  background: rgba(63, 208, 137, 0.18);
+}
+
+.timeline-status-warn {
+  color: #ffe9c4;
+  border-color: rgba(255, 208, 128, 0.4);
+  background: rgba(255, 208, 128, 0.16);
+}
+
+.timeline-status-fail {
+  color: #ffdede;
+  border-color: rgba(255, 107, 107, 0.44);
+  background: rgba(255, 107, 107, 0.16);
+}
+
+.timeline-status-neutral {
+  color: #e3edf5;
+}
+
+.timeline-meta {
+  margin-top: 0.24rem;
+  font-family: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+  color: var(--text-muted);
+  font-size: 0.62rem;
 }
 
 .subpanel-text {
@@ -1155,6 +1378,10 @@ tbody tr.selected {
     grid-template-columns: 1fr;
   }
 
+  .command-cap-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .cures-layout {
     grid-template-columns: 1fr;
   }
@@ -1204,6 +1431,10 @@ tbody tr.selected {
 
   .product-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .command-cap-grid {
+    grid-template-columns: 1fr;
   }
 
   .drug-summary-grid {

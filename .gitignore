@@ -29,4 +29,9 @@ poetry.toml
 
 .refua-studio/
 .refua-studio-data/
+.playwright-data/
 *.db
+
+node_modules/
+playwright-report/
+test-results/

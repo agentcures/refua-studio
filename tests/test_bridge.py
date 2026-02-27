@@ -63,6 +63,27 @@ class CampaignBridgeTest(unittest.TestCase):
         self.assertGreaterEqual(len(payload["products"]), 1)
         self.assertIn("default_objective", payload["clawcures"])
 
+    def test_command_center_capabilities(self) -> None:
+        payload = self.bridge.command_center_capabilities()
+        self.assertIn("integrations", payload)
+        self.assertGreaterEqual(len(payload["integrations"]), 1)
+
+    def test_wetlab_protocol_validation(self) -> None:
+        payload = self.bridge.wetlab_validate_protocol(
+            protocol={
+                "name": "bridge-wetlab",
+                "steps": [
+                    {
+                        "type": "transfer",
+                        "source": "plate:A1",
+                        "destination": "plate:B1",
+                        "volume_ul": 20,
+                    }
+                ],
+            }
+        )
+        self.assertTrue(payload["valid"])
+
     def test_build_clawcures_handoff(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             payload = self.bridge.build_clawcures_handoff(

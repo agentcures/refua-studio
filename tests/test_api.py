@@ -89,6 +89,11 @@ class StudioApiTest(unittest.TestCase):
         self.assertGreaterEqual(len(payload["products"]), 1)
         self.assertIn("default_objective", payload["clawcures"])
 
+    def test_command_center_capabilities_endpoint(self) -> None:
+        payload = self._request("GET", "/api/command-center/capabilities")
+        self.assertIn("integrations", payload)
+        self.assertGreaterEqual(len(payload["integrations"]), 1)
+
     def test_clawcures_handoff_endpoint(self) -> None:
         payload = self._request(
             "POST",
@@ -160,6 +165,184 @@ class StudioApiTest(unittest.TestCase):
         alias_payload = self._request("GET", "/api/promising-cures?min_score=0&limit=20")
         self.assertIn("summary", alias_payload)
         self.assertIn("candidates", alias_payload)
+
+    def test_program_graph_endpoints(self) -> None:
+        upserted = self._request(
+            "POST",
+            "/api/programs/upsert",
+            {
+                "program_id": "kras-program",
+                "name": "KRAS Program",
+                "stage": "hit_to_lead",
+                "owner": "team-a",
+            },
+        )
+        self.assertEqual(upserted["program"]["program_id"], "kras-program")
+
+        _ = self._request(
+            "POST",
+            "/api/programs/kras-program/events/add",
+            {
+                "event_type": "campaign_run",
+                "title": "Run submitted",
+                "status": "queued",
+                "payload": {"objective": "test"},
+            },
+        )
+        approval = self._request(
+            "POST",
+            "/api/programs/kras-program/approve",
+            {
+                "gate": "stage_gate",
+                "decision": "approved",
+                "signer": "user-1",
+                "signature": "sig-1",
+            },
+        )
+        self.assertEqual(approval["approval"]["decision"], "approved")
+
+        detail = self._request("GET", "/api/programs/kras-program")
+        self.assertEqual(detail["program"]["program_id"], "kras-program")
+        self.assertGreaterEqual(len(detail["events"]), 1)
+        self.assertGreaterEqual(len(detail["approvals"]), 1)
+
+    def test_stage_gate_and_job_sync_endpoints(self) -> None:
+        _ = self._request(
+            "POST",
+            "/api/programs/upsert",
+            {
+                "program_id": "sync-program",
+                "name": "Sync Program",
+                "owner": "team-sync",
+            },
+        )
+
+        templates = self._request("GET", "/api/program-gates/templates")
+        self.assertGreaterEqual(templates["count"], 1)
+
+        gate = self._request(
+            "POST",
+            "/api/programs/sync-program/gate-evaluate",
+            {
+                "template_id": "hit_to_lead",
+                "metrics": {
+                    "promising_leads": 4,
+                    "mean_admet_score": 0.7,
+                    "mean_binding_probability": 0.81,
+                },
+                "auto_record": True,
+            },
+        )
+        self.assertIn("evaluation", gate)
+        self.assertTrue(gate["evaluation"]["passed"])
+
+        run_payload = self._request(
+            "POST",
+            "/api/run",
+            {
+                "objective": "Sync jobs test",
+                "dry_run": True,
+                "async_mode": True,
+                "program_id": "sync-program",
+                "plan": {
+                    "calls": [
+                        {"tool": "refua_validate_spec", "args": {}},
+                    ]
+                },
+            },
+        )
+        self.assertIn("job", run_payload)
+        job_id = run_payload["job"]["job_id"]
+
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            current = self._request("GET", f"/api/jobs/{job_id}")
+            if current["status"] in {"completed", "failed", "cancelled"}:
+                break
+            time.sleep(0.1)
+
+        synced = self._request(
+            "POST",
+            "/api/programs/sync-jobs",
+            {"limit": 100},
+        )
+        self.assertIn("linked_events", synced)
+
+        detail = self._request("GET", "/api/programs/sync-program")
+        self.assertGreaterEqual(len(detail["events"]), 1)
+
+    def test_data_wetlab_and_benchmark_endpoints(self) -> None:
+        data_payload = self._request("GET", "/api/data/datasets?limit=5")
+        self.assertGreaterEqual(data_payload["count"], 1)
+
+        wetlab_validate = self._request(
+            "POST",
+            "/api/wetlab/protocol/validate",
+            {
+                "protocol": {
+                    "name": "api-test",
+                    "steps": [
+                        {
+                            "type": "transfer",
+                            "source": "plate:A1",
+                            "destination": "plate:B1",
+                            "volume_ul": 20,
+                        }
+                    ],
+                }
+            },
+        )
+        self.assertTrue(wetlab_validate["valid"])
+
+        benchmark = self._request(
+            "POST",
+            "/api/bench/gate",
+            {
+                "suite_path": "refua-bench/benchmarks/sample_suite.yaml",
+                "baseline_run_path": "refua-bench/benchmarks/sample_baseline_run.json",
+                "adapter_spec": "file",
+                "adapter_config": {
+                    "predictions_path": "refua-bench/benchmarks/sample_predictions_candidate.json",
+                },
+                "async_mode": False,
+            },
+        )
+        self.assertIn("result", benchmark)
+        self.assertIn("comparison", benchmark["result"])
+
+    def test_regulatory_bundle_endpoints(self) -> None:
+        payload = self._request(
+            "POST",
+            "/api/regulatory/bundle/build",
+            {
+                "campaign_run": {
+                    "objective": "regulatory test",
+                    "plan": {
+                        "calls": [
+                            {"tool": "refua_validate_spec", "args": {}},
+                        ]
+                    },
+                    "results": [
+                        {
+                            "tool": "refua_validate_spec",
+                            "args": {},
+                            "output": {"valid": True},
+                        }
+                    ],
+                },
+                "async_mode": False,
+                "overwrite": True,
+            },
+        )
+        self.assertIn("result", payload)
+        bundle_dir = payload["result"]["bundle_dir"]
+        verify = self._request(
+            "POST",
+            "/api/regulatory/bundle/verify",
+            {"bundle_dir": bundle_dir},
+        )
+        self.assertIn("result", verify)
+        self.assertIn("verification", verify["result"])
 
     def test_validate_plan_endpoint(self) -> None:
         payload = self._request(

@@ -121,6 +121,124 @@
         </div>
       </section>
 
+      <section class="panel panel-full reveal" style="--delay: 0.10s">
+        <div class="panel-head">
+          <h2>Command Center</h2>
+          <div class="inline-controls">
+            <button id="refreshCommandCenterButton" class="btn btn-outline btn-small">Refresh</button>
+            <button id="syncProgramJobsButton" class="btn btn-outline btn-small">Sync Jobs</button>
+            <button id="loadProgramButton" class="btn btn-outline btn-small">Load Program</button>
+          </div>
+        </div>
+
+        <div id="commandCenterCapabilities" class="command-cap-grid"></div>
+
+        <div class="platform-columns">
+          <article class="subpanel">
+            <h3>Program Graph</h3>
+            <label>
+              Program ID
+              <input type="text" id="programIdInput" placeholder="kras-g12d-program" spellcheck="false" />
+            </label>
+            <label>
+              Program Name
+              <input type="text" id="programNameInput" placeholder="KRAS G12D Lead Program" spellcheck="false" />
+            </label>
+            <div class="row three">
+              <label>
+                Stage
+                <input type="text" id="programStageInput" placeholder="lead_optimization" spellcheck="false" />
+              </label>
+              <label>
+                Indication
+                <input type="text" id="programIndicationInput" placeholder="Pancreatic cancer" spellcheck="false" />
+              </label>
+              <label>
+                Owner
+                <input type="text" id="programOwnerInput" placeholder="oncology-team" spellcheck="false" />
+              </label>
+            </div>
+            <div class="button-row">
+              <button id="upsertProgramButton" class="btn btn-primary btn-small">Upsert Program</button>
+              <button id="approveProgramButton" class="btn btn-outline btn-small">Record Approval</button>
+            </div>
+
+            <h3>Stage Gate</h3>
+            <label for="gateTemplateSelect">Template</label>
+            <select id="gateTemplateSelect"></select>
+            <div id="gateTemplateSummary" class="gate-template-summary">
+              Select a template to load gate criteria and defaults.
+            </div>
+            <div id="gateCriteriaChecklist" class="gate-criteria-list"></div>
+            <label for="gateMetricsInput">Metrics JSON</label>
+            <textarea id="gateMetricsInput" rows="5" spellcheck="false"></textarea>
+            <div class="button-row">
+              <button id="loadGateTemplateDefaultsButton" class="btn btn-outline btn-small">Load Defaults</button>
+              <button id="evaluateProgramGateButton" class="btn btn-accent btn-small">Evaluate Gate</button>
+            </div>
+            <label for="programSummaryOutput">Program Snapshot</label>
+            <pre id="programSummaryOutput" class="compact-pre">Program state will appear here.</pre>
+          </article>
+
+          <article class="subpanel">
+            <h3>Data + Bench</h3>
+            <label>
+              Dataset ID
+              <input type="text" id="datasetIdInput" placeholder="chembl_activity_ki_human" spellcheck="false" />
+            </label>
+            <div class="button-row">
+              <button id="materializeDatasetButton" class="btn btn-outline btn-small">Materialize Dataset</button>
+              <button id="listDatasetsButton" class="btn btn-outline btn-small">List Datasets</button>
+            </div>
+            <label>
+              Suite Path
+              <input type="text" id="benchSuitePathInput" placeholder="refua-bench/benchmarks/sample_suite.yaml" spellcheck="false" />
+            </label>
+            <label>
+              Baseline Run Path
+              <input type="text" id="benchBaselinePathInput" placeholder="refua-bench/benchmarks/sample_baseline_run.json" spellcheck="false" />
+            </label>
+            <label>
+              Predictions Path
+              <input type="text" id="benchPredictionsPathInput" placeholder="refua-bench/benchmarks/sample_predictions_candidate.json" spellcheck="false" />
+            </label>
+            <div class="button-row">
+              <button id="runBenchmarkGateButton" class="btn btn-accent btn-small">Run Benchmark Gate</button>
+            </div>
+          </article>
+
+          <article class="subpanel">
+            <h3>WetLab + Regulatory</h3>
+            <label for="wetlabProviderSelect">WetLab Provider</label>
+            <select id="wetlabProviderSelect"></select>
+            <label for="wetlabProtocolInput">Protocol JSON</label>
+            <textarea id="wetlabProtocolInput" rows="5" spellcheck="false"></textarea>
+            <div class="button-row">
+              <button id="validateWetlabProtocolButton" class="btn btn-outline btn-small">Validate Protocol</button>
+              <button id="runWetlabProtocolButton" class="btn btn-primary btn-small">Run Protocol</button>
+            </div>
+
+            <label>
+              Regulatory Job ID
+              <input type="text" id="regulatoryJobIdInput" placeholder="Optional: use completed job id" spellcheck="false" />
+            </label>
+            <label>
+              Bundle Output Dir
+              <input type="text" id="regulatoryOutputDirInput" placeholder=".refua-studio/regulatory/bundle_..." spellcheck="false" />
+            </label>
+            <div class="button-row">
+              <button id="buildRegulatoryBundleButton" class="btn btn-accent btn-small">Build Bundle</button>
+              <button id="verifyRegulatoryBundleButton" class="btn btn-outline btn-small">Verify Bundle</button>
+            </div>
+          </article>
+        </div>
+
+        <article class="subpanel">
+          <h3>Program Timeline</h3>
+          <div id="programEventTimeline" class="program-timeline"></div>
+        </article>
+      </section>
+
       <section class="panel reveal" style="--delay: 0.12s">
         <h2>Design</h2>
 

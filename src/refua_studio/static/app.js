@@ -52,6 +52,26 @@ const widgetTrialCount = document.getElementById("widgetTrialCount");
 const widgetHumanPatients = document.getElementById("widgetHumanPatients");
 const widgetPromisingLeads = document.getElementById("widgetPromisingLeads");
 const widgetToolsOnline = document.getElementById("widgetToolsOnline");
+const programIdInput = document.getElementById("programIdInput");
+const programNameInput = document.getElementById("programNameInput");
+const programStageInput = document.getElementById("programStageInput");
+const programIndicationInput = document.getElementById("programIndicationInput");
+const programOwnerInput = document.getElementById("programOwnerInput");
+const programSummaryOutput = document.getElementById("programSummaryOutput");
+const datasetIdInput = document.getElementById("datasetIdInput");
+const benchSuitePathInput = document.getElementById("benchSuitePathInput");
+const benchBaselinePathInput = document.getElementById("benchBaselinePathInput");
+const benchPredictionsPathInput = document.getElementById("benchPredictionsPathInput");
+const wetlabProviderSelect = document.getElementById("wetlabProviderSelect");
+const wetlabProtocolInput = document.getElementById("wetlabProtocolInput");
+const regulatoryJobIdInput = document.getElementById("regulatoryJobIdInput");
+const regulatoryOutputDirInput = document.getElementById("regulatoryOutputDirInput");
+const gateTemplateSelect = document.getElementById("gateTemplateSelect");
+const gateMetricsInput = document.getElementById("gateMetricsInput");
+const gateTemplateSummary = document.getElementById("gateTemplateSummary");
+const gateCriteriaChecklist = document.getElementById("gateCriteriaChecklist");
+const commandCenterCapabilities = document.getElementById("commandCenterCapabilities");
+const programEventTimeline = document.getElementById("programEventTimeline");
 
 const state = {
   selectedJobId: null,
@@ -73,6 +93,14 @@ const state = {
     humanPatients: 0,
     promisingLeads: 0,
     toolsOnline: 0,
+  },
+  commandCenter: {
+    capabilities: null,
+    programs: [],
+    wetlabProviders: [],
+    selectedProgram: null,
+    gateTemplates: [],
+    programCounts: {},
   },
 };
 
@@ -490,6 +518,7 @@ async function refreshJobs() {
 
 async function loadJob(jobId) {
   const payload = await api(`/api/jobs/${jobId}`, { method: "GET" });
+  regulatoryJobIdInput.value = jobId;
   showOutput("Job Detail", payload);
 }
 
@@ -725,6 +754,593 @@ async function refreshClinicalTrials() {
   );
   updateTelemetryWidgets();
   renderClinicalTrialOptions(state.clinicalTrials);
+}
+
+function renderCommandCenterProgram(payload) {
+  const program = payload?.program || null;
+  if (!program) {
+    state.commandCenter.selectedProgram = null;
+    programSummaryOutput.textContent = "Program not found.";
+    programEventTimeline.innerHTML = '<div class="timeline-empty">Load a program to inspect timeline events.</div>';
+    renderCommandCenterCapabilities(state.commandCenter.capabilities);
+    return;
+  }
+  state.commandCenter.selectedProgram = program;
+  programIdInput.value = program.program_id || "";
+  programNameInput.value = program.name || "";
+  programStageInput.value = program.stage || "";
+  programIndicationInput.value = program.indication || "";
+  programOwnerInput.value = program.owner || "";
+  programSummaryOutput.textContent = pretty(payload);
+  renderProgramTimeline(payload.events || [], payload.approvals || []);
+  renderCommandCenterCapabilities(state.commandCenter.capabilities);
+}
+
+function selectedGateTemplate() {
+  const templateId = gateTemplateSelect.value;
+  if (!templateId) {
+    return null;
+  }
+  for (const template of state.commandCenter.gateTemplates) {
+    if (String(template.id) === templateId) {
+      return template;
+    }
+  }
+  return null;
+}
+
+function gateMetricDefaultValue(minimum) {
+  const numeric = Number(minimum);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  if (numeric < 1) {
+    return Number((numeric + 0.05).toFixed(3));
+  }
+  return Number((numeric * 1.05).toFixed(2));
+}
+
+function gateTemplateDefaultMetrics(template) {
+  if (!template || !Array.isArray(template.criteria)) {
+    return {};
+  }
+  const metrics = {};
+  for (const criterion of template.criteria) {
+    const metric = String(criterion.metric || "").trim();
+    if (!metric) {
+      continue;
+    }
+    metrics[metric] = gateMetricDefaultValue(criterion.minimum);
+  }
+  return metrics;
+}
+
+function parseGateMetricsForPreview() {
+  const raw = gateMetricsInput.value.trim();
+  if (!raw) {
+    return { metrics: null, error: null };
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { metrics: null, error: "Metrics JSON must be an object." };
+    }
+    return { metrics: parsed, error: null };
+  } catch (_err) {
+    return { metrics: null, error: "Metrics JSON is invalid." };
+  }
+}
+
+function applyGateTemplateDefaults({ force } = { force: false }) {
+  const template = selectedGateTemplate();
+  if (!template) {
+    return;
+  }
+  const defaults = gateTemplateDefaultMetrics(template);
+  if (Object.keys(defaults).length === 0) {
+    return;
+  }
+
+  if (force) {
+    gateMetricsInput.value = pretty(defaults);
+    return;
+  }
+
+  const { metrics, error } = parseGateMetricsForPreview();
+  if (error) {
+    return;
+  }
+  if (!metrics) {
+    gateMetricsInput.value = pretty(defaults);
+    return;
+  }
+
+  const merged = { ...metrics };
+  let changed = false;
+  for (const [metric, value] of Object.entries(defaults)) {
+    if (!(metric in merged) || merged[metric] === null || merged[metric] === "") {
+      merged[metric] = value;
+      changed = true;
+    }
+  }
+  if (changed) {
+    gateMetricsInput.value = pretty(merged);
+  }
+}
+
+function timelineStatusClass(status) {
+  const normalized = String(status || "").toLowerCase();
+  if (["approved", "completed", "success", "passed"].includes(normalized)) {
+    return "timeline-status-pass";
+  }
+  if (["rejected", "failed", "cancelled", "error"].includes(normalized)) {
+    return "timeline-status-fail";
+  }
+  if (["running", "queued", "needs_changes", "warning"].includes(normalized)) {
+    return "timeline-status-warn";
+  }
+  return "timeline-status-neutral";
+}
+
+function renderGateTemplatePreview() {
+  const template = selectedGateTemplate();
+  if (!template) {
+    gateTemplateSummary.textContent = "No gate template selected.";
+    gateCriteriaChecklist.innerHTML =
+      '<div class="gate-criterion gate-criterion-empty">Choose a template to preview criteria.</div>';
+    return;
+  }
+
+  const { metrics, error } = parseGateMetricsForPreview();
+  if (error) {
+    gateTemplateSummary.textContent = `${template.label || template.id}: ${error}`;
+  } else {
+    gateTemplateSummary.textContent =
+      template.description || `${template.label || template.id} gate criteria`;
+  }
+
+  const criteria = Array.isArray(template.criteria) ? template.criteria : [];
+  if (criteria.length === 0) {
+    gateCriteriaChecklist.innerHTML =
+      '<div class="gate-criterion gate-criterion-empty">This template has no criteria.</div>';
+    return;
+  }
+
+  let passed = 0;
+  gateCriteriaChecklist.innerHTML = criteria
+    .map((criterion) => {
+      const metric = String(criterion.metric || "");
+      const label = String(criterion.label || metric);
+      const minimum = Number(criterion.minimum || 0);
+      const observedRaw = metrics ? metrics[metric] : null;
+      const observed = Number(observedRaw);
+      const hasObserved = observedRaw !== null && observedRaw !== undefined && Number.isFinite(observed);
+      const ok = hasObserved && observed >= minimum;
+      if (ok) {
+        passed += 1;
+      }
+      const statusClass = hasObserved ? (ok ? "gate-criterion-pass" : "gate-criterion-fail") : "gate-criterion-missing";
+      const statusText = hasObserved ? (ok ? "pass" : "below") : "missing";
+      const observedLabel = hasObserved ? String(observedRaw) : "n/a";
+      return `
+        <article class="gate-criterion ${statusClass}">
+          <div class="gate-criterion-top">
+            <span class="gate-criterion-label">${escapeHtml(label)}</span>
+            <span class="gate-criterion-status">${escapeHtml(statusText)}</span>
+          </div>
+          <div class="gate-criterion-meta">
+            <span>${escapeHtml(metric)}</span>
+            <span>min ${escapeHtml(minimum)}</span>
+            <span>observed ${escapeHtml(observedLabel)}</span>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+
+  if (!error) {
+    gateTemplateSummary.textContent = `${template.label || template.id}: ${passed}/${criteria.length} checks passing`;
+  }
+}
+
+function renderCommandCenterCapabilities(payload) {
+  state.commandCenter.capabilities = payload || null;
+  const integrations = Array.isArray(payload?.integrations) ? payload.integrations : [];
+  const counts = state.commandCenter.programCounts || {};
+  const programCount = Number(counts.programs || 0);
+  const eventCount = Number(counts.events || 0);
+  const approvalCount = Number(counts.approvals || 0);
+  const online = integrations.filter((item) => item.available).length;
+  const readiness = online >= 3 ? "operational" : online >= 2 ? "degraded" : "critical";
+  const warnings = Array.isArray(payload?.warnings) ? payload.warnings : [];
+  const cards = [
+    {
+      label: "Integrations Online",
+      value: `${online}/${integrations.length || 0}`,
+      note: warnings.length ? `${warnings.length} warning(s)` : "All core packages visible",
+      tone: online >= 3 ? "good" : "warn",
+    },
+    {
+      label: "Programs Tracked",
+      value: String(programCount),
+      note: `${eventCount} timeline events`,
+      tone: programCount > 0 ? "neutral" : "warn",
+    },
+    {
+      label: "Active Stage",
+      value: state.commandCenter.selectedProgram?.stage || "unassigned",
+      note: `${approvalCount} approvals recorded`,
+      tone: state.commandCenter.selectedProgram?.stage ? "neutral" : "warn",
+    },
+    {
+      label: "Regulatory Readiness",
+      value: readiness,
+      note: payload?.generated_at ? `Updated ${formatDate(payload.generated_at)}` : "",
+      tone: readiness === "operational" ? "good" : readiness === "degraded" ? "warn" : "alert",
+    },
+  ];
+  commandCenterCapabilities.innerHTML = cards
+    .map(
+      (item) => `
+        <article class="command-cap command-cap-${escapeHtml(item.tone || "neutral")}">
+          <p class="command-cap-label">${escapeHtml(item.label)}</p>
+          <p class="command-cap-value">${escapeHtml(item.value)}</p>
+          ${item.note ? `<p class="command-note">${escapeHtml(item.note)}</p>` : ""}
+        </article>
+      `
+    )
+    .join("");
+}
+
+function renderProgramTimeline(events, approvals) {
+  const timeline = [];
+  for (const event of Array.isArray(events) ? events : []) {
+    timeline.push({
+      kind: "event",
+      title: event.title || event.event_type || "event",
+      status: event.status || "recorded",
+      at: event.created_at || "",
+      meta: event.source || "refua-studio",
+      runId: event.run_id || "",
+    });
+  }
+  for (const approval of Array.isArray(approvals) ? approvals : []) {
+    timeline.push({
+      kind: "approval",
+      title: `Gate ${approval.gate || "stage_gate"}`,
+      status: approval.decision || "recorded",
+      at: approval.created_at || "",
+      meta: approval.signer || "unknown",
+    });
+  }
+
+  timeline.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  if (timeline.length === 0) {
+    programEventTimeline.innerHTML = '<div class="timeline-empty">No timeline events yet.</div>';
+    return;
+  }
+
+  programEventTimeline.innerHTML = timeline
+    .slice(0, 40)
+    .map(
+      (item) => `
+        <article class="timeline-item">
+          <div class="timeline-top">
+            <div class="timeline-title">${escapeHtml(item.title)}</div>
+            <span class="timeline-status ${timelineStatusClass(item.status)}">${escapeHtml(item.status)}</span>
+          </div>
+          <div class="timeline-meta">${escapeHtml(formatDate(item.at))} · ${escapeHtml(item.meta)}${item.runId ? ` · ${escapeHtml(item.runId)}` : ""}</div>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function wetlabProviderId() {
+  return wetlabProviderSelect.value || "opentrons";
+}
+
+function parseWetlabProtocol() {
+  const protocol = parseJsonText(wetlabProtocolInput.value, "WetLab protocol");
+  if (!protocol || typeof protocol !== "object" || Array.isArray(protocol)) {
+    throw new Error("WetLab protocol must be a JSON object");
+  }
+  return protocol;
+}
+
+async function refreshCommandCenter() {
+  try {
+    await api("/api/programs/sync-jobs", {
+      method: "POST",
+      body: JSON.stringify({ limit: 500 }),
+    });
+  } catch (_err) {
+    // Keep UI responsive if sync fails due to transient runtime issues.
+  }
+
+  const [capabilities, wetlabProviders, gateTemplates, programsPayload] = await Promise.all([
+    api("/api/command-center/capabilities", { method: "GET" }),
+    api("/api/wetlab/providers", { method: "GET" }),
+    api("/api/program-gates/templates", { method: "GET" }),
+    api("/api/programs?limit=1", { method: "GET" }),
+  ]);
+
+  state.commandCenter.wetlabProviders = wetlabProviders.providers || [];
+  state.commandCenter.gateTemplates = gateTemplates.templates || [];
+  state.commandCenter.programCounts = programsPayload.counts || {};
+  renderCommandCenterCapabilities(capabilities);
+
+  const selectedTemplate = gateTemplateSelect.value;
+  gateTemplateSelect.innerHTML = "";
+  for (const template of state.commandCenter.gateTemplates) {
+    const option = document.createElement("option");
+    option.value = template.id;
+    option.textContent = `${template.label} (${template.criteria?.length || 0} checks)`;
+    if (selectedTemplate && selectedTemplate === template.id) {
+      option.selected = true;
+    }
+    gateTemplateSelect.appendChild(option);
+  }
+  if (gateTemplateSelect.options.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No templates";
+    gateTemplateSelect.appendChild(option);
+  }
+  applyGateTemplateDefaults({ force: false });
+  renderGateTemplatePreview();
+
+  const selectedProvider = wetlabProviderSelect.value;
+  wetlabProviderSelect.innerHTML = "";
+  for (const provider of state.commandCenter.wetlabProviders) {
+    const option = document.createElement("option");
+    option.value = provider.provider_id;
+    option.textContent = `${provider.provider_id} (${provider.provider_name || "provider"})`;
+    if (selectedProvider && selectedProvider === provider.provider_id) {
+      option.selected = true;
+    }
+    wetlabProviderSelect.appendChild(option);
+  }
+  if (wetlabProviderSelect.options.length === 0) {
+    const option = document.createElement("option");
+    option.value = "opentrons";
+    option.textContent = "opentrons";
+    wetlabProviderSelect.appendChild(option);
+  }
+
+  const current = currentProgramId();
+  if (current) {
+    try {
+      const payload = await api(`/api/programs/${encodeURIComponent(current)}`, { method: "GET" });
+      renderCommandCenterProgram(payload);
+    } catch (_err) {
+      // Keep command center refresh resilient when program does not exist yet.
+      renderCommandCenterProgram(null);
+    }
+  }
+}
+
+function currentProgramId() {
+  return programIdInput.value.trim() || null;
+}
+
+async function doUpsertProgram() {
+  const payload = {
+    program_id: currentProgramId(),
+    name: programNameInput.value.trim() || null,
+    stage: programStageInput.value.trim() || null,
+    indication: programIndicationInput.value.trim() || null,
+    owner: programOwnerInput.value.trim() || null,
+    metadata: {
+      source: "refua-studio",
+    },
+  };
+  const result = await api("/api/programs/upsert", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  renderCommandCenterProgram(result);
+  showOutput("Program Upserted", result);
+}
+
+async function doLoadProgram() {
+  const programId = currentProgramId();
+  if (!programId) {
+    throw new Error("Program ID is required");
+  }
+  const payload = await api(`/api/programs/${encodeURIComponent(programId)}`, { method: "GET" });
+  renderCommandCenterProgram(payload);
+  showOutput("Program Loaded", payload);
+}
+
+async function doApproveProgram() {
+  const programId = currentProgramId();
+  if (!programId) {
+    throw new Error("Program ID is required");
+  }
+  const payload = await api(`/api/programs/${encodeURIComponent(programId)}/approve`, {
+    method: "POST",
+    body: JSON.stringify({
+      gate: "stage_gate",
+      decision: "approved",
+      signer: programOwnerInput.value.trim() || "refua-studio",
+      signature: `studio:${new Date().toISOString()}`,
+      rationale: "Recorded from Studio command center",
+      metadata: {
+        stage: programStageInput.value.trim() || null,
+      },
+    }),
+  });
+  showOutput("Program Approval Recorded", payload);
+  await doLoadProgram();
+}
+
+function parseGateMetrics() {
+  const { metrics, error } = parseGateMetricsForPreview();
+  if (error || !metrics) {
+    throw new Error("Gate metrics must be a JSON object");
+  }
+  return metrics;
+}
+
+async function doEvaluateProgramGate() {
+  const programId = currentProgramId();
+  if (!programId) {
+    throw new Error("Program ID is required");
+  }
+  const templateId = gateTemplateSelect.value;
+  if (!templateId) {
+    throw new Error("Select a gate template");
+  }
+  const payload = await api(`/api/programs/${encodeURIComponent(programId)}/gate-evaluate`, {
+    method: "POST",
+    body: JSON.stringify({
+      template_id: templateId,
+      metrics: parseGateMetrics(),
+      auto_record: true,
+      signer: programOwnerInput.value.trim() || "refua-studio",
+    }),
+  });
+  showOutput("Stage Gate Evaluation", payload);
+  await doLoadProgram();
+}
+
+async function doSyncProgramJobs() {
+  const payload = await api("/api/programs/sync-jobs", {
+    method: "POST",
+    body: JSON.stringify({ limit: 500 }),
+  });
+  showOutput("Program Job Sync", payload);
+  if (currentProgramId()) {
+    await doLoadProgram();
+  }
+}
+
+async function doListDatasets() {
+  const payload = await api("/api/data/datasets?limit=60", { method: "GET" });
+  showOutput("Dataset Catalog", payload);
+}
+
+async function doMaterializeDataset() {
+  const datasetId = datasetIdInput.value.trim();
+  if (!datasetId) {
+    throw new Error("Dataset ID is required");
+  }
+  const payload = await api("/api/data/materialize", {
+    method: "POST",
+    body: JSON.stringify({
+      dataset_id: datasetId,
+      async_mode: asyncToggle.checked,
+    }),
+  });
+  showOutput("Dataset Materialize", payload);
+  if (asyncToggle.checked) {
+    await refreshJobs();
+  }
+}
+
+async function doRunBenchmarkGate() {
+  const suitePath = benchSuitePathInput.value.trim();
+  const baselinePath = benchBaselinePathInput.value.trim();
+  const predictionsPath = benchPredictionsPathInput.value.trim();
+  if (!suitePath || !baselinePath || !predictionsPath) {
+    throw new Error("Suite path, baseline path, and predictions path are required");
+  }
+  const payload = await api("/api/bench/gate", {
+    method: "POST",
+    body: JSON.stringify({
+      suite_path: suitePath,
+      baseline_run_path: baselinePath,
+      adapter_spec: "file",
+      adapter_config: {
+        predictions_path: predictionsPath,
+      },
+      async_mode: asyncToggle.checked,
+      model_name: "studio-gate",
+      model_version: new Date().toISOString(),
+    }),
+  });
+  showOutput("Benchmark Gate", payload);
+  if (asyncToggle.checked) {
+    await refreshJobs();
+  }
+}
+
+async function doValidateWetlabProtocol() {
+  const payload = await api("/api/wetlab/protocol/validate", {
+    method: "POST",
+    body: JSON.stringify({ protocol: parseWetlabProtocol() }),
+  });
+  showOutput("WetLab Protocol Validation", payload);
+}
+
+async function doRunWetlabProtocol() {
+  const payload = await api("/api/wetlab/run", {
+    method: "POST",
+    body: JSON.stringify({
+      provider: wetlabProviderId(),
+      protocol: parseWetlabProtocol(),
+      dry_run: true,
+      async_mode: asyncToggle.checked,
+      program_id: currentProgramId(),
+      metadata: {
+        objective: objectiveInput.value.trim() || null,
+      },
+    }),
+  });
+  showOutput("WetLab Run", payload);
+  if (asyncToggle.checked) {
+    await refreshJobs();
+  } else if (currentProgramId()) {
+    await doLoadProgram();
+  }
+}
+
+async function doBuildRegulatoryBundle() {
+  const jobId = regulatoryJobIdInput.value.trim() || state.selectedJobId || null;
+  const outputDir = regulatoryOutputDirInput.value.trim() || null;
+  const fallbackPlan = parseJsonText(planInput.value, "Plan");
+  const fallbackCampaignRun = {
+    objective: objectiveInput.value.trim() || null,
+    plan: fallbackPlan,
+    dry_run: dryRunToggle.checked,
+    source: "refua-studio-ui",
+  };
+  const payload = await api("/api/regulatory/bundle/build", {
+    method: "POST",
+    body: JSON.stringify({
+      job_id: jobId,
+      campaign_run: jobId ? null : fallbackCampaignRun,
+      output_dir: outputDir,
+      async_mode: asyncToggle.checked,
+      overwrite: true,
+      program_id: currentProgramId(),
+    }),
+  });
+  showOutput("Regulatory Bundle Build", payload);
+  if (asyncToggle.checked) {
+    await refreshJobs();
+  } else {
+    const bundleDir = payload.result?.bundle_dir;
+    if (bundleDir) {
+      regulatoryOutputDirInput.value = bundleDir;
+    }
+    if (currentProgramId()) {
+      await doLoadProgram();
+    }
+  }
+}
+
+async function doVerifyRegulatoryBundle() {
+  const bundleDir = regulatoryOutputDirInput.value.trim();
+  if (!bundleDir) {
+    throw new Error("Bundle output directory is required");
+  }
+  const payload = await api("/api/regulatory/bundle/verify", {
+    method: "POST",
+    body: JSON.stringify({ bundle_dir: bundleDir }),
+  });
+  showOutput("Regulatory Bundle Verify", payload);
 }
 
 async function loadClinicalTrial() {
@@ -973,6 +1589,7 @@ function currentRunPayload() {
     max_calls: Number(maxCallsInput.value || 10),
     allow_skip_validate_first: skipValidateFirstToggle.checked,
     plan,
+    program_id: currentProgramId(),
   };
 }
 
@@ -1076,6 +1693,7 @@ async function doExecutePlan() {
   const payload = {
     plan,
     async_mode: asyncToggle.checked,
+    program_id: currentProgramId(),
   };
   const result = await api("/api/plan/execute", {
     method: "POST",
@@ -1226,6 +1844,56 @@ function bindActions() {
       await refreshEcosystem();
       await refreshHealth();
     })
+  );
+  document.getElementById("refreshCommandCenterButton").addEventListener("click", () =>
+    wrapAction(refreshCommandCenter)
+  );
+  document.getElementById("syncProgramJobsButton").addEventListener("click", () =>
+    wrapAction(doSyncProgramJobs)
+  );
+  document.getElementById("loadProgramButton").addEventListener("click", () =>
+    wrapAction(doLoadProgram)
+  );
+  document.getElementById("upsertProgramButton").addEventListener("click", () =>
+    wrapAction(doUpsertProgram)
+  );
+  document.getElementById("approveProgramButton").addEventListener("click", () =>
+    wrapAction(doApproveProgram)
+  );
+  document.getElementById("evaluateProgramGateButton").addEventListener("click", () =>
+    wrapAction(doEvaluateProgramGate)
+  );
+  gateTemplateSelect.addEventListener("change", () => {
+    applyGateTemplateDefaults({ force: false });
+    renderGateTemplatePreview();
+  });
+  gateMetricsInput.addEventListener("input", () => {
+    renderGateTemplatePreview();
+  });
+  document.getElementById("loadGateTemplateDefaultsButton").addEventListener("click", () => {
+    applyGateTemplateDefaults({ force: true });
+    renderGateTemplatePreview();
+  });
+  document.getElementById("listDatasetsButton").addEventListener("click", () =>
+    wrapAction(doListDatasets)
+  );
+  document.getElementById("materializeDatasetButton").addEventListener("click", () =>
+    wrapAction(doMaterializeDataset)
+  );
+  document.getElementById("runBenchmarkGateButton").addEventListener("click", () =>
+    wrapAction(doRunBenchmarkGate)
+  );
+  document.getElementById("validateWetlabProtocolButton").addEventListener("click", () =>
+    wrapAction(doValidateWetlabProtocol)
+  );
+  document.getElementById("runWetlabProtocolButton").addEventListener("click", () =>
+    wrapAction(doRunWetlabProtocol)
+  );
+  document.getElementById("buildRegulatoryBundleButton").addEventListener("click", () =>
+    wrapAction(doBuildRegulatoryBundle)
+  );
+  document.getElementById("verifyRegulatoryBundleButton").addEventListener("click", () =>
+    wrapAction(doVerifyRegulatoryBundle)
   );
   document.getElementById("generateHandoffButton").addEventListener("click", () =>
     wrapAction(doGenerateHandoff)
@@ -1386,6 +2054,72 @@ function seedFallbackDefaults() {
       },
     });
   }
+
+  if (!programIdInput.value.trim()) {
+    programIdInput.value = "kras-g12d-program";
+  }
+  if (!programNameInput.value.trim()) {
+    programNameInput.value = "KRAS G12D Lead Program";
+  }
+  if (!programStageInput.value.trim()) {
+    programStageInput.value = "lead_optimization";
+  }
+  if (!programIndicationInput.value.trim()) {
+    programIndicationInput.value = "Pancreatic cancer";
+  }
+  if (!programOwnerInput.value.trim()) {
+    programOwnerInput.value = "oncology-team";
+  }
+  if (!datasetIdInput.value.trim()) {
+    datasetIdInput.value = "chembl_activity_ki_human";
+  }
+  if (!benchSuitePathInput.value.trim()) {
+    benchSuitePathInput.value = "refua-bench/benchmarks/sample_suite.yaml";
+  }
+  if (!benchBaselinePathInput.value.trim()) {
+    benchBaselinePathInput.value = "refua-bench/benchmarks/sample_baseline_run.json";
+  }
+  if (!benchPredictionsPathInput.value.trim()) {
+    benchPredictionsPathInput.value = "refua-bench/benchmarks/sample_predictions_candidate.json";
+  }
+  if (!wetlabProtocolInput.value.trim()) {
+    wetlabProtocolInput.value = pretty({
+      name: "serial-dilution-screen",
+      steps: [
+        {
+          type: "transfer",
+          source: "plate:A1",
+          destination: "plate:B1",
+          volume_ul: 50,
+        },
+        {
+          type: "mix",
+          well: "plate:B1",
+          volume_ul: 40,
+          cycles: 5,
+        },
+        {
+          type: "incubate",
+          duration_s: 300,
+          temperature_c: 37,
+        },
+        {
+          type: "read_absorbance",
+          plate: "plate",
+          wavelength_nm: 450,
+        },
+      ],
+    });
+  }
+  if (!regulatoryOutputDirInput.value.trim()) {
+    regulatoryOutputDirInput.value = ".refua-studio/regulatory/bundle_studio";
+  }
+  if (!gateMetricsInput.value.trim()) {
+    gateMetricsInput.value = pretty({});
+  }
+  if (!programEventTimeline.innerHTML.trim()) {
+    programEventTimeline.innerHTML = '<div class="timeline-empty">Load a program to inspect timeline events.</div>';
+  }
 }
 
 async function init() {
@@ -1402,6 +2136,7 @@ async function init() {
   await wrapAction(refreshJobs);
   await wrapAction(refreshDrugPortfolio);
   await wrapAction(refreshClinicalTrials);
+  await wrapAction(refreshCommandCenter);
 
   if (state.pollTimer) {
     clearInterval(state.pollTimer);
@@ -1411,6 +2146,7 @@ async function init() {
     wrapAction(refreshJobs);
     wrapAction(refreshDrugPortfolio);
     wrapAction(refreshClinicalTrials);
+    wrapAction(refreshCommandCenter);
   }, 5000);
 }
 
