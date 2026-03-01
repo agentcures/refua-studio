@@ -414,6 +414,8 @@
             <textarea id="clinicalPatientInput" rows="4" spellcheck="false"></textarea>
             <label for="clinicalResultInput">Result JSON</label>
             <textarea id="clinicalResultInput" rows="4" spellcheck="false"></textarea>
+            <label for="clinicalOpsInput">ClinOps JSON</label>
+            <textarea id="clinicalOpsInput" rows="8" spellcheck="false"></textarea>
             <div class="row three">
               <label>
                 Simulated Patients
@@ -432,6 +434,21 @@
               <button id="enrollClinicalPatientButton" class="btn btn-outline btn-small">Enroll Patient</button>
               <button id="enrollClinicalSimulatedButton" class="btn btn-outline btn-small">Enroll Simulated</button>
               <button id="addClinicalResultButton" class="btn btn-outline btn-small">Add Result</button>
+            </div>
+            <div class="button-row">
+              <button id="upsertClinicalSiteButton" class="btn btn-outline btn-small">Upsert Site</button>
+              <button id="screenClinicalPatientButton" class="btn btn-outline btn-small">Screen</button>
+              <button id="recordClinicalVisitButton" class="btn btn-outline btn-small">Monitoring Visit</button>
+            </div>
+            <div class="button-row">
+              <button id="addClinicalQueryButton" class="btn btn-outline btn-small">Add Query</button>
+              <button id="updateClinicalQueryButton" class="btn btn-outline btn-small">Update Query</button>
+              <button id="addClinicalDeviationButton" class="btn btn-outline btn-small">Add Deviation</button>
+            </div>
+            <div class="button-row">
+              <button id="addClinicalSafetyEventButton" class="btn btn-outline btn-small">Add Safety</button>
+              <button id="upsertClinicalMilestoneButton" class="btn btn-outline btn-small">Upsert Milestone</button>
+              <button id="refreshClinicalOpsButton" class="btn btn-accent btn-small">Ops Snapshot</button>
             </div>
           </article>
         </div>

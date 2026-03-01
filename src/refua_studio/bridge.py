@@ -932,9 +932,10 @@ class CampaignBridge:
         patient_id: str | None,
         source: str | None,
         arm_id: str | None,
-        demographics: dict[str, Any] | None,
-        baseline: dict[str, Any] | None,
-        metadata: dict[str, Any] | None,
+        site_id: str | None = None,
+        demographics: dict[str, Any] | None = None,
+        baseline: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         controller = self._clinical_controller()
         return _to_plain_data(
@@ -943,6 +944,7 @@ class CampaignBridge:
                 patient_id=patient_id,
                 source=source,
                 arm_id=arm_id,
+                site_id=site_id,
                 demographics=demographics,
                 baseline=baseline,
                 metadata=metadata,
@@ -974,6 +976,7 @@ class CampaignBridge:
         result_type: str,
         visit: str | None,
         source: str | None,
+        site_id: str | None = None,
     ) -> dict[str, Any]:
         controller = self._clinical_controller()
         return _to_plain_data(
@@ -984,6 +987,7 @@ class CampaignBridge:
                 result_type=result_type,
                 visit=visit,
                 source=source,
+                site_id=site_id,
             )
         )
 
@@ -1000,6 +1004,230 @@ class CampaignBridge:
                 trial_id,
                 replicates=replicates,
                 seed=seed,
+            )
+        )
+
+    def list_clinical_sites(self, *, trial_id: str) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(controller.list_sites(trial_id))
+
+    def clinical_ops_snapshot(self, *, trial_id: str) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(controller.operations_snapshot(trial_id))
+
+    def upsert_clinical_site(
+        self,
+        *,
+        trial_id: str,
+        site_id: str,
+        name: str | None,
+        country_id: str | None,
+        status: str | None,
+        principal_investigator: str | None,
+        target_enrollment: int | None,
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.upsert_site(
+                trial_id,
+                site_id=site_id,
+                name=name,
+                country_id=country_id,
+                status=status,
+                principal_investigator=principal_investigator,
+                target_enrollment=target_enrollment,
+                metadata=metadata,
+            )
+        )
+
+    def record_clinical_screening(
+        self,
+        *,
+        trial_id: str,
+        site_id: str,
+        patient_id: str | None,
+        status: str | None,
+        arm_id: str | None,
+        source: str | None,
+        failure_reason: str | None,
+        demographics: dict[str, Any] | None,
+        baseline: dict[str, Any] | None,
+        metadata: dict[str, Any] | None,
+        auto_enroll: bool,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.record_screening(
+                trial_id,
+                site_id=site_id,
+                patient_id=patient_id,
+                status=status,
+                arm_id=arm_id,
+                source=source,
+                failure_reason=failure_reason,
+                demographics=demographics,
+                baseline=baseline,
+                metadata=metadata,
+                auto_enroll=auto_enroll,
+            )
+        )
+
+    def record_clinical_monitoring_visit(
+        self,
+        *,
+        trial_id: str,
+        site_id: str,
+        visit_type: str | None,
+        findings: list[str] | None,
+        action_items: list[Any] | None,
+        risk_score: float | None,
+        outcome: str | None,
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.record_monitoring_visit(
+                trial_id,
+                site_id=site_id,
+                visit_type=visit_type,
+                findings=findings,
+                action_items=action_items,
+                risk_score=risk_score,
+                outcome=outcome,
+                metadata=metadata,
+            )
+        )
+
+    def add_clinical_query(
+        self,
+        *,
+        trial_id: str,
+        patient_id: str | None,
+        site_id: str | None,
+        field_name: str | None,
+        description: str,
+        status: str | None,
+        severity: str | None,
+        assignee: str | None,
+        due_at: str | None,
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.add_query(
+                trial_id,
+                patient_id=patient_id,
+                site_id=site_id,
+                field_name=field_name,
+                description=description,
+                status=status,
+                severity=severity,
+                assignee=assignee,
+                due_at=due_at,
+                metadata=metadata,
+            )
+        )
+
+    def update_clinical_query(
+        self,
+        *,
+        trial_id: str,
+        query_id: str,
+        updates: dict[str, Any],
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.update_query(
+                trial_id,
+                query_id=query_id,
+                updates=updates,
+            )
+        )
+
+    def add_clinical_deviation(
+        self,
+        *,
+        trial_id: str,
+        description: str,
+        site_id: str | None,
+        patient_id: str | None,
+        category: str | None,
+        severity: str | None,
+        status: str | None,
+        corrective_action: str | None,
+        preventive_action: str | None,
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.add_deviation(
+                trial_id,
+                description=description,
+                site_id=site_id,
+                patient_id=patient_id,
+                category=category,
+                severity=severity,
+                status=status,
+                corrective_action=corrective_action,
+                preventive_action=preventive_action,
+                metadata=metadata,
+            )
+        )
+
+    def add_clinical_safety_event(
+        self,
+        *,
+        trial_id: str,
+        patient_id: str,
+        event_term: str,
+        site_id: str | None,
+        seriousness: str | None,
+        expected: bool | None,
+        relatedness: str | None,
+        outcome: str | None,
+        action_taken: str | None,
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.add_safety_event(
+                trial_id,
+                patient_id=patient_id,
+                event_term=event_term,
+                site_id=site_id,
+                seriousness=seriousness,
+                expected=expected,
+                relatedness=relatedness,
+                outcome=outcome,
+                action_taken=action_taken,
+                metadata=metadata,
+            )
+        )
+
+    def upsert_clinical_milestone(
+        self,
+        *,
+        trial_id: str,
+        milestone_id: str | None,
+        name: str | None,
+        target_date: str | None,
+        status: str | None,
+        owner: str | None,
+        actual_date: str | None,
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        controller = self._clinical_controller()
+        return _to_plain_data(
+            controller.upsert_milestone(
+                trial_id,
+                milestone_id=milestone_id,
+                name=name,
+                target_date=target_date,
+                status=status,
+                owner=owner,
+                actual_date=actual_date,
+                metadata=metadata,
             )
         )
 

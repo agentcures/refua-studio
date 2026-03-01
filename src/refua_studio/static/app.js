@@ -44,6 +44,7 @@ const clinicalTrialStatusInput = document.getElementById("clinicalTrialStatusInp
 const clinicalTrialConfigInput = document.getElementById("clinicalTrialConfigInput");
 const clinicalPatientInput = document.getElementById("clinicalPatientInput");
 const clinicalResultInput = document.getElementById("clinicalResultInput");
+const clinicalOpsInput = document.getElementById("clinicalOpsInput");
 const clinicalSimCountInput = document.getElementById("clinicalSimCountInput");
 const clinicalReplicatesInput = document.getElementById("clinicalReplicatesInput");
 const clinicalSeedInput = document.getElementById("clinicalSeedInput");
@@ -1470,6 +1471,7 @@ async function doEnrollClinicalPatient() {
       patient_id: patient.patient_id || null,
       source: patient.source || "human",
       arm_id: patient.arm_id || null,
+      site_id: patient.site_id || null,
       demographics: patient.demographics || {},
       baseline: patient.baseline || {},
       metadata: patient.metadata || {},
@@ -1537,6 +1539,7 @@ async function doAddClinicalResult() {
       result_type: rawResult.result_type || "endpoint",
       visit: rawResult.visit || null,
       source: rawResult.source || null,
+      site_id: rawResult.site_id || null,
       values,
     }),
   });
@@ -1574,6 +1577,265 @@ async function doSimulateClinicalTrial() {
   } else {
     await loadClinicalTrial();
   }
+}
+
+function parseClinicalOpsPayload() {
+  const raw = parseJsonText(clinicalOpsInput.value, "ClinOps payload");
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("ClinOps payload must be a JSON object");
+  }
+  return raw;
+}
+
+async function doUpsertClinicalSite() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const raw = parseClinicalOpsPayload();
+  if (!raw.site_id || typeof raw.site_id !== "string") {
+    throw new Error("ClinOps payload must include site_id");
+  }
+  const result = await api("/api/clinical/trials/site/upsert", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      site_id: raw.site_id,
+      name: raw.name || null,
+      country_id: raw.country_id || null,
+      status: raw.status || null,
+      principal_investigator: raw.principal_investigator || null,
+      target_enrollment:
+        raw.target_enrollment === undefined || raw.target_enrollment === null
+          ? null
+          : Number(raw.target_enrollment),
+      metadata: raw.metadata || {},
+    }),
+  });
+  showOutput("Clinical Site Upserted", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doScreenClinicalPatient() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const raw = parseClinicalOpsPayload();
+  if (!raw.site_id || typeof raw.site_id !== "string") {
+    throw new Error("ClinOps payload must include site_id");
+  }
+  const result = await api("/api/clinical/trials/screen", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      site_id: raw.site_id,
+      patient_id: raw.patient_id || null,
+      status: raw.status || null,
+      arm_id: raw.arm_id || null,
+      source: raw.source || null,
+      failure_reason: raw.failure_reason || null,
+      demographics: raw.demographics || {},
+      baseline: raw.baseline || {},
+      metadata: raw.metadata || {},
+      auto_enroll: Boolean(raw.auto_enroll),
+    }),
+  });
+  showOutput("Clinical Screening Added", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doRecordClinicalVisit() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const raw = parseClinicalOpsPayload();
+  if (!raw.site_id || typeof raw.site_id !== "string") {
+    throw new Error("ClinOps payload must include site_id");
+  }
+  const result = await api("/api/clinical/trials/monitoring/visit", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      site_id: raw.site_id,
+      visit_type: raw.visit_type || null,
+      findings: Array.isArray(raw.findings) ? raw.findings : [],
+      action_items: Array.isArray(raw.action_items) ? raw.action_items : [],
+      risk_score:
+        raw.risk_score === undefined || raw.risk_score === null ? null : Number(raw.risk_score),
+      outcome: raw.outcome || null,
+      metadata: raw.metadata || {},
+    }),
+  });
+  showOutput("Clinical Monitoring Visit Added", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doAddClinicalQuery() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const raw = parseClinicalOpsPayload();
+  if (!raw.description || typeof raw.description !== "string") {
+    throw new Error("ClinOps payload must include description for query");
+  }
+  const result = await api("/api/clinical/trials/query/add", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      patient_id: raw.patient_id || null,
+      site_id: raw.site_id || null,
+      field_name: raw.field_name || null,
+      description: raw.description,
+      status: raw.status || null,
+      severity: raw.severity || null,
+      assignee: raw.assignee || null,
+      due_at: raw.due_at || null,
+      metadata: raw.metadata || {},
+    }),
+  });
+  showOutput("Clinical Query Added", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doUpdateClinicalQuery() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const raw = parseClinicalOpsPayload();
+  if (!raw.query_id || typeof raw.query_id !== "string") {
+    throw new Error("ClinOps payload must include query_id");
+  }
+  const updates =
+    raw.updates && typeof raw.updates === "object" && !Array.isArray(raw.updates)
+      ? raw.updates
+      : {
+          status: raw.status || null,
+          assignee: raw.assignee || null,
+          resolution: raw.resolution || null,
+        };
+  const result = await api("/api/clinical/trials/query/update", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      query_id: raw.query_id,
+      updates,
+    }),
+  });
+  showOutput("Clinical Query Updated", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doAddClinicalDeviation() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const raw = parseClinicalOpsPayload();
+  if (!raw.description || typeof raw.description !== "string") {
+    throw new Error("ClinOps payload must include description for deviation");
+  }
+  const result = await api("/api/clinical/trials/deviation/add", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      description: raw.description,
+      site_id: raw.site_id || null,
+      patient_id: raw.patient_id || null,
+      category: raw.category || null,
+      severity: raw.severity || null,
+      status: raw.status || null,
+      corrective_action: raw.corrective_action || null,
+      preventive_action: raw.preventive_action || null,
+      metadata: raw.metadata || {},
+    }),
+  });
+  showOutput("Clinical Deviation Added", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doAddClinicalSafetyEvent() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const raw = parseClinicalOpsPayload();
+  if (!raw.patient_id || typeof raw.patient_id !== "string") {
+    throw new Error("ClinOps payload must include patient_id for safety event");
+  }
+  if (!raw.event_term || typeof raw.event_term !== "string") {
+    throw new Error("ClinOps payload must include event_term for safety event");
+  }
+  const result = await api("/api/clinical/trials/safety/add", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      patient_id: raw.patient_id,
+      event_term: raw.event_term,
+      site_id: raw.site_id || null,
+      seriousness: raw.seriousness || null,
+      expected:
+        raw.expected === undefined || raw.expected === null ? null : Boolean(raw.expected),
+      relatedness: raw.relatedness || null,
+      outcome: raw.outcome || null,
+      action_taken: raw.action_taken || null,
+      metadata: raw.metadata || {},
+    }),
+  });
+  showOutput("Clinical Safety Event Added", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doUpsertClinicalMilestone() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const raw = parseClinicalOpsPayload();
+  const result = await api("/api/clinical/trials/milestone/upsert", {
+    method: "POST",
+    body: JSON.stringify({
+      trial_id: trialId,
+      milestone_id: raw.milestone_id || null,
+      name: raw.name || null,
+      target_date: raw.target_date || null,
+      status: raw.status || null,
+      owner: raw.owner || null,
+      actual_date: raw.actual_date || null,
+      metadata: raw.metadata || {},
+    }),
+  });
+  showOutput("Clinical Milestone Upserted", result);
+  await refreshClinicalTrials();
+  await loadClinicalTrial();
+}
+
+async function doRefreshClinicalOps() {
+  const trialId = resolveClinicalTrialId();
+  if (!trialId) {
+    throw new Error("Select a trial first");
+  }
+  const [ops, sites] = await Promise.all([
+    api(`/api/clinical/trials/${encodeURIComponent(trialId)}/ops`, { method: "GET" }),
+    api(`/api/clinical/trials/${encodeURIComponent(trialId)}/sites`, { method: "GET" }),
+  ]);
+  const payload = {
+    trial_id: trialId,
+    ops,
+    sites,
+  };
+  clinicalTrialSummary.textContent = pretty(payload);
+  showOutput("Clinical Ops Snapshot", payload);
 }
 
 function currentRunPayload() {
@@ -1922,6 +2184,33 @@ function bindActions() {
   document.getElementById("addClinicalResultButton").addEventListener("click", () =>
     wrapAction(doAddClinicalResult)
   );
+  document.getElementById("upsertClinicalSiteButton").addEventListener("click", () =>
+    wrapAction(doUpsertClinicalSite)
+  );
+  document.getElementById("screenClinicalPatientButton").addEventListener("click", () =>
+    wrapAction(doScreenClinicalPatient)
+  );
+  document.getElementById("recordClinicalVisitButton").addEventListener("click", () =>
+    wrapAction(doRecordClinicalVisit)
+  );
+  document.getElementById("addClinicalQueryButton").addEventListener("click", () =>
+    wrapAction(doAddClinicalQuery)
+  );
+  document.getElementById("updateClinicalQueryButton").addEventListener("click", () =>
+    wrapAction(doUpdateClinicalQuery)
+  );
+  document.getElementById("addClinicalDeviationButton").addEventListener("click", () =>
+    wrapAction(doAddClinicalDeviation)
+  );
+  document.getElementById("addClinicalSafetyEventButton").addEventListener("click", () =>
+    wrapAction(doAddClinicalSafetyEvent)
+  );
+  document.getElementById("upsertClinicalMilestoneButton").addEventListener("click", () =>
+    wrapAction(doUpsertClinicalMilestone)
+  );
+  document.getElementById("refreshClinicalOpsButton").addEventListener("click", () =>
+    wrapAction(doRefreshClinicalOps)
+  );
   document.getElementById("simulateClinicalTrialButton").addEventListener("click", () =>
     wrapAction(doSimulateClinicalTrial)
   );
@@ -2027,6 +2316,7 @@ function seedFallbackDefaults() {
       patient_id: "human-001",
       source: "human",
       arm_id: "control",
+      site_id: "site-01",
       demographics: {
         age: 62,
         weight: 76,
@@ -2043,6 +2333,7 @@ function seedFallbackDefaults() {
   if (!clinicalResultInput.value.trim()) {
     clinicalResultInput.value = pretty({
       patient_id: "human-001",
+      site_id: "site-01",
       result_type: "endpoint",
       visit: "week-12",
       source: "human",
@@ -2052,6 +2343,28 @@ function seedFallbackDefaults() {
         responder: false,
         safety_event: false,
       },
+    });
+  }
+
+  if (!clinicalOpsInput.value.trim()) {
+    clinicalOpsInput.value = pretty({
+      site_id: "site-01",
+      name: "Boston General",
+      country_id: "US",
+      status: "active",
+      principal_investigator: "Dr. Rivera",
+      target_enrollment: 24,
+      patient_id: "human-001",
+      description: "Missing week-4 lab panel",
+      event_term: "grade_2_neutropenia",
+      seriousness: "non_serious",
+      expected: true,
+      visit_type: "interim",
+      findings: ["Source docs complete"],
+      action_items: ["Continue weekly QC checks"],
+      risk_score: 0.35,
+      milestone_id: "ms-lpi",
+      target_date: "2026-08-30T00:00:00+00:00",
     });
   }
 

@@ -406,6 +406,34 @@ class StudioApiTest(unittest.TestCase):
         self.assertIn("trial", detail)
         self.assertEqual(detail["trial"]["trial_id"], "studio-clinical")
 
+        site = self._request(
+            "POST",
+            "/api/clinical/trials/site/upsert",
+            {
+                "trial_id": "studio-clinical",
+                "site_id": "site-001",
+                "name": "Boston General",
+                "country_id": "US",
+                "status": "active",
+                "target_enrollment": 30,
+            },
+        )
+        self.assertIn("site", site)
+        self.assertEqual(site["site"]["site_id"], "site-001")
+
+        screening = self._request(
+            "POST",
+            "/api/clinical/trials/screen",
+            {
+                "trial_id": "studio-clinical",
+                "site_id": "site-001",
+                "patient_id": "screen-001",
+                "status": "screen_failed",
+                "failure_reason": "inclusion_criteria_not_met",
+            },
+        )
+        self.assertIn("screening", screening)
+
         _ = self._request(
             "POST",
             "/api/clinical/trials/update",
@@ -430,6 +458,7 @@ class StudioApiTest(unittest.TestCase):
                 "patient_id": "human-001",
                 "source": "human",
                 "arm_id": "control",
+                "site_id": "site-001",
                 "demographics": {"age": 62},
             },
         )
@@ -442,6 +471,7 @@ class StudioApiTest(unittest.TestCase):
             {
                 "trial_id": "studio-clinical",
                 "patient_id": "human-001",
+                "site_id": "site-001",
                 "values": {
                     "arm_id": "control",
                     "change": 4.4,
@@ -450,6 +480,94 @@ class StudioApiTest(unittest.TestCase):
                 },
             },
         )
+
+        monitoring = self._request(
+            "POST",
+            "/api/clinical/trials/monitoring/visit",
+            {
+                "trial_id": "studio-clinical",
+                "site_id": "site-001",
+                "visit_type": "interim",
+                "findings": ["missing source signatures"],
+                "action_items": ["retrain study coordinator"],
+                "risk_score": 0.8,
+            },
+        )
+        self.assertIn("monitoring_visit", monitoring)
+
+        query_added = self._request(
+            "POST",
+            "/api/clinical/trials/query/add",
+            {
+                "trial_id": "studio-clinical",
+                "site_id": "site-001",
+                "patient_id": "human-001",
+                "description": "Missing baseline ECG",
+                "status": "open",
+                "due_at": "2000-01-01T00:00:00+00:00",
+            },
+        )
+        self.assertIn("query", query_added)
+        query_id = query_added["query"]["query_id"]
+
+        query_updated = self._request(
+            "POST",
+            "/api/clinical/trials/query/update",
+            {
+                "trial_id": "studio-clinical",
+                "query_id": query_id,
+                "updates": {"status": "resolved", "resolution": "uploaded ECG source"},
+            },
+        )
+        self.assertEqual(query_updated["query"]["status"], "resolved")
+
+        deviation = self._request(
+            "POST",
+            "/api/clinical/trials/deviation/add",
+            {
+                "trial_id": "studio-clinical",
+                "site_id": "site-001",
+                "patient_id": "human-001",
+                "description": "Visit outside protocol window",
+                "severity": "major",
+            },
+        )
+        self.assertIn("deviation", deviation)
+
+        safety = self._request(
+            "POST",
+            "/api/clinical/trials/safety/add",
+            {
+                "trial_id": "studio-clinical",
+                "site_id": "site-001",
+                "patient_id": "human-001",
+                "event_term": "grade_3_neutropenia",
+                "seriousness": "serious",
+                "expected": False,
+            },
+        )
+        self.assertIn("safety_event", safety)
+
+        milestone = self._request(
+            "POST",
+            "/api/clinical/trials/milestone/upsert",
+            {
+                "trial_id": "studio-clinical",
+                "milestone_id": "ms-lpi",
+                "name": "Last Patient In",
+                "target_date": "2000-01-01T00:00:00+00:00",
+                "status": "at_risk",
+            },
+        )
+        self.assertIn("milestone", milestone)
+
+        sites = self._request("GET", "/api/clinical/trials/studio-clinical/sites")
+        self.assertGreaterEqual(sites["count"], 1)
+        self.assertEqual(sites["sites"][0]["site_id"], "site-001")
+
+        ops = self._request("GET", "/api/clinical/trials/studio-clinical/ops")
+        self.assertIn("clinops", ops)
+        self.assertGreaterEqual(ops["clinops"]["site_count"], 1)
 
         simulated = self._request(
             "POST",

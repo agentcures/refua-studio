@@ -1189,6 +1189,7 @@ class StudioApp:
         patient_id = _optional_nonempty_string(payload.get("patient_id"), "patient_id")
         source = _optional_nonempty_string(payload.get("source"), "source")
         arm_id = _optional_nonempty_string(payload.get("arm_id"), "arm_id")
+        site_id = _optional_nonempty_string(payload.get("site_id"), "site_id")
         demographics = _optional_mapping(payload.get("demographics"), "demographics")
         baseline = _optional_mapping(payload.get("baseline"), "baseline")
         metadata = _optional_mapping(payload.get("metadata"), "metadata")
@@ -1199,6 +1200,7 @@ class StudioApp:
                 patient_id=patient_id,
                 source=source,
                 arm_id=arm_id,
+                site_id=site_id,
                 demographics=demographics,
                 baseline=baseline,
                 metadata=metadata,
@@ -1237,6 +1239,7 @@ class StudioApp:
         result_type = _optional_nonempty_string(payload.get("result_type"), "result_type") or "endpoint"
         visit = _optional_nonempty_string(payload.get("visit"), "visit")
         source = _optional_nonempty_string(payload.get("source"), "source")
+        site_id = _optional_nonempty_string(payload.get("site_id"), "site_id")
 
         try:
             return self.bridge.add_clinical_result(
@@ -1246,6 +1249,7 @@ class StudioApp:
                 result_type=result_type,
                 visit=visit,
                 source=source,
+                site_id=site_id,
             )
         except KeyError as exc:
             raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
@@ -1300,6 +1304,270 @@ class StudioApp:
         return {
             "result": result,
         }
+
+    def clinical_trial_sites(self, trial_id: str) -> dict[str, Any]:
+        try:
+            return self.bridge.list_clinical_sites(trial_id=trial_id)
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+
+    def clinical_trial_ops(self, trial_id: str) -> dict[str, Any]:
+        try:
+            return self.bridge.clinical_ops_snapshot(trial_id=trial_id)
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+
+    def upsert_clinical_site(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        site_id = _require_nonempty_string(payload.get("site_id"), "site_id")
+        name = _optional_nonempty_string(payload.get("name"), "name")
+        country_id = _optional_nonempty_string(payload.get("country_id"), "country_id")
+        status = _optional_nonempty_string(payload.get("status"), "status")
+        principal_investigator = _optional_nonempty_string(
+            payload.get("principal_investigator"),
+            "principal_investigator",
+        )
+        metadata = _optional_mapping(payload.get("metadata"), "metadata")
+        target_raw = payload.get("target_enrollment")
+        target_enrollment: int | None = None
+        if target_raw is not None:
+            target_enrollment = _coerce_int(
+                target_raw,
+                "target_enrollment",
+                minimum=0,
+            )
+
+        try:
+            return self.bridge.upsert_clinical_site(
+                trial_id=trial_id,
+                site_id=site_id,
+                name=name,
+                country_id=country_id,
+                status=status,
+                principal_investigator=principal_investigator,
+                target_enrollment=target_enrollment,
+                metadata=metadata,
+            )
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def add_clinical_screening(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        site_id = _require_nonempty_string(payload.get("site_id"), "site_id")
+        patient_id = _optional_nonempty_string(payload.get("patient_id"), "patient_id")
+        status = _optional_nonempty_string(payload.get("status"), "status")
+        arm_id = _optional_nonempty_string(payload.get("arm_id"), "arm_id")
+        source = _optional_nonempty_string(payload.get("source"), "source")
+        failure_reason = _optional_nonempty_string(payload.get("failure_reason"), "failure_reason")
+        demographics = _optional_mapping(payload.get("demographics"), "demographics")
+        baseline = _optional_mapping(payload.get("baseline"), "baseline")
+        metadata = _optional_mapping(payload.get("metadata"), "metadata")
+        auto_enroll = bool(payload.get("auto_enroll", False))
+
+        try:
+            return self.bridge.record_clinical_screening(
+                trial_id=trial_id,
+                site_id=site_id,
+                patient_id=patient_id,
+                status=status,
+                arm_id=arm_id,
+                source=source,
+                failure_reason=failure_reason,
+                demographics=demographics,
+                baseline=baseline,
+                metadata=metadata,
+                auto_enroll=auto_enroll,
+            )
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def add_clinical_monitoring_visit(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        site_id = _require_nonempty_string(payload.get("site_id"), "site_id")
+        visit_type = _optional_nonempty_string(payload.get("visit_type"), "visit_type")
+        findings_raw = payload.get("findings")
+        findings: list[str] | None = None
+        if findings_raw is not None:
+            if not isinstance(findings_raw, list):
+                raise BadRequestError("findings must be an array when provided")
+            findings = [str(item) for item in findings_raw if isinstance(item, str)]
+
+        action_items_raw = payload.get("action_items")
+        action_items: list[Any] | None = None
+        if action_items_raw is not None:
+            if not isinstance(action_items_raw, list):
+                raise BadRequestError("action_items must be an array when provided")
+            action_items = action_items_raw
+
+        risk_raw = payload.get("risk_score")
+        risk_score: float | None = None
+        if risk_raw is not None:
+            risk_score = _coerce_float(risk_raw, "risk_score", minimum=0.0)
+            if risk_score > 1.0:
+                raise BadRequestError("risk_score must be <= 1.0")
+        outcome = _optional_nonempty_string(payload.get("outcome"), "outcome")
+        metadata = _optional_mapping(payload.get("metadata"), "metadata")
+
+        try:
+            return self.bridge.record_clinical_monitoring_visit(
+                trial_id=trial_id,
+                site_id=site_id,
+                visit_type=visit_type,
+                findings=findings,
+                action_items=action_items,
+                risk_score=risk_score,
+                outcome=outcome,
+                metadata=metadata,
+            )
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def add_clinical_query(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        patient_id = _optional_nonempty_string(payload.get("patient_id"), "patient_id")
+        site_id = _optional_nonempty_string(payload.get("site_id"), "site_id")
+        field_name = _optional_nonempty_string(payload.get("field_name"), "field_name")
+        description = _require_nonempty_string(payload.get("description"), "description")
+        status = _optional_nonempty_string(payload.get("status"), "status")
+        severity = _optional_nonempty_string(payload.get("severity"), "severity")
+        assignee = _optional_nonempty_string(payload.get("assignee"), "assignee")
+        due_at = _optional_nonempty_string(payload.get("due_at"), "due_at")
+        metadata = _optional_mapping(payload.get("metadata"), "metadata")
+
+        try:
+            return self.bridge.add_clinical_query(
+                trial_id=trial_id,
+                patient_id=patient_id,
+                site_id=site_id,
+                field_name=field_name,
+                description=description,
+                status=status,
+                severity=severity,
+                assignee=assignee,
+                due_at=due_at,
+                metadata=metadata,
+            )
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def update_clinical_query(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        query_id = _require_nonempty_string(payload.get("query_id"), "query_id")
+        updates = payload.get("updates")
+        if not isinstance(updates, dict):
+            raise BadRequestError("updates must be a JSON object")
+        try:
+            return self.bridge.update_clinical_query(
+                trial_id=trial_id,
+                query_id=query_id,
+                updates=updates,
+            )
+        except KeyError as exc:
+            if str(exc).strip("'") == query_id:
+                raise NotFoundError(f"Unknown query_id: {query_id}") from exc
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def add_clinical_deviation(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        description = _require_nonempty_string(payload.get("description"), "description")
+        site_id = _optional_nonempty_string(payload.get("site_id"), "site_id")
+        patient_id = _optional_nonempty_string(payload.get("patient_id"), "patient_id")
+        category = _optional_nonempty_string(payload.get("category"), "category")
+        severity = _optional_nonempty_string(payload.get("severity"), "severity")
+        status = _optional_nonempty_string(payload.get("status"), "status")
+        corrective_action = _optional_nonempty_string(
+            payload.get("corrective_action"),
+            "corrective_action",
+        )
+        preventive_action = _optional_nonempty_string(
+            payload.get("preventive_action"),
+            "preventive_action",
+        )
+        metadata = _optional_mapping(payload.get("metadata"), "metadata")
+        try:
+            return self.bridge.add_clinical_deviation(
+                trial_id=trial_id,
+                description=description,
+                site_id=site_id,
+                patient_id=patient_id,
+                category=category,
+                severity=severity,
+                status=status,
+                corrective_action=corrective_action,
+                preventive_action=preventive_action,
+                metadata=metadata,
+            )
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def add_clinical_safety_event(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        patient_id = _require_nonempty_string(payload.get("patient_id"), "patient_id")
+        event_term = _require_nonempty_string(payload.get("event_term"), "event_term")
+        site_id = _optional_nonempty_string(payload.get("site_id"), "site_id")
+        seriousness = _optional_nonempty_string(payload.get("seriousness"), "seriousness")
+        expected_raw = payload.get("expected")
+        expected: bool | None = None
+        if expected_raw is not None:
+            expected = bool(expected_raw)
+        relatedness = _optional_nonempty_string(payload.get("relatedness"), "relatedness")
+        outcome = _optional_nonempty_string(payload.get("outcome"), "outcome")
+        action_taken = _optional_nonempty_string(payload.get("action_taken"), "action_taken")
+        metadata = _optional_mapping(payload.get("metadata"), "metadata")
+        try:
+            return self.bridge.add_clinical_safety_event(
+                trial_id=trial_id,
+                patient_id=patient_id,
+                event_term=event_term,
+                site_id=site_id,
+                seriousness=seriousness,
+                expected=expected,
+                relatedness=relatedness,
+                outcome=outcome,
+                action_taken=action_taken,
+                metadata=metadata,
+            )
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
+
+    def upsert_clinical_milestone(self, payload: dict[str, Any]) -> dict[str, Any]:
+        trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
+        milestone_id = _optional_nonempty_string(payload.get("milestone_id"), "milestone_id")
+        name = _optional_nonempty_string(payload.get("name"), "name")
+        target_date = _optional_nonempty_string(payload.get("target_date"), "target_date")
+        status = _optional_nonempty_string(payload.get("status"), "status")
+        owner = _optional_nonempty_string(payload.get("owner"), "owner")
+        actual_date = _optional_nonempty_string(payload.get("actual_date"), "actual_date")
+        metadata = _optional_mapping(payload.get("metadata"), "metadata")
+        try:
+            return self.bridge.upsert_clinical_milestone(
+                trial_id=trial_id,
+                milestone_id=milestone_id,
+                name=name,
+                target_date=target_date,
+                status=status,
+                owner=owner,
+                actual_date=actual_date,
+                metadata=metadata,
+            )
+        except KeyError as exc:
+            raise NotFoundError(f"Unknown trial_id: {trial_id}") from exc
+        except ValueError as exc:
+            raise BadRequestError(str(exc)) from exc
 
 
 def _parse_statuses_query(query: dict[str, list[str]]) -> tuple[str, ...] | None:
@@ -1628,11 +1896,20 @@ def create_handler(app: StudioApp):
                     _json_response(self, HTTPStatus.OK, app.clinical_trials())
                     return
                 if path.startswith("/api/clinical/trials/"):
-                    trial_id = path.removeprefix("/api/clinical/trials/").strip("/")
-                    if not trial_id:
+                    parts = [token for token in path.split("/") if token]
+                    if len(parts) < 4:
                         raise BadRequestError("trial_id is required")
-                    _json_response(self, HTTPStatus.OK, app.clinical_trial(trial_id))
-                    return
+                    trial_id = parts[3]
+                    if len(parts) == 4:
+                        _json_response(self, HTTPStatus.OK, app.clinical_trial(trial_id))
+                        return
+                    if len(parts) == 5 and parts[4] == "sites":
+                        _json_response(self, HTTPStatus.OK, app.clinical_trial_sites(trial_id))
+                        return
+                    if len(parts) == 5 and parts[4] == "ops":
+                        _json_response(self, HTTPStatus.OK, app.clinical_trial_ops(trial_id))
+                        return
+                    raise NotFoundError("unknown clinical trial endpoint")
                 if path == "/api/jobs":
                     query = parse_qs(parsed.query, keep_blank_values=False)
                     _json_response(self, HTTPStatus.OK, app.list_jobs(query=query))
@@ -1783,6 +2060,30 @@ def create_handler(app: StudioApp):
                     return
                 if path == "/api/clinical/trials/simulate":
                     _json_response(self, HTTPStatus.OK, app.simulate_clinical_trial(payload))
+                    return
+                if path == "/api/clinical/trials/site/upsert":
+                    _json_response(self, HTTPStatus.OK, app.upsert_clinical_site(payload))
+                    return
+                if path == "/api/clinical/trials/screen":
+                    _json_response(self, HTTPStatus.OK, app.add_clinical_screening(payload))
+                    return
+                if path == "/api/clinical/trials/monitoring/visit":
+                    _json_response(self, HTTPStatus.OK, app.add_clinical_monitoring_visit(payload))
+                    return
+                if path == "/api/clinical/trials/query/add":
+                    _json_response(self, HTTPStatus.OK, app.add_clinical_query(payload))
+                    return
+                if path == "/api/clinical/trials/query/update":
+                    _json_response(self, HTTPStatus.OK, app.update_clinical_query(payload))
+                    return
+                if path == "/api/clinical/trials/deviation/add":
+                    _json_response(self, HTTPStatus.OK, app.add_clinical_deviation(payload))
+                    return
+                if path == "/api/clinical/trials/safety/add":
+                    _json_response(self, HTTPStatus.OK, app.add_clinical_safety_event(payload))
+                    return
+                if path == "/api/clinical/trials/milestone/upsert":
+                    _json_response(self, HTTPStatus.OK, app.upsert_clinical_milestone(payload))
                     return
                 if path == "/api/jobs/clear":
                     _json_response(self, HTTPStatus.OK, app.clear_jobs(payload))
