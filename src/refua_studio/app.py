@@ -23,6 +23,9 @@ _ALLOWED_JOB_STATUSES: frozenset[str] = frozenset(
 _ALLOWED_APPROVAL_DECISIONS: frozenset[str] = frozenset(
     {"approved", "rejected", "needs_changes"}
 )
+_ROLE_VIEWER = "viewer"
+_ROLE_OPERATOR = "operator"
+_ROLE_ADMIN = "admin"
 _STAGE_GATE_TEMPLATES: tuple[dict[str, Any], ...] = (
     {
         "id": "hit_to_lead",
@@ -132,6 +135,12 @@ class StudioApp:
                 "data_dir": str(self.config.data_dir),
                 "workspace_root": str(self.config.resolved_workspace_root),
                 "max_workers": self.config.max_workers,
+                "auth": {
+                    "enabled": self.config.auth_enabled,
+                    "viewer_tokens": len(self.config.auth_tokens),
+                    "operator_tokens": len(self.config.operator_tokens),
+                    "admin_tokens": len(self.config.admin_tokens),
+                },
             },
             "runtime": runtime,
         }
@@ -2108,6 +2117,88 @@ def _read_json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     return parsed
 
 
+def _required_api_role(*, method: str, path: str) -> str | None:
+    if not path.startswith("/api/"):
+        return None
+    normalized_method = method.upper()
+    if normalized_method == "GET":
+        return _ROLE_VIEWER
+    if normalized_method != "POST":
+        return _ROLE_VIEWER
+
+    if path == "/api/jobs/clear":
+        return _ROLE_ADMIN
+    if path.startswith("/api/programs/") and path.endswith("/approve"):
+        return _ROLE_ADMIN
+    return _ROLE_OPERATOR
+
+
+def _extract_bearer_token(handler: BaseHTTPRequestHandler) -> str | None:
+    raw = str(handler.headers.get("Authorization", "")).strip()
+    if not raw:
+        return None
+    parts = raw.split(None, 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    token = parts[1].strip()
+    return token or None
+
+
+def _is_role_allowed(*, token_roles: frozenset[str], required_role: str) -> bool:
+    if _ROLE_ADMIN in token_roles:
+        return True
+    if required_role == _ROLE_VIEWER:
+        return bool(token_roles)
+    if required_role == _ROLE_OPERATOR:
+        return _ROLE_OPERATOR in token_roles
+    if required_role == _ROLE_ADMIN:
+        return _ROLE_ADMIN in token_roles
+    return False
+
+
+def _authorize_request(
+    handler: BaseHTTPRequestHandler,
+    app: StudioApp,
+    *,
+    method: str,
+    path: str,
+) -> tuple[int, dict[str, Any]] | None:
+    required_role = _required_api_role(method=method, path=path)
+    if required_role is None or not app.config.auth_enabled:
+        return None
+
+    token = _extract_bearer_token(handler)
+    if token is None:
+        return (
+            HTTPStatus.UNAUTHORIZED,
+            {
+                "error": "Missing bearer token.",
+                "required_role": required_role,
+            },
+        )
+
+    token_roles = app.config.roles_for_token(token)
+    if not token_roles:
+        return (
+            HTTPStatus.UNAUTHORIZED,
+            {
+                "error": "Invalid bearer token.",
+                "required_role": required_role,
+            },
+        )
+
+    if not _is_role_allowed(token_roles=token_roles, required_role=required_role):
+        return (
+            HTTPStatus.FORBIDDEN,
+            {
+                "error": "Insufficient role for endpoint.",
+                "required_role": required_role,
+                "token_roles": sorted(token_roles),
+            },
+        )
+    return None
+
+
 def _load_static_file(static_dir: Path, request_path: str) -> tuple[bytes, str] | None:
     static_map = {
         "/assets/app.js": ("app.js", "application/javascript; charset=utf-8"),
@@ -2136,6 +2227,14 @@ def create_handler(app: StudioApp):
             path = parsed.path
 
             try:
+                auth_failure = _authorize_request(
+                    self, app, method="GET", path=path
+                )
+                if auth_failure is not None:
+                    status, payload = auth_failure
+                    _json_response(self, status, payload)
+                    return
+
                 if path == "/api/health":
                     _json_response(self, HTTPStatus.OK, app.health())
                     return
@@ -2295,6 +2394,14 @@ def create_handler(app: StudioApp):
             parsed = urlparse(self.path)
             path = parsed.path
             try:
+                auth_failure = _authorize_request(
+                    self, app, method="POST", path=path
+                )
+                if auth_failure is not None:
+                    status, payload = auth_failure
+                    _json_response(self, status, payload)
+                    return
+
                 payload = _read_json_body(self)
 
                 if path == "/api/plan":

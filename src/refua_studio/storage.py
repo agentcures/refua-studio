@@ -45,6 +45,7 @@ class JobStore:
                     job_id TEXT PRIMARY KEY,
                     kind TEXT NOT NULL,
                     status TEXT NOT NULL,
+                    cancel_requested INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     request_json TEXT NOT NULL,
@@ -55,6 +56,14 @@ class JobStore:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_jobs_updated ON jobs(updated_at DESC)"
             )
+            columns = {
+                str(row["name"])
+                for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
+            }
+            if "cancel_requested" not in columns:
+                conn.execute(
+                    "ALTER TABLE jobs ADD COLUMN cancel_requested INTEGER NOT NULL DEFAULT 0"
+                )
             conn.commit()
 
     def create_job(self, *, kind: str, request: dict[str, Any]) -> dict[str, Any]:
@@ -64,14 +73,15 @@ class JobStore:
             conn.execute(
                 """
                 INSERT INTO jobs(
-                    job_id, kind, status, created_at, updated_at,
+                    job_id, kind, status, cancel_requested, created_at, updated_at,
                     request_json, result_json, error_text
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job_id,
                     kind,
                     "queued",
+                    0,
                     now,
                     now,
                     json.dumps(request, ensure_ascii=True),
@@ -98,6 +108,7 @@ class JobStore:
             status="completed",
             result=result,
             error=None,
+            cancel_requested=False,
             allow_from=("running",),
         )
 
@@ -107,6 +118,7 @@ class JobStore:
             status="failed",
             result=None,
             error=error,
+            cancel_requested=False,
             allow_from=("running",),
         )
 
@@ -116,8 +128,40 @@ class JobStore:
             status="cancelled",
             result=None,
             error=reason,
-            allow_from=("queued",),
+            cancel_requested=True,
+            allow_from=("queued", "running"),
         )
+
+    def request_cancel(
+        self,
+        job_id: str,
+        *,
+        reason: str = "Cancellation requested by user.",
+    ) -> bool:
+        now = _utc_now_iso()
+        with self._lock, closing(self._connect()) as conn:
+            cursor = conn.execute(
+                """
+                UPDATE jobs
+                SET cancel_requested = 1,
+                    updated_at = ?,
+                    error_text = COALESCE(error_text, ?)
+                WHERE job_id = ? AND status = 'running'
+                """,
+                (now, reason, job_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def is_cancel_requested(self, job_id: str) -> bool:
+        with self._lock, closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT cancel_requested FROM jobs WHERE job_id = ?",
+                (job_id,),
+            ).fetchone()
+        if row is None:
+            return False
+        return bool(int(row["cancel_requested"]))
 
     def _set_status(
         self,
@@ -126,31 +170,49 @@ class JobStore:
         status: str,
         result: dict[str, Any] | None = None,
         error: str | None = None,
+        cancel_requested: bool | None = None,
         allow_from: tuple[str, ...] | None = None,
     ) -> bool:
         now = _utc_now_iso()
         result_json = (
             json.dumps(result, ensure_ascii=True) if result is not None else None
         )
+        cancel_requested_value = (
+            1 if cancel_requested else 0 if cancel_requested is not None else None
+        )
         with self._lock, closing(self._connect()) as conn:
+            if cancel_requested_value is None:
+                set_clause = "status = ?, updated_at = ?, result_json = ?, error_text = ?"
+                values: tuple[Any, ...] = (status, now, result_json, error)
+            else:
+                set_clause = (
+                    "status = ?, updated_at = ?, result_json = ?, error_text = ?, cancel_requested = ?"
+                )
+                values = (
+                    status,
+                    now,
+                    result_json,
+                    error,
+                    cancel_requested_value,
+                )
             if allow_from:
                 placeholders = ",".join("?" for _ in allow_from)
                 cursor = conn.execute(
                     f"""
                     UPDATE jobs
-                    SET status = ?, updated_at = ?, result_json = ?, error_text = ?
+                    SET {set_clause}
                     WHERE job_id = ? AND status IN ({placeholders})
                     """,
-                    (status, now, result_json, error, job_id, *allow_from),
+                    (*values, job_id, *allow_from),
                 )
             else:
                 cursor = conn.execute(
-                    """
+                    f"""
                     UPDATE jobs
-                    SET status = ?, updated_at = ?, result_json = ?, error_text = ?
+                    SET {set_clause}
                     WHERE job_id = ?
                     """,
-                    (status, now, result_json, error, job_id),
+                    (*values, job_id),
                 )
             conn.commit()
             return cursor.rowcount > 0
@@ -160,7 +222,7 @@ class JobStore:
             row = conn.execute(
                 """
                 SELECT job_id, kind, status, created_at, updated_at,
-                       request_json, result_json, error_text
+                       cancel_requested, request_json, result_json, error_text
                 FROM jobs
                 WHERE job_id = ?
                 """,
@@ -183,7 +245,7 @@ class JobStore:
                 rows = conn.execute(
                     f"""
                     SELECT job_id, kind, status, created_at, updated_at,
-                           request_json, result_json, error_text
+                           cancel_requested, request_json, result_json, error_text
                     FROM jobs
                     WHERE status IN ({placeholders})
                     ORDER BY updated_at DESC
@@ -195,7 +257,7 @@ class JobStore:
                 rows = conn.execute(
                     """
                     SELECT job_id, kind, status, created_at, updated_at,
-                           request_json, result_json, error_text
+                           cancel_requested, request_json, result_json, error_text
                     FROM jobs
                     ORDER BY updated_at DESC
                     LIMIT ?
@@ -238,6 +300,7 @@ class JobStore:
             "job_id": row["job_id"],
             "kind": row["kind"],
             "status": row["status"],
+            "cancel_requested": bool(int(row["cancel_requested"])),
             "created_at": created_at,
             "updated_at": updated_at,
             "duration_ms": _duration_ms(created_at, updated_at),

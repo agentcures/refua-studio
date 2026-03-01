@@ -50,13 +50,23 @@ class StudioApiTest(unittest.TestCase):
             os.environ["REFUA_CLINICAL_TRIAL_STORE"] = self._prev_trial_store
         self._tmp.cleanup()
 
-    def _request(self, method: str, path: str, payload: dict | None = None) -> dict:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        payload: dict | None = None,
+        *,
+        allow_error: bool = False,
+        token: str | None = None,
+    ) -> dict:
         url = f"http://{self.host}:{self.port}{path}"
         data = None
         headers = {}
         if payload is not None:
             data = json.dumps(payload).encode("utf-8")
             headers["Content-Type"] = "application/json"
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
 
         request = Request(url, method=method, data=data, headers=headers)
         try:
@@ -64,6 +74,10 @@ class StudioApiTest(unittest.TestCase):
                 return json.loads(response.read().decode("utf-8"))
         except HTTPError as exc:
             body = exc.read().decode("utf-8")
+            parsed = json.loads(body) if body else {}
+            exc.close()
+            if allow_error:
+                return {"status_code": exc.code, "body": parsed}
             raise AssertionError(f"HTTP {exc.code} for {path}: {body}") from exc
 
     def test_health_and_tools(self) -> None:
@@ -790,6 +804,118 @@ class StudioApiTest(unittest.TestCase):
         self.assertEqual(error.code, 404)
         _ = error.read()
         error.close()
+
+
+class StudioApiAuthTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self._prev_trial_store = os.environ.get("REFUA_CLINICAL_TRIAL_STORE")
+        os.environ["REFUA_CLINICAL_TRIAL_STORE"] = str(
+            Path(self._tmp.name) / "data" / "clinical_trials.json"
+        )
+        config = StudioConfig(
+            host="127.0.0.1",
+            port=0,
+            data_dir=Path(self._tmp.name) / "data",
+            workspace_root=Path(__file__).resolve().parents[2],
+            max_workers=1,
+            auth_tokens=("viewer-token",),
+            operator_tokens=("operator-token",),
+            admin_tokens=("admin-token",),
+        )
+        self.server, self.app = create_server(config)
+        self.host, self.port = self.server.server_address
+        self._thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self._thread.start()
+
+    def tearDown(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+        self.app.shutdown()
+        self._thread.join(timeout=2)
+        if self._prev_trial_store is None:
+            os.environ.pop("REFUA_CLINICAL_TRIAL_STORE", None)
+        else:
+            os.environ["REFUA_CLINICAL_TRIAL_STORE"] = self._prev_trial_store
+        self._tmp.cleanup()
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        payload: dict | None = None,
+        *,
+        token: str | None = None,
+        allow_error: bool = False,
+    ) -> dict:
+        url = f"http://{self.host}:{self.port}{path}"
+        data = None
+        headers = {}
+        if payload is not None:
+            data = json.dumps(payload).encode("utf-8")
+            headers["Content-Type"] = "application/json"
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        request = Request(url, method=method, data=data, headers=headers)
+        try:
+            with urlopen(request, timeout=5) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            body = exc.read().decode("utf-8")
+            parsed = json.loads(body) if body else {}
+            exc.close()
+            if allow_error:
+                return {"status_code": exc.code, "body": parsed}
+            raise AssertionError(f"HTTP {exc.code} for {path}: {body}") from exc
+
+    def test_auth_required_for_api_get(self) -> None:
+        missing = self._request("GET", "/api/health", allow_error=True)
+        self.assertEqual(missing["status_code"], 401)
+
+        ok = self._request("GET", "/api/health", token="viewer-token")
+        self.assertTrue(ok["ok"])
+
+    def test_post_requires_operator_role(self) -> None:
+        payload = {
+            "plan": {"calls": [{"tool": "refua_validate_spec", "args": {}}]},
+            "max_calls": 10,
+            "allow_skip_validate_first": False,
+        }
+        forbidden = self._request(
+            "POST",
+            "/api/plan/validate",
+            payload,
+            token="viewer-token",
+            allow_error=True,
+        )
+        self.assertEqual(forbidden["status_code"], 403)
+
+        allowed = self._request(
+            "POST",
+            "/api/plan/validate",
+            payload,
+            token="operator-token",
+        )
+        self.assertIn("approved", allowed)
+
+    def test_admin_required_for_clear_jobs(self) -> None:
+        forbidden = self._request(
+            "POST",
+            "/api/jobs/clear",
+            {"statuses": ["completed"]},
+            token="operator-token",
+            allow_error=True,
+        )
+        self.assertEqual(forbidden["status_code"], 403)
+
+        allowed = self._request(
+            "POST",
+            "/api/jobs/clear",
+            {"statuses": ["completed"]},
+            token="admin-token",
+        )
+        self.assertIn("deleted", allowed)
 
 
 if __name__ == "__main__":
