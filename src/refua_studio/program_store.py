@@ -30,8 +30,7 @@ class ProgramStore:
 
     def _init_db(self) -> None:
         with closing(self._connect()) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS programs (
                     program_id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -43,10 +42,8 @@ class ProgramStore:
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS program_events (
                     event_id TEXT PRIMARY KEY,
                     program_id TEXT NOT NULL,
@@ -58,10 +55,8 @@ class ProgramStore:
                     payload_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 )
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS program_approvals (
                     approval_id TEXT PRIMARY KEY,
                     program_id TEXT NOT NULL,
@@ -73,23 +68,18 @@ class ProgramStore:
                     metadata_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 )
-                """
-            )
+                """)
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_programs_updated ON programs(updated_at DESC)"
             )
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_program_events_program_created
                 ON program_events(program_id, created_at DESC)
-                """
-            )
-            conn.execute(
-                """
+                """)
+            conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_program_approvals_program_created
                 ON program_approvals(program_id, created_at DESC)
-                """
-            )
+                """)
             conn.commit()
 
     def upsert_program(
@@ -142,14 +132,32 @@ class ProgramStore:
                     """,
                     (
                         resolved_name,
-                        _normalize_text(indication)
-                        if indication is not None
-                        else existing.get("indication"),
-                        _normalize_text(target) if target is not None else existing.get("target"),
-                        _normalize_text(stage) if stage is not None else existing.get("stage"),
-                        _normalize_text(owner) if owner is not None else existing.get("owner"),
+                        (
+                            _normalize_text(indication)
+                            if indication is not None
+                            else existing.get("indication")
+                        ),
+                        (
+                            _normalize_text(target)
+                            if target is not None
+                            else existing.get("target")
+                        ),
+                        (
+                            _normalize_text(stage)
+                            if stage is not None
+                            else existing.get("stage")
+                        ),
+                        (
+                            _normalize_text(owner)
+                            if owner is not None
+                            else existing.get("owner")
+                        ),
                         json.dumps(
-                            metadata if metadata is not None else existing.get("metadata", {}),
+                            (
+                                metadata
+                                if metadata is not None
+                                else existing.get("metadata", {})
+                            ),
                             ensure_ascii=True,
                         ),
                         now,
@@ -187,8 +195,12 @@ class ProgramStore:
             ).fetchone()
 
         payload = self._row_to_program(row)
-        payload["events_count"] = int(events_count["c"]) if events_count is not None else 0
-        payload["approvals_count"] = int(approvals_count["c"]) if approvals_count is not None else 0
+        payload["events_count"] = (
+            int(events_count["c"]) if events_count is not None else 0
+        )
+        payload["approvals_count"] = (
+            int(approvals_count["c"]) if approvals_count is not None else 0
+        )
         return payload
 
     def list_programs(
@@ -388,7 +400,9 @@ class ProgramStore:
             return None
         return self._row_to_approval(row)
 
-    def list_approvals(self, *, program_id: str, limit: int = 200) -> list[dict[str, Any]]:
+    def list_approvals(
+        self, *, program_id: str, limit: int = 200
+    ) -> list[dict[str, Any]]:
         safe_limit = min(max(int(limit), 1), 2000)
         with self._lock, closing(self._connect()) as conn:
             rows = conn.execute(

@@ -116,7 +116,9 @@ class StudioApiTest(unittest.TestCase):
         self.assertGreaterEqual(len(payload["commands"]), 1)
 
     def test_drug_portfolio_endpoint(self) -> None:
-        job = self.app.store.create_job(kind="candidate-run", request={"objective": "find drugs"})
+        job = self.app.store.create_job(
+            kind="candidate-run", request={"objective": "find drugs"}
+        )
         self.app.store.set_running(job["job_id"])
         self.app.store.set_completed(
             job["job_id"],
@@ -153,7 +155,7 @@ class StudioApiTest(unittest.TestCase):
                             "assessment": "promising",
                         },
                     }
-                ]
+                ],
             },
         )
 
@@ -164,7 +166,9 @@ class StudioApiTest(unittest.TestCase):
         self.assertGreaterEqual(payload["summary"]["with_admet_properties"], 1)
         self.assertIn("admet", payload["candidates"][0])
 
-        alias_payload = self._request("GET", "/api/promising-cures?min_score=0&limit=20")
+        alias_payload = self._request(
+            "GET", "/api/promising-cures?min_score=0&limit=20"
+        )
         self.assertIn("summary", alias_payload)
         self.assertIn("candidates", alias_payload)
 

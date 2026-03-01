@@ -83,7 +83,9 @@ def build_drug_portfolio(
         candidates.extend(_extract_candidates_from_job(job))
 
     min_score_value = max(float(min_score), 0.0)
-    filtered = [candidate for candidate in candidates if candidate.score >= min_score_value]
+    filtered = [
+        candidate for candidate in candidates if candidate.score >= min_score_value
+    ]
     filtered.sort(key=lambda item: item.score, reverse=True)
 
     safe_limit = max(1, min(int(limit), 500))
@@ -109,7 +111,9 @@ def build_drug_portfolio(
 
     return {
         "summary": summary,
-        "candidates": [candidate.to_json(include_raw=include_raw) for candidate in selected],
+        "candidates": [
+            candidate.to_json(include_raw=include_raw) for candidate in selected
+        ],
     }
 
 
@@ -174,7 +178,9 @@ def _candidate_from_promising_cure(
     index: int,
 ) -> DrugCandidate | None:
     metrics_payload = cure_payload.get("metrics")
-    metrics = _coerce_metrics(metrics_payload if isinstance(metrics_payload, Mapping) else {})
+    metrics = _coerce_metrics(
+        metrics_payload if isinstance(metrics_payload, Mapping) else {}
+    )
 
     admet_payload = _normalize_admet_payload(cure_payload.get("admet"))
     if metrics.get("admet_score") is None:
@@ -184,7 +190,9 @@ def _candidate_from_promising_cure(
     if not assessment:
         assessment = _optional_text(admet_payload.get("assessment"))
 
-    score = _coerce_score(cure_payload.get("score"), metrics=metrics, assessment=assessment)
+    score = _coerce_score(
+        cure_payload.get("score"), metrics=metrics, assessment=assessment
+    )
     promising_raw = cure_payload.get("promising")
     if isinstance(promising_raw, bool):
         promising = promising_raw
@@ -244,48 +252,63 @@ def _candidate_from_tool_result(
 
     evidence_paths: dict[str, str] = {}
 
-    name, name_path = _pick_string(flat, [
-        "name",
-        "compound_name",
-        "ligand_name",
-        "candidate_name",
-        "ligand",
-        "binder",
-    ])
+    name, name_path = _pick_string(
+        flat,
+        [
+            "name",
+            "compound_name",
+            "ligand_name",
+            "candidate_name",
+            "ligand",
+            "binder",
+        ],
+    )
     if name_path:
         evidence_paths["name"] = name_path
 
-    smiles, smiles_path = _pick_string(flat, [
-        "smiles",
-        "ligand_smiles",
-        "compound_smiles",
-    ])
+    smiles, smiles_path = _pick_string(
+        flat,
+        [
+            "smiles",
+            "ligand_smiles",
+            "compound_smiles",
+        ],
+    )
     if smiles_path:
         evidence_paths["smiles"] = smiles_path
 
-    target, target_path = _pick_string(flat, [
-        "target",
-        "target_name",
-        "protein",
-        "antigen",
-    ])
+    target, target_path = _pick_string(
+        flat,
+        [
+            "target",
+            "target_name",
+            "protein",
+            "antigen",
+        ],
+    )
     if target_path:
         evidence_paths["target"] = target_path
 
-    binding_probability, binding_path = _pick_float(flat, [
-        "binding_probability",
-        "probability",
-        "p_bind",
-        "predicted_probability",
-    ])
+    binding_probability, binding_path = _pick_float(
+        flat,
+        [
+            "binding_probability",
+            "probability",
+            "p_bind",
+            "predicted_probability",
+        ],
+    )
     if binding_path:
         evidence_paths["binding_probability"] = binding_path
 
-    affinity, affinity_path = _pick_float(flat, [
-        "affinity",
-        "predicted_affinity",
-        "delta_g",
-    ])
+    affinity, affinity_path = _pick_float(
+        flat,
+        [
+            "affinity",
+            "predicted_affinity",
+            "delta_g",
+        ],
+    )
     if affinity_path:
         evidence_paths["affinity"] = affinity_path
 
@@ -300,20 +323,26 @@ def _candidate_from_tool_result(
     admet_payload = _normalize_admet_payload(output)
     admet_score = admet_payload["key_metrics"].get("admet_score")
     if admet_score is None:
-        admet_score, admet_path = _pick_float(flat, [
-            "admet_score",
-            "overall_score",
-            "druglikeness",
-            "score_admet",
-        ])
+        admet_score, admet_path = _pick_float(
+            flat,
+            [
+                "admet_score",
+                "overall_score",
+                "druglikeness",
+                "score_admet",
+            ],
+        )
         if admet_path:
             evidence_paths["admet_score"] = admet_path
 
-    assessment, assessment_path = _pick_string(flat, [
-        "assessment",
-        "admet_assessment",
-        "safety_assessment",
-    ])
+    assessment, assessment_path = _pick_string(
+        flat,
+        [
+            "assessment",
+            "admet_assessment",
+            "safety_assessment",
+        ],
+    )
     if assessment_path:
         evidence_paths["assessment"] = assessment_path
     if not assessment:
@@ -372,7 +401,10 @@ def _normalize_admet_payload(value: Any) -> dict[str, Any]:
             continue
         if not any(token in normalized_path for token in _ADMET_HINTS):
             continue
-        if normalized_path.startswith("key_metrics.") or ".key_metrics." in normalized_path:
+        if (
+            normalized_path.startswith("key_metrics.")
+            or ".key_metrics." in normalized_path
+        ):
             continue
         normalized_key = key.strip(".")
         if normalized_key.startswith("admet."):
@@ -469,7 +501,9 @@ def _resolve_text(
     return None
 
 
-def _score_candidate(*, metrics: dict[str, float | None], assessment: str | None) -> float:
+def _score_candidate(
+    *, metrics: dict[str, float | None], assessment: str | None
+) -> float:
     score = 0.0
 
     binding_probability = metrics.get("binding_probability")
@@ -546,7 +580,9 @@ def _is_scalar(value: Any) -> bool:
     return isinstance(value, (str, int, float, bool)) or value is None
 
 
-def _pick_string(flat: dict[str, Any], aliases: list[str]) -> tuple[str | None, str | None]:
+def _pick_string(
+    flat: dict[str, Any], aliases: list[str]
+) -> tuple[str | None, str | None]:
     value, path = _pick_value(flat, aliases)
     if isinstance(value, str):
         cleaned = value.strip()
@@ -555,7 +591,9 @@ def _pick_string(flat: dict[str, Any], aliases: list[str]) -> tuple[str | None, 
     return None, None
 
 
-def _pick_float(flat: dict[str, Any], aliases: list[str]) -> tuple[float | None, str | None]:
+def _pick_float(
+    flat: dict[str, Any], aliases: list[str]
+) -> tuple[float | None, str | None]:
     value, path = _pick_value(flat, aliases)
     return _coerce_float(value), path
 
@@ -581,7 +619,9 @@ def _optional_text(value: Any) -> str | None:
     return None
 
 
-def _pick_value(flat: dict[str, Any], aliases: list[str]) -> tuple[Any | None, str | None]:
+def _pick_value(
+    flat: dict[str, Any], aliases: list[str]
+) -> tuple[Any | None, str | None]:
     exact_hits: list[tuple[str, Any]] = []
     loose_hits: list[tuple[str, Any]] = []
 

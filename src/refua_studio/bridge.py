@@ -314,8 +314,13 @@ class CampaignBridge:
         objective = _DEFAULT_CLAWCURES_OBJECTIVE
         prompt_text = ""
         allowlist: list[str] = list(STATIC_TOOL_LIST)
-        prompt_path = self._workspace_root / "ClawCures" / "src" / "refua_campaign" / "prompts" / (
-            "default_system_prompt.txt"
+        prompt_path = (
+            self._workspace_root
+            / "ClawCures"
+            / "src"
+            / "refua_campaign"
+            / "prompts"
+            / ("default_system_prompt.txt")
         )
 
         try:
@@ -341,11 +346,15 @@ class CampaignBridge:
             adapter_mod = self._import("refua_campaign.refua_mcp_adapter")
             raw_allowlist = getattr(adapter_mod, "DEFAULT_TOOL_LIST", ())
             if isinstance(raw_allowlist, (list, tuple)):
-                allowlist = [str(name) for name in raw_allowlist if isinstance(name, str)]
+                allowlist = [
+                    str(name) for name in raw_allowlist if isinstance(name, str)
+                ]
         except Exception as exc:  # noqa: BLE001
             warnings.append(f"Could not load ClawCures tool allowlist: {exc}")
 
-        prompt_lines = [line.strip() for line in prompt_text.splitlines() if line.strip()]
+        prompt_lines = [
+            line.strip() for line in prompt_text.splitlines() if line.strip()
+        ]
         prompt_preview = "\n".join(prompt_lines[:6])
 
         return (
@@ -453,7 +462,9 @@ class CampaignBridge:
 
     def ecosystem(self) -> dict[str, Any]:
         warnings: list[str] = []
-        products = [self._load_product_status(descriptor) for descriptor in _PRODUCT_REGISTRY]
+        products = [
+            self._load_product_status(descriptor) for descriptor in _PRODUCT_REGISTRY
+        ]
 
         clawcures_defaults, clawcures_warnings = self._clawcures_defaults()
         warnings.extend(clawcures_warnings)
@@ -488,7 +499,9 @@ class CampaignBridge:
 
         normalized_plan = _to_plain_data(plan) if isinstance(plan, dict) else None
         normalized_prompt = (
-            system_prompt.strip() if isinstance(system_prompt, str) and system_prompt.strip() else None
+            system_prompt.strip()
+            if isinstance(system_prompt, str) and system_prompt.strip()
+            else None
         )
         mode_command = "run-autonomous" if autonomous else "run"
 
@@ -508,7 +521,9 @@ class CampaignBridge:
         if write_file:
             artifact_dir.mkdir(parents=True, exist_ok=True)
             filename = artifact_name or (
-                "clawcures_handoff_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + ".json"
+                "clawcures_handoff_"
+                + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+                + ".json"
             )
             if not filename.endswith(".json"):
                 filename = f"{filename}.json"
@@ -565,7 +580,9 @@ class CampaignBridge:
 
         return payload
 
-    def plan(self, *, objective: str, system_prompt: str | None = None) -> dict[str, Any]:
+    def plan(
+        self, *, objective: str, system_prompt: str | None = None
+    ) -> dict[str, Any]:
         objective_text = objective.strip()
         if not objective_text:
             raise ValueError("objective must be a non-empty string")
@@ -786,7 +803,9 @@ class CampaignBridge:
             }
         else:
             planner = autonomy_mod.AutonomousPlanner(
-                openclaw=openclaw_mod.OpenClawClient(config_mod.OpenClawConfig.from_env()),
+                openclaw=openclaw_mod.OpenClawClient(
+                    config_mod.OpenClawConfig.from_env()
+                ),
                 available_tools=tools,
                 policy=policy,
             )
@@ -812,7 +831,9 @@ class CampaignBridge:
 
         final_plan = payload.get("final_plan")
         if not isinstance(final_plan, dict):
-            raise StudioBridgeError("Autonomous planner did not produce a valid final_plan.")
+            raise StudioBridgeError(
+                "Autonomous planner did not produce a valid final_plan."
+            )
 
         results = adapter.execute_plan(final_plan)
         serialized_results = [
@@ -891,7 +912,9 @@ class CampaignBridge:
 
     def _clinical_controller(self) -> Any:
         clinical_mod = self._import("refua_campaign.clinical_trials")
-        return clinical_mod.ClawCuresClinicalController(workspace_root=self._workspace_root)
+        return clinical_mod.ClawCuresClinicalController(
+            workspace_root=self._workspace_root
+        )
 
     def list_clinical_trials(self) -> dict[str, Any]:
         controller = self._clinical_controller()
@@ -925,7 +948,9 @@ class CampaignBridge:
             )
         )
 
-    def update_clinical_trial(self, *, trial_id: str, updates: dict[str, Any]) -> dict[str, Any]:
+    def update_clinical_trial(
+        self, *, trial_id: str, updates: dict[str, Any]
+    ) -> dict[str, Any]:
         controller = self._clinical_controller()
         return _to_plain_data(controller.update_trial(trial_id, updates=updates))
 
@@ -1496,7 +1521,9 @@ class CampaignBridge:
             manager = refua_data_mod.DatasetManager()
             datasets = manager.list_datasets(tag=tag)
         except Exception as exc:  # noqa: BLE001
-            warnings.append(f"Fell back to static catalog because refua_data import failed: {exc}")
+            warnings.append(
+                f"Fell back to static catalog because refua_data import failed: {exc}"
+            )
             catalog_mod = self._import("refua_data.catalog")
             catalog = catalog_mod.get_default_catalog()
             datasets = catalog.filter_by_tag(tag) if tag else catalog.list()
@@ -1599,12 +1626,14 @@ class CampaignBridge:
             provenance=provenance,
             candidate_output_path=(
                 self._resolve_workspace_path(candidate_output_path)
-                if isinstance(candidate_output_path, str) and candidate_output_path.strip()
+                if isinstance(candidate_output_path, str)
+                and candidate_output_path.strip()
                 else None
             ),
             comparison_output_path=(
                 self._resolve_workspace_path(comparison_output_path)
-                if isinstance(comparison_output_path, str) and comparison_output_path.strip()
+                if isinstance(comparison_output_path, str)
+                and comparison_output_path.strip()
                 else None
             ),
         )
@@ -1636,7 +1665,9 @@ class CampaignBridge:
     ) -> dict[str, Any]:
         engine_mod = self._import("refua_wetlab.engine")
         engine = engine_mod.UnifiedWetLabEngine()
-        payload = engine.compile_protocol(provider_id=provider, protocol_payload=protocol)
+        payload = engine.compile_protocol(
+            provider_id=provider, protocol_payload=protocol
+        )
         return _to_plain_data(payload)
 
     def wetlab_run_protocol(

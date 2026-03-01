@@ -109,7 +109,9 @@ class CampaignBridgeTest(unittest.TestCase):
     def test_clinical_trial_bridge_flow(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             previous = os.environ.get("REFUA_CLINICAL_TRIAL_STORE")
-            os.environ["REFUA_CLINICAL_TRIAL_STORE"] = str(Path(tmp) / "clinical_trials.json")
+            os.environ["REFUA_CLINICAL_TRIAL_STORE"] = str(
+                Path(tmp) / "clinical_trials.json"
+            )
             try:
                 created = self.bridge.add_clinical_trial(
                     trial_id="bridge-clinical",
@@ -277,7 +279,9 @@ class CampaignBridgeTest(unittest.TestCase):
         self.assertIn("schedule", schedule)
         self.assertGreater(schedule["schedule"]["event_count"], 0)
 
-        bio = self.bridge.preclinical_bioanalysis(study=study, rows=rows, lloq_ng_ml=1.0)
+        bio = self.bridge.preclinical_bioanalysis(
+            study=study, rows=rows, lloq_ng_ml=1.0
+        )
         self.assertIn("bioanalysis", bio)
         self.assertGreaterEqual(bio["bioanalysis"]["parsed_rows"], 1)
 

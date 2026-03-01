@@ -31,7 +31,11 @@ _STAGE_GATE_TEMPLATES: tuple[dict[str, Any], ...] = (
         "criteria": (
             {"metric": "promising_leads", "min": 3.0, "label": "Promising leads"},
             {"metric": "mean_admet_score", "min": 0.65, "label": "Mean ADMET score"},
-            {"metric": "mean_binding_probability", "min": 0.7, "label": "Mean binding probability"},
+            {
+                "metric": "mean_binding_probability",
+                "min": 0.7,
+                "label": "Mean binding probability",
+            },
         ),
     },
     {
@@ -41,7 +45,11 @@ _STAGE_GATE_TEMPLATES: tuple[dict[str, Any], ...] = (
         "criteria": (
             {"metric": "top_lead_score", "min": 72.0, "label": "Top lead score"},
             {"metric": "mean_admet_score", "min": 0.72, "label": "Mean ADMET score"},
-            {"metric": "wetlab_success_rate", "min": 0.6, "label": "Wet-lab success rate"},
+            {
+                "metric": "wetlab_success_rate",
+                "min": 0.6,
+                "label": "Wet-lab success rate",
+            },
         ),
     },
     {
@@ -49,9 +57,21 @@ _STAGE_GATE_TEMPLATES: tuple[dict[str, Any], ...] = (
         "label": "IND-Enabling",
         "description": "Confirm readiness for IND-enabling package assembly.",
         "criteria": (
-            {"metric": "regulatory_checklist_pass_rate", "min": 0.95, "label": "Checklist pass rate"},
-            {"metric": "safety_margin_index", "min": 1.2, "label": "Safety margin index"},
-            {"metric": "manufacturability_index", "min": 0.7, "label": "Manufacturability index"},
+            {
+                "metric": "regulatory_checklist_pass_rate",
+                "min": 0.95,
+                "label": "Checklist pass rate",
+            },
+            {
+                "metric": "safety_margin_index",
+                "min": 1.2,
+                "label": "Safety margin index",
+            },
+            {
+                "metric": "manufacturability_index",
+                "min": 0.7,
+                "label": "Manufacturability index",
+            },
         ),
     },
 )
@@ -140,7 +160,9 @@ class StudioApp:
             "counts": self.programs.counts(),
         }
 
-    def get_program(self, program_id: str, *, query: dict[str, list[str]]) -> dict[str, Any]:
+    def get_program(
+        self, program_id: str, *, query: dict[str, list[str]]
+    ) -> dict[str, Any]:
         program = self.programs.get_program(program_id)
         if program is None:
             raise NotFoundError(f"Unknown program_id: {program_id}")
@@ -148,7 +170,9 @@ class StudioApp:
         approval_limit = _query_int(query, name="approval_limit", default=80, minimum=1)
         return {
             "program": program,
-            "events": self.programs.list_events(program_id=program_id, limit=event_limit),
+            "events": self.programs.list_events(
+                program_id=program_id, limit=event_limit
+            ),
             "approvals": self.programs.list_approvals(
                 program_id=program_id,
                 limit=approval_limit,
@@ -198,7 +222,9 @@ class StudioApp:
     ) -> dict[str, Any]:
         event_type = _require_nonempty_string(payload.get("event_type"), "event_type")
         title = _require_nonempty_string(payload.get("title"), "title")
-        status = _optional_nonempty_string(payload.get("status"), "status") or "recorded"
+        status = (
+            _optional_nonempty_string(payload.get("status"), "status") or "recorded"
+        )
         source = _optional_nonempty_string(payload.get("source"), "source")
         run_id = _optional_nonempty_string(payload.get("run_id"), "run_id")
         event_payload = _optional_mapping(payload.get("payload"), "payload")
@@ -227,7 +253,9 @@ class StudioApp:
         limit = _query_int(query, name="limit", default=200, minimum=1)
         return {
             "program_id": program_id,
-            "approvals": self.programs.list_approvals(program_id=program_id, limit=limit),
+            "approvals": self.programs.list_approvals(
+                program_id=program_id, limit=limit
+            ),
         }
 
     def add_program_approval(
@@ -273,7 +301,10 @@ class StudioApp:
 
     def stage_gate_templates(self) -> dict[str, Any]:
         return {
-            "templates": [self._stage_gate_template_payload(item) for item in _STAGE_GATE_TEMPLATES],
+            "templates": [
+                self._stage_gate_template_payload(item)
+                for item in _STAGE_GATE_TEMPLATES
+            ],
             "count": len(_STAGE_GATE_TEMPLATES),
         }
 
@@ -286,13 +317,17 @@ class StudioApp:
         if program is None:
             raise NotFoundError(f"Unknown program_id: {program_id}")
 
-        template_id = _require_nonempty_string(payload.get("template_id"), "template_id")
+        template_id = _require_nonempty_string(
+            payload.get("template_id"), "template_id"
+        )
         template = self._stage_gate_template(template_id)
 
         metrics = payload.get("metrics")
         if not isinstance(metrics, dict):
             raise BadRequestError("metrics must be a JSON object")
-        normalized_metrics = {str(key): _to_metric_float(value) for key, value in metrics.items()}
+        normalized_metrics = {
+            str(key): _to_metric_float(value) for key, value in metrics.items()
+        }
 
         checks: list[dict[str, Any]] = []
         passed = True
@@ -364,14 +399,20 @@ class StudioApp:
         statuses = payload.get("statuses")
         selected_statuses: tuple[str, ...] = ("completed", "failed", "cancelled")
         if statuses is not None:
-            if not isinstance(statuses, list) or any(not isinstance(item, str) for item in statuses):
+            if not isinstance(statuses, list) or any(
+                not isinstance(item, str) for item in statuses
+            ):
                 raise BadRequestError("statuses must be an array of strings")
             normalized = tuple(item.strip() for item in statuses if item.strip())
             if not normalized:
                 raise BadRequestError("statuses must not be empty")
-            invalid = [status for status in normalized if status not in _ALLOWED_JOB_STATUSES]
+            invalid = [
+                status for status in normalized if status not in _ALLOWED_JOB_STATUSES
+            ]
             if invalid:
-                raise BadRequestError(f"Unsupported statuses: {', '.join(sorted(set(invalid)))}")
+                raise BadRequestError(
+                    f"Unsupported statuses: {', '.join(sorted(set(invalid)))}"
+                )
             selected_statuses = normalized
 
         limit = _coerce_int(payload.get("limit", 500), "limit", minimum=1)
@@ -451,7 +492,9 @@ class StudioApp:
         force = bool(payload.get("force", False))
         refresh = bool(payload.get("refresh", False))
         async_mode = bool(payload.get("async_mode", True))
-        chunksize = _coerce_int(payload.get("chunksize", 100_000), "chunksize", minimum=1)
+        chunksize = _coerce_int(
+            payload.get("chunksize", 100_000), "chunksize", minimum=1
+        )
         timeout_seconds = _coerce_float(
             payload.get("timeout_seconds", 120.0),
             "timeout_seconds",
@@ -495,12 +538,19 @@ class StudioApp:
             payload.get("baseline_run_path"),
             "baseline_run_path",
         )
-        adapter_spec = _optional_nonempty_string(payload.get("adapter_spec"), "adapter_spec") or "file"
-        adapter_config = _optional_mapping(payload.get("adapter_config"), "adapter_config")
+        adapter_spec = (
+            _optional_nonempty_string(payload.get("adapter_spec"), "adapter_spec")
+            or "file"
+        )
+        adapter_config = _optional_mapping(
+            payload.get("adapter_config"), "adapter_config"
+        )
         async_mode = bool(payload.get("async_mode", True))
 
         model_name = _optional_nonempty_string(payload.get("model_name"), "model_name")
-        model_version = _optional_nonempty_string(payload.get("model_version"), "model_version")
+        model_version = _optional_nonempty_string(
+            payload.get("model_version"), "model_version"
+        )
         candidate_output_path = _optional_nonempty_string(
             payload.get("candidate_output_path"),
             "candidate_output_path",
@@ -527,7 +577,9 @@ class StudioApp:
         )
         bootstrap_seed: int | None = None
         if payload.get("bootstrap_seed") is not None:
-            bootstrap_seed = _coerce_int(payload.get("bootstrap_seed"), "bootstrap_seed")
+            bootstrap_seed = _coerce_int(
+                payload.get("bootstrap_seed"), "bootstrap_seed"
+            )
         fail_on_uncertain = bool(payload.get("fail_on_uncertain", False))
 
         request_payload = {
@@ -606,7 +658,9 @@ class StudioApp:
         if not isinstance(protocol, dict):
             raise BadRequestError("protocol must be a JSON object")
         try:
-            return self.bridge.wetlab_compile_protocol(provider=provider, protocol=protocol)
+            return self.bridge.wetlab_compile_protocol(
+                provider=provider, protocol=protocol
+            )
         except Exception as exc:  # noqa: BLE001
             raise BadRequestError(str(exc)) from exc
 
@@ -687,7 +741,9 @@ class StudioApp:
         root = self.config.data_dir / "regulatory"
         bundles: list[dict[str, Any]] = []
         if root.exists():
-            for path in sorted(root.glob("*"), key=lambda item: item.name, reverse=True):
+            for path in sorted(
+                root.glob("*"), key=lambda item: item.name, reverse=True
+            ):
                 if not path.is_dir():
                     continue
                 manifest_path = path / "manifest.json"
@@ -730,12 +786,20 @@ class StudioApp:
         output_dir = _optional_nonempty_string(payload.get("output_dir"), "output_dir")
         if output_dir is None:
             stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-            output_dir = str((self.config.data_dir / "regulatory" / f"bundle_{stamp}").resolve())
+            output_dir = str(
+                (self.config.data_dir / "regulatory" / f"bundle_{stamp}").resolve()
+            )
 
-        data_manifest_paths = _optional_string_list(payload.get("data_manifest_paths"), "data_manifest_paths")
-        extra_artifacts = _optional_string_list(payload.get("extra_artifacts"), "extra_artifacts")
+        data_manifest_paths = _optional_string_list(
+            payload.get("data_manifest_paths"), "data_manifest_paths"
+        )
+        extra_artifacts = _optional_string_list(
+            payload.get("extra_artifacts"), "extra_artifacts"
+        )
         include_checklists = bool(payload.get("include_checklists", True))
-        checklist_templates = _optional_string_list(payload.get("checklist_templates"), "checklist_templates")
+        checklist_templates = _optional_string_list(
+            payload.get("checklist_templates"), "checklist_templates"
+        )
         checklist_strict = bool(payload.get("checklist_strict", False))
         checklist_require_no_manual_review = bool(
             payload.get("checklist_require_no_manual_review", False)
@@ -849,7 +913,9 @@ class StudioApp:
             if str(template.get("id")) == template_id:
                 return template
         available = ", ".join(sorted(str(item["id"]) for item in _STAGE_GATE_TEMPLATES))
-        raise BadRequestError(f"Unknown template_id '{template_id}'. Available: {available}")
+        raise BadRequestError(
+            f"Unknown template_id '{template_id}'. Available: {available}"
+        )
 
     @staticmethod
     def _stage_gate_template_payload(template: dict[str, Any]) -> dict[str, Any]:
@@ -873,7 +939,9 @@ class StudioApp:
             try:
                 limit = int(query["limit"][0])
             except (TypeError, ValueError, IndexError) as exc:
-                raise BadRequestError("Query parameter 'limit' must be an integer") from exc
+                raise BadRequestError(
+                    "Query parameter 'limit' must be an integer"
+                ) from exc
 
         statuses = _parse_statuses_query(query)
 
@@ -900,12 +968,16 @@ class StudioApp:
         if statuses is None:
             target_statuses = _FINISHED_STATUSES
         else:
-            if not isinstance(statuses, list) or any(not isinstance(s, str) for s in statuses):
+            if not isinstance(statuses, list) or any(
+                not isinstance(s, str) for s in statuses
+            ):
                 raise BadRequestError("statuses must be an array of strings")
             normalized = tuple(s.strip() for s in statuses if s.strip())
             if not normalized:
                 raise BadRequestError("statuses must not be empty")
-            invalid = [status for status in normalized if status not in _ALLOWED_JOB_STATUSES]
+            invalid = [
+                status for status in normalized if status not in _ALLOWED_JOB_STATUSES
+            ]
             if invalid:
                 raise BadRequestError(
                     f"Unsupported statuses: {', '.join(sorted(set(invalid)))}"
@@ -921,17 +993,23 @@ class StudioApp:
 
     def plan(self, payload: dict[str, Any]) -> dict[str, Any]:
         objective = _require_nonempty_string(payload.get("objective"), "objective")
-        system_prompt = _optional_nonempty_string(payload.get("system_prompt"), "system_prompt")
+        system_prompt = _optional_nonempty_string(
+            payload.get("system_prompt"), "system_prompt"
+        )
         return self.bridge.plan(objective=objective, system_prompt=system_prompt)
 
     def run(self, payload: dict[str, Any]) -> dict[str, Any]:
         objective = _require_nonempty_string(payload.get("objective"), "objective")
-        system_prompt = _optional_nonempty_string(payload.get("system_prompt"), "system_prompt")
+        system_prompt = _optional_nonempty_string(
+            payload.get("system_prompt"), "system_prompt"
+        )
         dry_run = bool(payload.get("dry_run", False))
         autonomous = bool(payload.get("autonomous", False))
         max_rounds = _coerce_int(payload.get("max_rounds", 3), "max_rounds", minimum=1)
         max_calls = _coerce_int(payload.get("max_calls", 10), "max_calls", minimum=1)
-        allow_skip_validate_first = bool(payload.get("allow_skip_validate_first", False))
+        allow_skip_validate_first = bool(
+            payload.get("allow_skip_validate_first", False)
+        )
         async_mode = bool(payload.get("async_mode", True))
         program_id = _optional_nonempty_string(payload.get("program_id"), "program_id")
         if program_id and self.programs.get_program(program_id) is None:
@@ -1065,7 +1143,9 @@ class StudioApp:
             raise BadRequestError("plan must be a JSON object")
 
         max_calls = _coerce_int(payload.get("max_calls", 10), "max_calls", minimum=1)
-        allow_skip_validate_first = bool(payload.get("allow_skip_validate_first", False))
+        allow_skip_validate_first = bool(
+            payload.get("allow_skip_validate_first", False)
+        )
         return self.bridge.validate_plan(
             plan=plan,
             max_calls=max_calls,
@@ -1106,7 +1186,9 @@ class StudioApp:
 
     def clawcures_handoff(self, payload: dict[str, Any]) -> dict[str, Any]:
         objective = _optional_nonempty_string(payload.get("objective"), "objective")
-        system_prompt = _optional_nonempty_string(payload.get("system_prompt"), "system_prompt")
+        system_prompt = _optional_nonempty_string(
+            payload.get("system_prompt"), "system_prompt"
+        )
 
         plan_payload = payload.get("plan")
         if plan_payload is not None and not isinstance(plan_payload, dict):
@@ -1115,9 +1197,13 @@ class StudioApp:
         autonomous = bool(payload.get("autonomous", False))
         dry_run = bool(payload.get("dry_run", True))
         max_calls = _coerce_int(payload.get("max_calls", 10), "max_calls", minimum=1)
-        allow_skip_validate_first = bool(payload.get("allow_skip_validate_first", False))
+        allow_skip_validate_first = bool(
+            payload.get("allow_skip_validate_first", False)
+        )
         write_file = bool(payload.get("write_file", True))
-        artifact_name = _optional_nonempty_string(payload.get("artifact_name"), "artifact_name")
+        artifact_name = _optional_nonempty_string(
+            payload.get("artifact_name"), "artifact_name"
+        )
 
         artifact_dir = self.config.data_dir / "handoffs"
         return self.bridge.build_clawcures_handoff(
@@ -1210,7 +1296,9 @@ class StudioApp:
         except ValueError as exc:
             raise BadRequestError(str(exc)) from exc
 
-    def enroll_simulated_clinical_patients(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def enroll_simulated_clinical_patients(
+        self, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
         count = _coerce_int(payload.get("count", 0), "count", minimum=1)
 
@@ -1236,7 +1324,10 @@ class StudioApp:
         values = payload.get("values")
         if not isinstance(values, dict):
             raise BadRequestError("values must be a JSON object")
-        result_type = _optional_nonempty_string(payload.get("result_type"), "result_type") or "endpoint"
+        result_type = (
+            _optional_nonempty_string(payload.get("result_type"), "result_type")
+            or "endpoint"
+        )
         visit = _optional_nonempty_string(payload.get("visit"), "visit")
         source = _optional_nonempty_string(payload.get("source"), "source")
         site_id = _optional_nonempty_string(payload.get("site_id"), "site_id")
@@ -1360,7 +1451,9 @@ class StudioApp:
         status = _optional_nonempty_string(payload.get("status"), "status")
         arm_id = _optional_nonempty_string(payload.get("arm_id"), "arm_id")
         source = _optional_nonempty_string(payload.get("source"), "source")
-        failure_reason = _optional_nonempty_string(payload.get("failure_reason"), "failure_reason")
+        failure_reason = _optional_nonempty_string(
+            payload.get("failure_reason"), "failure_reason"
+        )
         demographics = _optional_mapping(payload.get("demographics"), "demographics")
         baseline = _optional_mapping(payload.get("baseline"), "baseline")
         metadata = _optional_mapping(payload.get("metadata"), "metadata")
@@ -1433,7 +1526,9 @@ class StudioApp:
         patient_id = _optional_nonempty_string(payload.get("patient_id"), "patient_id")
         site_id = _optional_nonempty_string(payload.get("site_id"), "site_id")
         field_name = _optional_nonempty_string(payload.get("field_name"), "field_name")
-        description = _require_nonempty_string(payload.get("description"), "description")
+        description = _require_nonempty_string(
+            payload.get("description"), "description"
+        )
         status = _optional_nonempty_string(payload.get("status"), "status")
         severity = _optional_nonempty_string(payload.get("severity"), "severity")
         assignee = _optional_nonempty_string(payload.get("assignee"), "assignee")
@@ -1479,7 +1574,9 @@ class StudioApp:
 
     def add_clinical_deviation(self, payload: dict[str, Any]) -> dict[str, Any]:
         trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
-        description = _require_nonempty_string(payload.get("description"), "description")
+        description = _require_nonempty_string(
+            payload.get("description"), "description"
+        )
         site_id = _optional_nonempty_string(payload.get("site_id"), "site_id")
         patient_id = _optional_nonempty_string(payload.get("patient_id"), "patient_id")
         category = _optional_nonempty_string(payload.get("category"), "category")
@@ -1517,14 +1614,20 @@ class StudioApp:
         patient_id = _require_nonempty_string(payload.get("patient_id"), "patient_id")
         event_term = _require_nonempty_string(payload.get("event_term"), "event_term")
         site_id = _optional_nonempty_string(payload.get("site_id"), "site_id")
-        seriousness = _optional_nonempty_string(payload.get("seriousness"), "seriousness")
+        seriousness = _optional_nonempty_string(
+            payload.get("seriousness"), "seriousness"
+        )
         expected_raw = payload.get("expected")
         expected: bool | None = None
         if expected_raw is not None:
             expected = bool(expected_raw)
-        relatedness = _optional_nonempty_string(payload.get("relatedness"), "relatedness")
+        relatedness = _optional_nonempty_string(
+            payload.get("relatedness"), "relatedness"
+        )
         outcome = _optional_nonempty_string(payload.get("outcome"), "outcome")
-        action_taken = _optional_nonempty_string(payload.get("action_taken"), "action_taken")
+        action_taken = _optional_nonempty_string(
+            payload.get("action_taken"), "action_taken"
+        )
         metadata = _optional_mapping(payload.get("metadata"), "metadata")
         try:
             return self.bridge.add_clinical_safety_event(
@@ -1546,12 +1649,18 @@ class StudioApp:
 
     def upsert_clinical_milestone(self, payload: dict[str, Any]) -> dict[str, Any]:
         trial_id = _require_nonempty_string(payload.get("trial_id"), "trial_id")
-        milestone_id = _optional_nonempty_string(payload.get("milestone_id"), "milestone_id")
+        milestone_id = _optional_nonempty_string(
+            payload.get("milestone_id"), "milestone_id"
+        )
         name = _optional_nonempty_string(payload.get("name"), "name")
-        target_date = _optional_nonempty_string(payload.get("target_date"), "target_date")
+        target_date = _optional_nonempty_string(
+            payload.get("target_date"), "target_date"
+        )
         status = _optional_nonempty_string(payload.get("status"), "status")
         owner = _optional_nonempty_string(payload.get("owner"), "owner")
-        actual_date = _optional_nonempty_string(payload.get("actual_date"), "actual_date")
+        actual_date = _optional_nonempty_string(
+            payload.get("actual_date"), "actual_date"
+        )
         metadata = _optional_mapping(payload.get("metadata"), "metadata")
         try:
             return self.bridge.upsert_clinical_milestone(
@@ -1608,7 +1717,9 @@ class StudioApp:
         if not isinstance(rows, list):
             raise BadRequestError("rows must be an array of sample objects")
         normalized_rows = [item for item in rows if isinstance(item, dict)]
-        lloq_ng_ml = _coerce_float(payload.get("lloq_ng_ml", 1.0), "lloq_ng_ml", minimum=0.0)
+        lloq_ng_ml = _coerce_float(
+            payload.get("lloq_ng_ml", 1.0), "lloq_ng_ml", minimum=0.0
+        )
         try:
             return self.bridge.preclinical_bioanalysis(
                 study=study,
@@ -1629,18 +1740,20 @@ class StudioApp:
                 raise BadRequestError("rows must be an array when provided")
             rows = [item for item in rows_raw if isinstance(item, dict)]
         seed = _coerce_int(payload.get("seed", 7), "seed")
-        lloq_ng_ml = _coerce_float(payload.get("lloq_ng_ml", 1.0), "lloq_ng_ml", minimum=0.0)
+        lloq_ng_ml = _coerce_float(
+            payload.get("lloq_ng_ml", 1.0), "lloq_ng_ml", minimum=0.0
+        )
         cmc_config = _optional_mapping(payload.get("cmc_config"), "cmc_config")
 
         stability_results_raw = payload.get("stability_results")
         stability_results: list[dict[str, Any]] | None = None
         if stability_results_raw is not None:
             if not isinstance(stability_results_raw, list):
-                raise BadRequestError("stability_results must be an array when provided")
+                raise BadRequestError(
+                    "stability_results must be an array when provided"
+                )
             stability_results = [
-                item
-                for item in stability_results_raw
-                if isinstance(item, dict)
+                item for item in stability_results_raw if isinstance(item, dict)
             ]
 
         batch_results_raw = payload.get("batch_results")
@@ -1653,9 +1766,14 @@ class StudioApp:
                     item for item in batch_results_raw if isinstance(item, dict)
                 ]
             else:
-                raise BadRequestError("batch_results must be an object or array when provided")
+                raise BadRequestError(
+                    "batch_results must be an object or array when provided"
+                )
 
-        batch_id = _optional_nonempty_string(payload.get("batch_id"), "batch_id") or "BATCH-001"
+        batch_id = (
+            _optional_nonempty_string(payload.get("batch_id"), "batch_id")
+            or "BATCH-001"
+        )
         try:
             return self.bridge.preclinical_workup(
                 study=study,
@@ -1679,8 +1797,13 @@ class StudioApp:
 
     def preclinical_batch_record(self, payload: dict[str, Any]) -> dict[str, Any]:
         cmc_config = _optional_mapping(payload.get("cmc_config"), "cmc_config")
-        batch_id = _optional_nonempty_string(payload.get("batch_id"), "batch_id") or "BATCH-001"
-        operator = _optional_nonempty_string(payload.get("operator"), "operator") or "TBD"
+        batch_id = (
+            _optional_nonempty_string(payload.get("batch_id"), "batch_id")
+            or "BATCH-001"
+        )
+        operator = (
+            _optional_nonempty_string(payload.get("operator"), "operator") or "TBD"
+        )
         site = _optional_nonempty_string(payload.get("site"), "site") or "TBD"
         manufacture_date = _optional_nonempty_string(
             payload.get("manufacture_date"),
@@ -1705,9 +1828,7 @@ class StudioApp:
             if not isinstance(batch_ids_raw, list):
                 raise BadRequestError("batch_ids must be an array when provided")
             batch_ids = [
-                str(item).strip()
-                for item in batch_ids_raw
-                if str(item).strip()
+                str(item).strip() for item in batch_ids_raw if str(item).strip()
             ]
         try:
             return self.bridge.preclinical_stability_plan(
@@ -1737,7 +1858,9 @@ class StudioApp:
         if isinstance(batch_results_raw, dict):
             batch_results: dict[str, Any] | list[dict[str, Any]] = batch_results_raw
         elif isinstance(batch_results_raw, list):
-            batch_results = [item for item in batch_results_raw if isinstance(item, dict)]
+            batch_results = [
+                item for item in batch_results_raw if isinstance(item, dict)
+            ]
         else:
             raise BadRequestError("batch_results must be an object or array of objects")
 
@@ -1745,7 +1868,9 @@ class StudioApp:
         stability_results: list[dict[str, Any]] | None = None
         if stability_results_raw is not None:
             if not isinstance(stability_results_raw, list):
-                raise BadRequestError("stability_results must be an array when provided")
+                raise BadRequestError(
+                    "stability_results must be an array when provided"
+                )
             stability_results = [
                 item for item in stability_results_raw if isinstance(item, dict)
             ]
@@ -1935,7 +2060,9 @@ def _to_metric_float(value: Any) -> float | None:
         return None
 
 
-def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]) -> None:
+def _json_response(
+    handler: BaseHTTPRequestHandler, status: int, payload: dict[str, Any]
+) -> None:
     body = json.dumps(payload, ensure_ascii=True, indent=2).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
@@ -2025,7 +2152,9 @@ def create_handler(app: StudioApp):
                     _json_response(self, HTTPStatus.OK, app.ecosystem_payload())
                     return
                 if path == "/api/command-center/capabilities":
-                    _json_response(self, HTTPStatus.OK, app.command_center_capabilities_payload())
+                    _json_response(
+                        self, HTTPStatus.OK, app.command_center_capabilities_payload()
+                    )
                     return
                 if path == "/api/program-gates/templates":
                     _json_response(self, HTTPStatus.OK, app.stage_gate_templates())
@@ -2071,7 +2200,9 @@ def create_handler(app: StudioApp):
                     return
                 if path == "/api/regulatory/bundles":
                     query = parse_qs(parsed.query, keep_blank_values=False)
-                    _json_response(self, HTTPStatus.OK, app.list_regulatory_bundles(query=query))
+                    _json_response(
+                        self, HTTPStatus.OK, app.list_regulatory_bundles(query=query)
+                    )
                     return
                 if path == "/api/drug-portfolio":
                     query = parse_qs(parsed.query, keep_blank_values=False)
@@ -2079,7 +2210,9 @@ def create_handler(app: StudioApp):
                     return
                 if path == "/api/promising-cures":
                     query = parse_qs(parsed.query, keep_blank_values=False)
-                    _json_response(self, HTTPStatus.OK, app.promising_cures(query=query))
+                    _json_response(
+                        self, HTTPStatus.OK, app.promising_cures(query=query)
+                    )
                     return
                 if path == "/api/clinical/trials":
                     _json_response(self, HTTPStatus.OK, app.clinical_trials())
@@ -2096,13 +2229,19 @@ def create_handler(app: StudioApp):
                         raise BadRequestError("trial_id is required")
                     trial_id = parts[3]
                     if len(parts) == 4:
-                        _json_response(self, HTTPStatus.OK, app.clinical_trial(trial_id))
+                        _json_response(
+                            self, HTTPStatus.OK, app.clinical_trial(trial_id)
+                        )
                         return
                     if len(parts) == 5 and parts[4] == "sites":
-                        _json_response(self, HTTPStatus.OK, app.clinical_trial_sites(trial_id))
+                        _json_response(
+                            self, HTTPStatus.OK, app.clinical_trial_sites(trial_id)
+                        )
                         return
                     if len(parts) == 5 and parts[4] == "ops":
-                        _json_response(self, HTTPStatus.OK, app.clinical_trial_ops(trial_id))
+                        _json_response(
+                            self, HTTPStatus.OK, app.clinical_trial_ops(trial_id)
+                        )
                         return
                     raise NotFoundError("unknown clinical trial endpoint")
                 if path == "/api/jobs":
@@ -2214,19 +2353,27 @@ def create_handler(app: StudioApp):
                     _json_response(self, HTTPStatus.OK, app.benchmark_gate(payload))
                     return
                 if path == "/api/wetlab/protocol/validate":
-                    _json_response(self, HTTPStatus.OK, app.wetlab_validate_protocol(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.wetlab_validate_protocol(payload)
+                    )
                     return
                 if path == "/api/wetlab/protocol/compile":
-                    _json_response(self, HTTPStatus.OK, app.wetlab_compile_protocol(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.wetlab_compile_protocol(payload)
+                    )
                     return
                 if path == "/api/wetlab/run":
                     _json_response(self, HTTPStatus.OK, app.wetlab_run(payload))
                     return
                 if path == "/api/regulatory/bundle/build":
-                    _json_response(self, HTTPStatus.OK, app.build_regulatory_bundle(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.build_regulatory_bundle(payload)
+                    )
                     return
                 if path == "/api/regulatory/bundle/verify":
-                    _json_response(self, HTTPStatus.OK, app.verify_regulatory_bundle(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.verify_regulatory_bundle(payload)
+                    )
                     return
                 if path == "/api/clawcures/handoff":
                     _json_response(self, HTTPStatus.OK, app.clawcures_handoff(payload))
@@ -2235,13 +2382,19 @@ def create_handler(app: StudioApp):
                     _json_response(self, HTTPStatus.OK, app.add_clinical_trial(payload))
                     return
                 if path == "/api/clinical/trials/update":
-                    _json_response(self, HTTPStatus.OK, app.update_clinical_trial(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.update_clinical_trial(payload)
+                    )
                     return
                 if path == "/api/clinical/trials/remove":
-                    _json_response(self, HTTPStatus.OK, app.remove_clinical_trial(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.remove_clinical_trial(payload)
+                    )
                     return
                 if path == "/api/clinical/trials/enroll":
-                    _json_response(self, HTTPStatus.OK, app.enroll_clinical_patient(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.enroll_clinical_patient(payload)
+                    )
                     return
                 if path == "/api/clinical/trials/enroll-simulated":
                     _json_response(
@@ -2251,73 +2404,111 @@ def create_handler(app: StudioApp):
                     )
                     return
                 if path == "/api/clinical/trials/result":
-                    _json_response(self, HTTPStatus.OK, app.add_clinical_result(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.add_clinical_result(payload)
+                    )
                     return
                 if path == "/api/clinical/trials/simulate":
-                    _json_response(self, HTTPStatus.OK, app.simulate_clinical_trial(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.simulate_clinical_trial(payload)
+                    )
                     return
                 if path == "/api/clinical/trials/site/upsert":
-                    _json_response(self, HTTPStatus.OK, app.upsert_clinical_site(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.upsert_clinical_site(payload)
+                    )
                     return
                 if path == "/api/clinical/trials/screen":
-                    _json_response(self, HTTPStatus.OK, app.add_clinical_screening(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.add_clinical_screening(payload)
+                    )
                     return
                 if path == "/api/clinical/trials/monitoring/visit":
-                    _json_response(self, HTTPStatus.OK, app.add_clinical_monitoring_visit(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.add_clinical_monitoring_visit(payload)
+                    )
                     return
                 if path == "/api/clinical/trials/query/add":
                     _json_response(self, HTTPStatus.OK, app.add_clinical_query(payload))
                     return
                 if path == "/api/clinical/trials/query/update":
-                    _json_response(self, HTTPStatus.OK, app.update_clinical_query(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.update_clinical_query(payload)
+                    )
                     return
                 if path == "/api/clinical/trials/deviation/add":
-                    _json_response(self, HTTPStatus.OK, app.add_clinical_deviation(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.add_clinical_deviation(payload)
+                    )
                     return
                 if path == "/api/clinical/trials/safety/add":
-                    _json_response(self, HTTPStatus.OK, app.add_clinical_safety_event(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.add_clinical_safety_event(payload)
+                    )
                     return
                 if path == "/api/clinical/trials/milestone/upsert":
-                    _json_response(self, HTTPStatus.OK, app.upsert_clinical_milestone(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.upsert_clinical_milestone(payload)
+                    )
                     return
                 if path == "/api/preclinical/plan":
                     _json_response(self, HTTPStatus.OK, app.preclinical_plan(payload))
                     return
                 if path == "/api/preclinical/schedule":
-                    _json_response(self, HTTPStatus.OK, app.preclinical_schedule(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.preclinical_schedule(payload)
+                    )
                     return
                 if path == "/api/preclinical/bioanalysis":
-                    _json_response(self, HTTPStatus.OK, app.preclinical_bioanalysis(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.preclinical_bioanalysis(payload)
+                    )
                     return
                 if path == "/api/preclinical/workup":
                     _json_response(self, HTTPStatus.OK, app.preclinical_workup(payload))
                     return
                 if path == "/api/preclinical/cmc/plan":
-                    _json_response(self, HTTPStatus.OK, app.preclinical_cmc_plan(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.preclinical_cmc_plan(payload)
+                    )
                     return
                 if path == "/api/preclinical/cmc/batch-record":
-                    _json_response(self, HTTPStatus.OK, app.preclinical_batch_record(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.preclinical_batch_record(payload)
+                    )
                     return
                 if path == "/api/preclinical/cmc/stability-plan":
-                    _json_response(self, HTTPStatus.OK, app.preclinical_stability_plan(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.preclinical_stability_plan(payload)
+                    )
                     return
                 if path == "/api/preclinical/cmc/stability-assess":
-                    _json_response(self, HTTPStatus.OK, app.preclinical_stability_assess(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.preclinical_stability_assess(payload)
+                    )
                     return
                 if path == "/api/preclinical/cmc/release-assess":
-                    _json_response(self, HTTPStatus.OK, app.preclinical_release_assess(payload))
+                    _json_response(
+                        self, HTTPStatus.OK, app.preclinical_release_assess(payload)
+                    )
                     return
                 if path == "/api/jobs/clear":
                     _json_response(self, HTTPStatus.OK, app.clear_jobs(payload))
                     return
                 if path.startswith("/api/jobs/") and path.endswith("/cancel"):
-                    job_id = path.removeprefix("/api/jobs/").removesuffix("/cancel").strip("/")
+                    job_id = (
+                        path.removeprefix("/api/jobs/")
+                        .removesuffix("/cancel")
+                        .strip("/")
+                    )
                     if not job_id:
                         raise BadRequestError("job_id is required")
                     _json_response(self, HTTPStatus.OK, app.cancel_job(job_id))
                     return
 
-                _json_response(self, HTTPStatus.NOT_FOUND, {"error": "unknown endpoint"})
+                _json_response(
+                    self, HTTPStatus.NOT_FOUND, {"error": "unknown endpoint"}
+                )
             except ApiError as exc:
                 _json_response(self, exc.status_code, {"error": exc.message})
             except Exception as exc:  # noqa: BLE001

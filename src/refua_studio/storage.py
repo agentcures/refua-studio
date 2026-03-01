@@ -40,8 +40,7 @@ class JobStore:
 
     def _init_db(self) -> None:
         with closing(self._connect()) as conn:
-            conn.execute(
-                """
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     job_id TEXT PRIMARY KEY,
                     kind TEXT NOT NULL,
@@ -52,8 +51,7 @@ class JobStore:
                     result_json TEXT,
                     error_text TEXT
                 )
-                """
-            )
+                """)
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_jobs_updated ON jobs(updated_at DESC)"
             )
@@ -131,7 +129,9 @@ class JobStore:
         allow_from: tuple[str, ...] | None = None,
     ) -> bool:
         now = _utc_now_iso()
-        result_json = json.dumps(result, ensure_ascii=True) if result is not None else None
+        result_json = (
+            json.dumps(result, ensure_ascii=True) if result is not None else None
+        )
         with self._lock, closing(self._connect()) as conn:
             if allow_from:
                 placeholders = ",".join("?" for _ in allow_from)
