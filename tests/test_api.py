@@ -88,6 +88,8 @@ class StudioApiTest(unittest.TestCase):
         self.assertIsInstance(payload["products"], list)
         self.assertGreaterEqual(len(payload["products"]), 1)
         self.assertIn("default_objective", payload["clawcures"])
+        names = {item.get("name") for item in payload["products"]}
+        self.assertIn("refua-preclinical", names)
 
     def test_command_center_capabilities_endpoint(self) -> None:
         payload = self._request("GET", "/api/command-center/capabilities")
@@ -582,6 +584,48 @@ class StudioApiTest(unittest.TestCase):
         self.assertIn("result", simulated)
         summary = simulated["result"]["simulation"]["summary"]
         self.assertIn("blended_effect_estimate", summary)
+
+    def test_preclinical_endpoints(self) -> None:
+        templates = self._request("GET", "/api/preclinical/templates")
+        self.assertIn("templates", templates)
+        self.assertIn("study", templates["templates"])
+        self.assertIn("references", templates)
+        self.assertGreaterEqual(len(templates["references"]), 1)
+
+        study = templates["templates"]["study"]
+        rows = templates["templates"]["bioanalysis_rows"]
+
+        plan = self._request(
+            "POST",
+            "/api/preclinical/plan",
+            {"study": study, "seed": 11},
+        )
+        self.assertIn("plan", plan)
+        self.assertEqual(plan["plan"]["study_id"], study["study_id"])
+
+        schedule = self._request(
+            "POST",
+            "/api/preclinical/schedule",
+            {"study": study},
+        )
+        self.assertIn("schedule", schedule)
+        self.assertGreater(schedule["schedule"]["event_count"], 0)
+
+        bio = self._request(
+            "POST",
+            "/api/preclinical/bioanalysis",
+            {"study": study, "rows": rows, "lloq_ng_ml": 1.0},
+        )
+        self.assertIn("bioanalysis", bio)
+        self.assertGreaterEqual(bio["bioanalysis"]["parsed_rows"], 1)
+
+        workup = self._request(
+            "POST",
+            "/api/preclinical/workup",
+            {"study": study, "rows": rows, "seed": 7, "lloq_ng_ml": 1.0},
+        )
+        self.assertIn("workup", workup)
+        self.assertIn("plan", workup["workup"])
 
     def test_async_run_job(self) -> None:
         run_payload = self._request(

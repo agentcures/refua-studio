@@ -48,6 +48,11 @@ const clinicalOpsInput = document.getElementById("clinicalOpsInput");
 const clinicalSimCountInput = document.getElementById("clinicalSimCountInput");
 const clinicalReplicatesInput = document.getElementById("clinicalReplicatesInput");
 const clinicalSeedInput = document.getElementById("clinicalSeedInput");
+const preclinicalStudyInput = document.getElementById("preclinicalStudyInput");
+const preclinicalRowsInput = document.getElementById("preclinicalRowsInput");
+const preclinicalSeedInput = document.getElementById("preclinicalSeedInput");
+const preclinicalLloqInput = document.getElementById("preclinicalLloqInput");
+const preclinicalRowCountPreview = document.getElementById("preclinicalRowCountPreview");
 const widgetRunningJobs = document.getElementById("widgetRunningJobs");
 const widgetTrialCount = document.getElementById("widgetTrialCount");
 const widgetHumanPatients = document.getElementById("widgetHumanPatients");
@@ -1838,6 +1843,102 @@ async function doRefreshClinicalOps() {
   showOutput("Clinical Ops Snapshot", payload);
 }
 
+function parsePreclinicalStudy() {
+  const study = parseJsonText(preclinicalStudyInput.value, "Preclinical study");
+  if (!study || typeof study !== "object" || Array.isArray(study)) {
+    throw new Error("Preclinical study must be a JSON object");
+  }
+  return study;
+}
+
+function parsePreclinicalRows() {
+  const rows = parseJsonText(preclinicalRowsInput.value, "Preclinical rows");
+  if (!rows) {
+    preclinicalRowCountPreview.value = "0";
+    return [];
+  }
+  if (!Array.isArray(rows)) {
+    throw new Error("Preclinical rows must be a JSON array");
+  }
+  preclinicalRowCountPreview.value = String(rows.length);
+  return rows;
+}
+
+function preclinicalPayload() {
+  const rows = parsePreclinicalRows();
+  return {
+    study: parsePreclinicalStudy(),
+    rows,
+    seed: Number(preclinicalSeedInput.value || 7),
+    lloq_ng_ml: Number(preclinicalLloqInput.value || 1.0),
+  };
+}
+
+async function doLoadPreclinicalTemplates() {
+  const payload = await api("/api/preclinical/templates", { method: "GET" });
+  const templates = payload.templates || {};
+  const study = templates.study || null;
+  const rows = templates.bioanalysis_rows || null;
+  if (study) {
+    preclinicalStudyInput.value = pretty(study);
+  }
+  if (rows) {
+    preclinicalRowsInput.value = pretty(rows);
+    preclinicalRowCountPreview.value = String(Array.isArray(rows) ? rows.length : 0);
+  }
+  showOutput("Preclinical Templates", payload);
+}
+
+async function doPlanPreclinical() {
+  const payload = preclinicalPayload();
+  const result = await api("/api/preclinical/plan", {
+    method: "POST",
+    body: JSON.stringify({
+      study: payload.study,
+      seed: payload.seed,
+    }),
+  });
+  showOutput("Preclinical Plan", result);
+}
+
+async function doSchedulePreclinical() {
+  const payload = preclinicalPayload();
+  const result = await api("/api/preclinical/schedule", {
+    method: "POST",
+    body: JSON.stringify({
+      study: payload.study,
+    }),
+  });
+  showOutput("Preclinical Schedule", result);
+}
+
+async function doBioanalyzePreclinical() {
+  const payload = preclinicalPayload();
+  const result = await api("/api/preclinical/bioanalysis", {
+    method: "POST",
+    body: JSON.stringify({
+      study: payload.study,
+      rows: payload.rows,
+      lloq_ng_ml: payload.lloq_ng_ml,
+    }),
+  });
+  showOutput("Preclinical Bioanalysis", result);
+}
+
+async function doRunPreclinicalWorkup() {
+  const payload = preclinicalPayload();
+  const result = await api("/api/preclinical/workup", {
+    method: "POST",
+    body: JSON.stringify({
+      study: payload.study,
+      rows: payload.rows,
+      seed: payload.seed,
+      lloq_ng_ml: payload.lloq_ng_ml,
+    }),
+  });
+  showOutput("Preclinical Workup", result);
+}
+
 function currentRunPayload() {
   const plan = parseJsonText(planInput.value, "Plan");
   const prompt = systemPromptInput.value.trim();
@@ -2211,6 +2312,21 @@ function bindActions() {
   document.getElementById("refreshClinicalOpsButton").addEventListener("click", () =>
     wrapAction(doRefreshClinicalOps)
   );
+  document.getElementById("loadPreclinicalTemplatesButton").addEventListener("click", () =>
+    wrapAction(doLoadPreclinicalTemplates)
+  );
+  document.getElementById("planPreclinicalButton").addEventListener("click", () =>
+    wrapAction(doPlanPreclinical)
+  );
+  document.getElementById("schedulePreclinicalButton").addEventListener("click", () =>
+    wrapAction(doSchedulePreclinical)
+  );
+  document.getElementById("bioanalyzePreclinicalButton").addEventListener("click", () =>
+    wrapAction(doBioanalyzePreclinical)
+  );
+  document.getElementById("runPreclinicalWorkupButton").addEventListener("click", () =>
+    wrapAction(doRunPreclinicalWorkup)
+  );
   document.getElementById("simulateClinicalTrialButton").addEventListener("click", () =>
     wrapAction(doSimulateClinicalTrial)
   );
@@ -2218,6 +2334,14 @@ function bindActions() {
     state.selectedClinicalTrialId = clinicalTrialSelect.value || null;
     if (state.selectedClinicalTrialId) {
       clinicalTrialIdInput.value = state.selectedClinicalTrialId;
+    }
+  });
+  preclinicalRowsInput.addEventListener("input", () => {
+    try {
+      const rows = parseJsonText(preclinicalRowsInput.value, "Preclinical rows");
+      preclinicalRowCountPreview.value = String(Array.isArray(rows) ? rows.length : 0);
+    } catch (_err) {
+      preclinicalRowCountPreview.value = "0";
     }
   });
 
@@ -2366,6 +2490,99 @@ function seedFallbackDefaults() {
       milestone_id: "ms-lpi",
       target_date: "2026-08-30T00:00:00+00:00",
     });
+  }
+
+  if (!preclinicalStudyInput.value.trim()) {
+    preclinicalStudyInput.value = pretty({
+      study_id: "preclinical-demo-001",
+      title: "28-day rat repeat-dose tox + TK",
+      indication: "Oncology",
+      species: "Rat",
+      strain: "Sprague-Dawley",
+      modality: "small_molecule",
+      study_type: "repeat_dose_toxicology",
+      start_date: "2026-03-01",
+      duration_days: 28,
+      dosing_days: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+      arms: [
+        {
+          arm_id: "vehicle",
+          treatment: "vehicle_control",
+          dose_mg_per_kg: 0,
+          route: "PO",
+          frequency_per_day: 1,
+          n_animals: 10,
+          sex: "mixed",
+        },
+        {
+          arm_id: "high",
+          treatment: "rx-001",
+          dose_mg_per_kg: 100,
+          route: "PO",
+          frequency_per_day: 1,
+          n_animals: 10,
+          sex: "mixed",
+        },
+      ],
+      sampling: {
+        analyte: "parent",
+        matrix: "plasma",
+        timepoints_hr: [0.5, 1, 2, 4, 8, 24],
+        days: [1, 14],
+        stabilization_minutes: 30,
+      },
+      glp: {
+        statement_of_compliance: true,
+        quality_assurance_unit: true,
+        protocol_approved: true,
+        sop_index: true,
+        instrument_calibration_records: true,
+        computer_system_validation: true,
+        sample_chain_of_custody: true,
+        raw_data_archival_plan: true,
+      },
+    });
+  }
+
+  if (!preclinicalRowsInput.value.trim()) {
+    preclinicalRowsInput.value = pretty([
+      {
+        sample_id: "high-001-d1-0p5",
+        arm_id: "high",
+        animal_id: "high-001",
+        analyte: "parent",
+        matrix: "plasma",
+        day: 1,
+        time_hr: 0.5,
+        concentration_ng_ml: 24.2,
+      },
+      {
+        sample_id: "high-001-d1-1p0",
+        arm_id: "high",
+        animal_id: "high-001",
+        analyte: "parent",
+        matrix: "plasma",
+        day: 1,
+        time_hr: 1.0,
+        concentration_ng_ml: 35.1,
+      },
+      {
+        sample_id: "high-001-d1-2p0",
+        arm_id: "high",
+        animal_id: "high-001",
+        analyte: "parent",
+        matrix: "plasma",
+        day: 1,
+        time_hr: 2.0,
+        concentration_ng_ml: 29.3,
+      },
+    ]);
+  }
+  try {
+    const previewRows = parseJsonText(preclinicalRowsInput.value, "Preclinical rows");
+    preclinicalRowCountPreview.value = String(Array.isArray(previewRows) ? previewRows.length : 0);
+  } catch (_err) {
+    preclinicalRowCountPreview.value = "0";
   }
 
   if (!programIdInput.value.trim()) {

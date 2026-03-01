@@ -98,6 +98,13 @@ _PRODUCT_REGISTRY: tuple[dict[str, str], ...] = (
         "role": "Clinical simulation and translational modeling",
     },
     {
+        "id": "refua_preclinical",
+        "name": "refua-preclinical",
+        "repo": "refua-preclinical",
+        "module": "refua_preclinical",
+        "role": "Preclinical tox/pharmacology planning and bioanalysis",
+    },
+    {
         "id": "refua_regulatory",
         "name": "refua-regulatory",
         "repo": "refua-regulatory",
@@ -188,6 +195,7 @@ class CampaignBridge:
             ("refua-mcp", "src"),
             ("refua", "src"),
             ("refua-clinical", "src"),
+            ("refua-preclinical", "src"),
             ("refua-data", "src"),
             ("refua-bench", "src"),
             ("refua-regulatory", "src"),
@@ -1231,6 +1239,87 @@ class CampaignBridge:
             )
         )
 
+    def preclinical_templates(self) -> dict[str, Any]:
+        pre_mod = self._import("refua_preclinical")
+        templates = pre_mod.default_templates()
+        references = pre_mod.latest_preclinical_references()
+        return {
+            "templates": _to_plain_data(templates),
+            "references": _to_plain_data(references),
+            "version": getattr(pre_mod, "__version__", None),
+        }
+
+    def preclinical_plan(
+        self,
+        *,
+        study: dict[str, Any],
+        seed: int,
+    ) -> dict[str, Any]:
+        pre_mod = self._import("refua_preclinical")
+        spec = pre_mod.study_spec_from_mapping(study)
+        plan = pre_mod.build_study_plan(spec, seed=int(seed))
+        return {
+            "study_id": spec.study_id,
+            "plan": _to_plain_data(plan),
+            "version": getattr(pre_mod, "__version__", None),
+        }
+
+    def preclinical_schedule(
+        self,
+        *,
+        study: dict[str, Any],
+    ) -> dict[str, Any]:
+        pre_mod = self._import("refua_preclinical")
+        spec = pre_mod.study_spec_from_mapping(study)
+        schedule = pre_mod.build_in_vivo_schedule(spec)
+        return {
+            "study_id": spec.study_id,
+            "schedule": _to_plain_data(schedule),
+            "version": getattr(pre_mod, "__version__", None),
+        }
+
+    def preclinical_bioanalysis(
+        self,
+        *,
+        study: dict[str, Any],
+        rows: list[dict[str, Any]],
+        lloq_ng_ml: float,
+    ) -> dict[str, Any]:
+        pre_mod = self._import("refua_preclinical")
+        spec = pre_mod.study_spec_from_mapping(study)
+        payload = pre_mod.run_bioanalytical_pipeline(
+            spec,
+            rows,
+            lloq_ng_ml=float(lloq_ng_ml),
+        )
+        return {
+            "study_id": spec.study_id,
+            "bioanalysis": _to_plain_data(payload),
+            "version": getattr(pre_mod, "__version__", None),
+        }
+
+    def preclinical_workup(
+        self,
+        *,
+        study: dict[str, Any],
+        rows: list[dict[str, Any]] | None,
+        seed: int,
+        lloq_ng_ml: float,
+    ) -> dict[str, Any]:
+        pre_mod = self._import("refua_preclinical")
+        spec = pre_mod.study_spec_from_mapping(study)
+        payload = pre_mod.build_workup(
+            spec,
+            samples=rows,
+            seed=int(seed),
+            lloq_ng_ml=float(lloq_ng_ml),
+        )
+        return {
+            "study_id": spec.study_id,
+            "workup": _to_plain_data(payload),
+            "version": getattr(pre_mod, "__version__", None),
+        }
+
     def _resolve_workspace_path(self, raw_path: str) -> Path:
         candidate = Path(raw_path).expanduser()
         if not candidate.is_absolute():
@@ -1240,6 +1329,7 @@ class CampaignBridge:
     def command_center_capabilities(self) -> dict[str, Any]:
         checks: tuple[tuple[str, str], ...] = (
             ("refua_data", "dataset_registry"),
+            ("refua_preclinical", "preclinical_operations"),
             ("refua_bench", "benchmark_gating"),
             ("refua_regulatory", "regulatory_evidence"),
             ("refua_wetlab", "wetlab_orchestration"),

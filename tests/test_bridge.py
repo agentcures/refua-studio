@@ -62,6 +62,8 @@ class CampaignBridgeTest(unittest.TestCase):
         self.assertIsInstance(payload["products"], list)
         self.assertGreaterEqual(len(payload["products"]), 1)
         self.assertIn("default_objective", payload["clawcures"])
+        names = {item.get("name") for item in payload["products"]}
+        self.assertIn("refua-preclinical", names)
 
     def test_command_center_capabilities(self) -> None:
         payload = self.bridge.command_center_capabilities()
@@ -255,6 +257,33 @@ class CampaignBridgeTest(unittest.TestCase):
                     os.environ.pop("REFUA_CLINICAL_TRIAL_STORE", None)
                 else:
                     os.environ["REFUA_CLINICAL_TRIAL_STORE"] = previous
+
+    def test_preclinical_bridge_flow(self) -> None:
+        templates = self.bridge.preclinical_templates()
+        self.assertIn("templates", templates)
+        self.assertIn("study", templates["templates"])
+        study = templates["templates"]["study"]
+        rows = templates["templates"]["bioanalysis_rows"]
+
+        plan = self.bridge.preclinical_plan(study=study, seed=5)
+        self.assertIn("plan", plan)
+        self.assertEqual(plan["plan"]["study_id"], study["study_id"])
+
+        schedule = self.bridge.preclinical_schedule(study=study)
+        self.assertIn("schedule", schedule)
+        self.assertGreater(schedule["schedule"]["event_count"], 0)
+
+        bio = self.bridge.preclinical_bioanalysis(study=study, rows=rows, lloq_ng_ml=1.0)
+        self.assertIn("bioanalysis", bio)
+        self.assertGreaterEqual(bio["bioanalysis"]["parsed_rows"], 1)
+
+        workup = self.bridge.preclinical_workup(
+            study=study,
+            rows=rows,
+            seed=7,
+            lloq_ng_ml=1.0,
+        )
+        self.assertIn("workup", workup)
 
 
 if __name__ == "__main__":

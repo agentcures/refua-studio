@@ -1569,6 +1569,71 @@ class StudioApp:
         except ValueError as exc:
             raise BadRequestError(str(exc)) from exc
 
+    def preclinical_templates(self) -> dict[str, Any]:
+        try:
+            return self.bridge.preclinical_templates()
+        except Exception as exc:  # noqa: BLE001
+            raise BadRequestError(str(exc)) from exc
+
+    def preclinical_plan(self, payload: dict[str, Any]) -> dict[str, Any]:
+        study = payload.get("study")
+        if not isinstance(study, dict):
+            raise BadRequestError("study must be a JSON object")
+        seed = _coerce_int(payload.get("seed", 7), "seed")
+        try:
+            return self.bridge.preclinical_plan(study=study, seed=seed)
+        except Exception as exc:  # noqa: BLE001
+            raise BadRequestError(str(exc)) from exc
+
+    def preclinical_schedule(self, payload: dict[str, Any]) -> dict[str, Any]:
+        study = payload.get("study")
+        if not isinstance(study, dict):
+            raise BadRequestError("study must be a JSON object")
+        try:
+            return self.bridge.preclinical_schedule(study=study)
+        except Exception as exc:  # noqa: BLE001
+            raise BadRequestError(str(exc)) from exc
+
+    def preclinical_bioanalysis(self, payload: dict[str, Any]) -> dict[str, Any]:
+        study = payload.get("study")
+        if not isinstance(study, dict):
+            raise BadRequestError("study must be a JSON object")
+        rows = payload.get("rows")
+        if not isinstance(rows, list):
+            raise BadRequestError("rows must be an array of sample objects")
+        normalized_rows = [item for item in rows if isinstance(item, dict)]
+        lloq_ng_ml = _coerce_float(payload.get("lloq_ng_ml", 1.0), "lloq_ng_ml", minimum=0.0)
+        try:
+            return self.bridge.preclinical_bioanalysis(
+                study=study,
+                rows=normalized_rows,
+                lloq_ng_ml=lloq_ng_ml,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise BadRequestError(str(exc)) from exc
+
+    def preclinical_workup(self, payload: dict[str, Any]) -> dict[str, Any]:
+        study = payload.get("study")
+        if not isinstance(study, dict):
+            raise BadRequestError("study must be a JSON object")
+        rows_raw = payload.get("rows")
+        rows: list[dict[str, Any]] | None = None
+        if rows_raw is not None:
+            if not isinstance(rows_raw, list):
+                raise BadRequestError("rows must be an array when provided")
+            rows = [item for item in rows_raw if isinstance(item, dict)]
+        seed = _coerce_int(payload.get("seed", 7), "seed")
+        lloq_ng_ml = _coerce_float(payload.get("lloq_ng_ml", 1.0), "lloq_ng_ml", minimum=0.0)
+        try:
+            return self.bridge.preclinical_workup(
+                study=study,
+                rows=rows,
+                seed=seed,
+                lloq_ng_ml=lloq_ng_ml,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise BadRequestError(str(exc)) from exc
+
 
 def _parse_statuses_query(query: dict[str, list[str]]) -> tuple[str, ...] | None:
     if "status" not in query:
@@ -1895,6 +1960,9 @@ def create_handler(app: StudioApp):
                 if path == "/api/clinical/trials":
                     _json_response(self, HTTPStatus.OK, app.clinical_trials())
                     return
+                if path == "/api/preclinical/templates":
+                    _json_response(self, HTTPStatus.OK, app.preclinical_templates())
+                    return
                 if path.startswith("/api/clinical/trials/"):
                     parts = [token for token in path.split("/") if token]
                     if len(parts) < 4:
@@ -2084,6 +2152,18 @@ def create_handler(app: StudioApp):
                     return
                 if path == "/api/clinical/trials/milestone/upsert":
                     _json_response(self, HTTPStatus.OK, app.upsert_clinical_milestone(payload))
+                    return
+                if path == "/api/preclinical/plan":
+                    _json_response(self, HTTPStatus.OK, app.preclinical_plan(payload))
+                    return
+                if path == "/api/preclinical/schedule":
+                    _json_response(self, HTTPStatus.OK, app.preclinical_schedule(payload))
+                    return
+                if path == "/api/preclinical/bioanalysis":
+                    _json_response(self, HTTPStatus.OK, app.preclinical_bioanalysis(payload))
+                    return
+                if path == "/api/preclinical/workup":
+                    _json_response(self, HTTPStatus.OK, app.preclinical_workup(payload))
                     return
                 if path == "/api/jobs/clear":
                     _json_response(self, HTTPStatus.OK, app.clear_jobs(payload))

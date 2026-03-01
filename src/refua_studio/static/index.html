@@ -454,6 +454,48 @@
         </div>
       </section>
 
+      <section class="panel panel-full reveal" style="--delay: 0.27s">
+        <div class="panel-head">
+          <h2>Preclinical</h2>
+          <div class="inline-controls">
+            <button id="loadPreclinicalTemplatesButton" class="btn btn-outline btn-small">Load Templates</button>
+            <button id="runPreclinicalWorkupButton" class="btn btn-accent btn-small">Run Workup</button>
+          </div>
+        </div>
+
+        <div class="platform-columns">
+          <article class="subpanel">
+            <h3>Study Config</h3>
+            <label for="preclinicalStudyInput">Study JSON</label>
+            <textarea id="preclinicalStudyInput" rows="12" spellcheck="false"></textarea>
+          </article>
+          <article class="subpanel">
+            <h3>Bioanalysis Rows</h3>
+            <label for="preclinicalRowsInput">Rows JSON</label>
+            <textarea id="preclinicalRowsInput" rows="12" spellcheck="false"></textarea>
+            <div class="row three">
+              <label>
+                Seed
+                <input type="number" id="preclinicalSeedInput" min="0" value="7" />
+              </label>
+              <label>
+                LLOQ (ng/mL)
+                <input type="number" id="preclinicalLloqInput" min="0" value="1.0" step="0.1" />
+              </label>
+              <label>
+                Rows
+                <input type="number" id="preclinicalRowCountPreview" min="0" value="0" readonly />
+              </label>
+            </div>
+            <div class="button-row">
+              <button id="planPreclinicalButton" class="btn btn-outline btn-small">Plan</button>
+              <button id="schedulePreclinicalButton" class="btn btn-outline btn-small">Schedule</button>
+              <button id="bioanalyzePreclinicalButton" class="btn btn-outline btn-small">Bioanalysis</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <section class="panel reveal" style="--delay: 0.28s">
         <div class="panel-head">
           <h2>Tools</h2>

@@ -9,7 +9,7 @@ It provides:
 - Portfolio ranking UI for disease program prioritization
 - Clinical trial management UI (trial CRUD, human/simulated enrollment, outcome capture, simulation refresh)
 - Program graph command center (program registry, timeline events, stage-gate approvals/e-signature capture)
-- Cross-package orchestration for `refua-data`, `refua-bench`, `refua-wetlab`, and `refua-regulatory`
+- Cross-package orchestration for `refua-data`, `refua-preclinical`, `refua-bench`, `refua-wetlab`, and `refua-regulatory`
 - Dataset catalog and materialization controls with provenance extraction
 - Benchmark gate execution against baselines for release decisions
 - Wet-lab protocol validation/compile/run controls with lineage events
@@ -132,6 +132,9 @@ CLI flags:
 - `GET /api/promising-cures?min_score=50&limit=60`
 - `GET /api/clinical/trials`
 - `GET /api/clinical/trials/{trial_id}`
+- `GET /api/clinical/trials/{trial_id}/sites`
+- `GET /api/clinical/trials/{trial_id}/ops`
+- `GET /api/preclinical/templates`
 - `GET /api/jobs?limit=80&status=running,failed`
 - `GET /api/jobs/{job_id}`
 - `POST /api/jobs/{job_id}/cancel`
@@ -149,6 +152,18 @@ CLI flags:
 - `POST /api/clinical/trials/enroll-simulated`
 - `POST /api/clinical/trials/result`
 - `POST /api/clinical/trials/simulate`
+- `POST /api/clinical/trials/site/upsert`
+- `POST /api/clinical/trials/screen`
+- `POST /api/clinical/trials/monitoring/visit`
+- `POST /api/clinical/trials/query/add`
+- `POST /api/clinical/trials/query/update`
+- `POST /api/clinical/trials/deviation/add`
+- `POST /api/clinical/trials/safety/add`
+- `POST /api/clinical/trials/milestone/upsert`
+- `POST /api/preclinical/plan`
+- `POST /api/preclinical/schedule`
+- `POST /api/preclinical/bioanalysis`
+- `POST /api/preclinical/workup`
 
 ### `POST /api/run` payload
 
@@ -235,7 +250,7 @@ Each job records request payload, status transitions (`queued` -> `running` -> `
 - Dry-run workflows and policy validation remain usable even without heavy runtime dependencies.
 - Clinical trial endpoints require the scientific stack shipped in package dependencies (`numpy`, `pandas`, `scipy`, `pyyaml`).
 - Command-center integrations require workspace access to sibling repos for bridge imports:
-  `refua-data`, `refua-bench`, `refua-regulatory`, and `refua-wetlab`.
+  `refua-data`, `refua-preclinical`, `refua-bench`, `refua-regulatory`, and `refua-wetlab`.
 
 ## Tests
 
