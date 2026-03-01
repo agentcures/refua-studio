@@ -53,6 +53,12 @@ const preclinicalRowsInput = document.getElementById("preclinicalRowsInput");
 const preclinicalSeedInput = document.getElementById("preclinicalSeedInput");
 const preclinicalLloqInput = document.getElementById("preclinicalLloqInput");
 const preclinicalRowCountPreview = document.getElementById("preclinicalRowCountPreview");
+const preclinicalCmcInput = document.getElementById("preclinicalCmcInput");
+const preclinicalCmcBatchResultsInput = document.getElementById("preclinicalCmcBatchResultsInput");
+const preclinicalCmcStabilityResultsInput = document.getElementById("preclinicalCmcStabilityResultsInput");
+const preclinicalCmcBatchIdInput = document.getElementById("preclinicalCmcBatchIdInput");
+const preclinicalCmcOperatorInput = document.getElementById("preclinicalCmcOperatorInput");
+const preclinicalCmcSiteInput = document.getElementById("preclinicalCmcSiteInput");
 const widgetRunningJobs = document.getElementById("widgetRunningJobs");
 const widgetTrialCount = document.getElementById("widgetTrialCount");
 const widgetHumanPatients = document.getElementById("widgetHumanPatients");
@@ -1864,6 +1870,48 @@ function parsePreclinicalRows() {
   return rows;
 }
 
+function parseOptionalPreclinicalCmcConfig() {
+  const payload = parseJsonText(preclinicalCmcInput.value, "Preclinical CMC config");
+  if (payload === null) {
+    return null;
+  }
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new Error("Preclinical CMC config must be a JSON object");
+  }
+  return payload;
+}
+
+function parseOptionalPreclinicalBatchResults() {
+  const payload = parseJsonText(
+    preclinicalCmcBatchResultsInput.value,
+    "Preclinical CMC batch results"
+  );
+  if (payload === null) {
+    return null;
+  }
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (payload && typeof payload === "object") {
+    return payload;
+  }
+  throw new Error("Preclinical CMC batch results must be an object or array");
+}
+
+function parseOptionalPreclinicalStabilityRows() {
+  const payload = parseJsonText(
+    preclinicalCmcStabilityResultsInput.value,
+    "Preclinical CMC stability rows"
+  );
+  if (payload === null) {
+    return null;
+  }
+  if (!Array.isArray(payload)) {
+    throw new Error("Preclinical CMC stability rows must be an array");
+  }
+  return payload;
+}
+
 function preclinicalPayload() {
   const rows = parsePreclinicalRows();
   return {
@@ -1874,11 +1922,42 @@ function preclinicalPayload() {
   };
 }
 
+function preclinicalWorkupPayload() {
+  const payload = preclinicalPayload();
+  return {
+    ...payload,
+    cmc_config: parseOptionalPreclinicalCmcConfig(),
+    batch_results: parseOptionalPreclinicalBatchResults(),
+    stability_results: parseOptionalPreclinicalStabilityRows(),
+    batch_id: (preclinicalCmcBatchIdInput.value || "BATCH-001").trim() || "BATCH-001",
+  };
+}
+
+function preclinicalCmcPayload() {
+  return {
+    cmc_config: parseOptionalPreclinicalCmcConfig(),
+    batch_results: parseOptionalPreclinicalBatchResults(),
+    stability_results: parseOptionalPreclinicalStabilityRows(),
+    batch_id: (preclinicalCmcBatchIdInput.value || "BATCH-001").trim() || "BATCH-001",
+    operator: (preclinicalCmcOperatorInput.value || "TBD").trim() || "TBD",
+    site: (preclinicalCmcSiteInput.value || "TBD").trim() || "TBD",
+  };
+}
+
 async function doLoadPreclinicalTemplates() {
-  const payload = await api("/api/preclinical/templates", { method: "GET" });
+  const [payload, cmcPayload] = await Promise.all([
+    api("/api/preclinical/templates", { method: "GET" }),
+    api("/api/preclinical/cmc/templates", { method: "GET" }),
+  ]);
   const templates = payload.templates || {};
+  const cmcTemplates = cmcPayload.templates || {};
   const study = templates.study || null;
   const rows = templates.bioanalysis_rows || null;
+  const cmc = templates.cmc || cmcTemplates.cmc || null;
+  const cmcBatchResults =
+    templates.cmc_batch_results || cmcTemplates.batch_results || null;
+  const cmcStabilityRows =
+    templates.cmc_stability_results_rows || cmcTemplates.stability_results_rows || null;
   if (study) {
     preclinicalStudyInput.value = pretty(study);
   }
@@ -1886,7 +1965,19 @@ async function doLoadPreclinicalTemplates() {
     preclinicalRowsInput.value = pretty(rows);
     preclinicalRowCountPreview.value = String(Array.isArray(rows) ? rows.length : 0);
   }
-  showOutput("Preclinical Templates", payload);
+  if (cmc) {
+    preclinicalCmcInput.value = pretty(cmc);
+  }
+  if (cmcBatchResults) {
+    preclinicalCmcBatchResultsInput.value = pretty(cmcBatchResults);
+  }
+  if (cmcStabilityRows) {
+    preclinicalCmcStabilityResultsInput.value = pretty(cmcStabilityRows);
+  }
+  showOutput("Preclinical Templates", {
+    preclinical: payload,
+    cmc: cmcPayload,
+  });
 }
 
 async function doPlanPreclinical() {
@@ -1926,7 +2017,7 @@ async function doBioanalyzePreclinical() {
 }
 
 async function doRunPreclinicalWorkup() {
-  const payload = preclinicalPayload();
+  const payload = preclinicalWorkupPayload();
   const result = await api("/api/preclinical/workup", {
     method: "POST",
     body: JSON.stringify({
@@ -1934,9 +2025,81 @@ async function doRunPreclinicalWorkup() {
       rows: payload.rows,
       seed: payload.seed,
       lloq_ng_ml: payload.lloq_ng_ml,
+      cmc_config: payload.cmc_config,
+      stability_results: payload.stability_results,
+      batch_results: payload.batch_results,
+      batch_id: payload.batch_id,
     }),
   });
   showOutput("Preclinical Workup", result);
+}
+
+async function doPlanPreclinicalCmc() {
+  const payload = preclinicalCmcPayload();
+  const result = await api("/api/preclinical/cmc/plan", {
+    method: "POST",
+    body: JSON.stringify({
+      cmc_config: payload.cmc_config,
+    }),
+  });
+  showOutput("Preclinical CMC Plan", result);
+}
+
+async function doBatchRecordPreclinical() {
+  const payload = preclinicalCmcPayload();
+  const result = await api("/api/preclinical/cmc/batch-record", {
+    method: "POST",
+    body: JSON.stringify({
+      cmc_config: payload.cmc_config,
+      batch_id: payload.batch_id,
+      operator: payload.operator,
+      site: payload.site,
+    }),
+  });
+  showOutput("Preclinical Batch Record", result);
+}
+
+async function doStabilityPlanPreclinical() {
+  const payload = preclinicalCmcPayload();
+  const result = await api("/api/preclinical/cmc/stability-plan", {
+    method: "POST",
+    body: JSON.stringify({
+      cmc_config: payload.cmc_config,
+      batch_ids: [payload.batch_id],
+    }),
+  });
+  showOutput("Preclinical Stability Plan", result);
+}
+
+async function doStabilityAssessPreclinical() {
+  const payload = preclinicalCmcPayload();
+  if (!payload.stability_results) {
+    throw new Error("Provide CMC stability rows JSON before running stability assessment");
+  }
+  const result = await api("/api/preclinical/cmc/stability-assess", {
+    method: "POST",
+    body: JSON.stringify({
+      cmc_config: payload.cmc_config,
+      rows: payload.stability_results,
+    }),
+  });
+  showOutput("Preclinical Stability Assessment", result);
+}
+
+async function doReleaseAssessPreclinical() {
+  const payload = preclinicalCmcPayload();
+  if (!payload.batch_results) {
+    throw new Error("Provide CMC batch results JSON before running release assessment");
+  }
+  const result = await api("/api/preclinical/cmc/release-assess", {
+    method: "POST",
+    body: JSON.stringify({
+      cmc_config: payload.cmc_config,
+      batch_results: payload.batch_results,
+      stability_results: payload.stability_results,
+    }),
+  });
+  showOutput("Preclinical Release Assessment", result);
 }
 
 function currentRunPayload() {
@@ -2327,6 +2490,21 @@ function bindActions() {
   document.getElementById("runPreclinicalWorkupButton").addEventListener("click", () =>
     wrapAction(doRunPreclinicalWorkup)
   );
+  document.getElementById("planPreclinicalCmcButton").addEventListener("click", () =>
+    wrapAction(doPlanPreclinicalCmc)
+  );
+  document.getElementById("batchRecordPreclinicalButton").addEventListener("click", () =>
+    wrapAction(doBatchRecordPreclinical)
+  );
+  document.getElementById("stabilityPlanPreclinicalButton").addEventListener("click", () =>
+    wrapAction(doStabilityPlanPreclinical)
+  );
+  document.getElementById("stabilityAssessPreclinicalButton").addEventListener("click", () =>
+    wrapAction(doStabilityAssessPreclinical)
+  );
+  document.getElementById("releaseAssessPreclinicalButton").addEventListener("click", () =>
+    wrapAction(doReleaseAssessPreclinical)
+  );
   document.getElementById("simulateClinicalTrialButton").addEventListener("click", () =>
     wrapAction(doSimulateClinicalTrial)
   );
@@ -2583,6 +2761,60 @@ function seedFallbackDefaults() {
     preclinicalRowCountPreview.value = String(Array.isArray(previewRows) ? previewRows.length : 0);
   } catch (_err) {
     preclinicalRowCountPreview.value = "0";
+  }
+
+  if (!preclinicalCmcInput.value.trim()) {
+    preclinicalCmcInput.value = pretty({
+      product_name: "RX-001 immediate-release tablet",
+      dosage_form: "tablet",
+      strength_mg: 50.0,
+      target_batch_size_units: 100000,
+      release_criteria: {
+        assay_percent: { min: 95.0, max: 105.0, unit: "% label claim" },
+        content_uniformity_av: { max: 15.0, unit: "AV" },
+        dissolution_q30_percent: { min: 80.0, unit: "%" },
+        total_impurities_percent: { max: 2.0, unit: "%" },
+      },
+    });
+  }
+  if (!preclinicalCmcBatchResultsInput.value.trim()) {
+    preclinicalCmcBatchResultsInput.value = pretty({
+      assay_percent: 99.1,
+      content_uniformity_av: 8.6,
+      dissolution_q30_percent: 92.4,
+      total_impurities_percent: 0.6,
+      water_content_percent: 1.4,
+      appearance_score: 5.0,
+    });
+  }
+  if (!preclinicalCmcStabilityResultsInput.value.trim()) {
+    preclinicalCmcStabilityResultsInput.value = pretty([
+      {
+        batch_id: "BATCH-001",
+        condition_id: "long_term_25c_60rh",
+        timepoint_month: 0,
+        test: "assay_percent",
+        value: 100.1,
+        unit: "% label claim",
+      },
+      {
+        batch_id: "BATCH-001",
+        condition_id: "long_term_25c_60rh",
+        timepoint_month: 6,
+        test: "assay_percent",
+        value: 98.9,
+        unit: "% label claim",
+      },
+    ]);
+  }
+  if (!preclinicalCmcBatchIdInput.value.trim()) {
+    preclinicalCmcBatchIdInput.value = "BATCH-001";
+  }
+  if (!preclinicalCmcOperatorInput.value.trim()) {
+    preclinicalCmcOperatorInput.value = "TBD";
+  }
+  if (!preclinicalCmcSiteInput.value.trim()) {
+    preclinicalCmcSiteInput.value = "TBD";
   }
 
   if (!programIdInput.value.trim()) {

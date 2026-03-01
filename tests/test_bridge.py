@@ -262,8 +262,12 @@ class CampaignBridgeTest(unittest.TestCase):
         templates = self.bridge.preclinical_templates()
         self.assertIn("templates", templates)
         self.assertIn("study", templates["templates"])
+        self.assertIn("cmc_references", templates)
         study = templates["templates"]["study"]
         rows = templates["templates"]["bioanalysis_rows"]
+        cmc = templates["templates"]["cmc"]
+        batch_results = templates["templates"]["cmc_batch_results"]
+        stability_rows = templates["templates"]["cmc_stability_results_rows"]
 
         plan = self.bridge.preclinical_plan(study=study, seed=5)
         self.assertIn("plan", plan)
@@ -282,8 +286,57 @@ class CampaignBridgeTest(unittest.TestCase):
             rows=rows,
             seed=7,
             lloq_ng_ml=1.0,
+            cmc_config=cmc,
+            stability_results=stability_rows,
+            batch_results=batch_results,
+            batch_id="BATCH-STUDIO-001",
         )
         self.assertIn("workup", workup)
+        self.assertIn("cmc", workup["workup"])
+        self.assertEqual(
+            workup["workup"]["cmc"]["batch_record"]["batch_id"],
+            "BATCH-STUDIO-001",
+        )
+
+        cmc_templates = self.bridge.preclinical_cmc_templates()
+        self.assertIn("templates", cmc_templates)
+        self.assertIn("cmc", cmc_templates["templates"])
+
+        cmc_plan = self.bridge.preclinical_cmc_plan(cmc_config=cmc)
+        self.assertIn("cmc_plan", cmc_plan)
+        self.assertIn("quality_by_design", cmc_plan["cmc_plan"])
+
+        batch_record = self.bridge.preclinical_batch_record(
+            cmc_config=cmc,
+            batch_id="BATCH-STUDIO-001",
+            operator="qa-user",
+            site="pilot-site",
+            manufacture_date=None,
+        )
+        self.assertIn("batch_record", batch_record)
+        self.assertEqual(batch_record["batch_record"]["batch_id"], "BATCH-STUDIO-001")
+
+        stability_plan = self.bridge.preclinical_stability_plan(
+            cmc_config=cmc,
+            batch_ids=["BATCH-STUDIO-001"],
+        )
+        self.assertIn("stability_plan", stability_plan)
+        self.assertGreater(stability_plan["stability_plan"]["sample_count"], 0)
+
+        stability_assessment = self.bridge.preclinical_stability_assess(
+            cmc_config=cmc,
+            rows=stability_rows,
+        )
+        self.assertIn("stability_assessment", stability_assessment)
+        self.assertEqual(stability_assessment["stability_assessment"]["oos_count"], 0)
+
+        release_assessment = self.bridge.preclinical_release_assess(
+            cmc_config=cmc,
+            batch_results=batch_results,
+            stability_results=stability_rows,
+        )
+        self.assertIn("release_assessment", release_assessment)
+        self.assertTrue(release_assessment["release_assessment"]["passed"])
 
 
 if __name__ == "__main__":

@@ -590,10 +590,14 @@ class StudioApiTest(unittest.TestCase):
         self.assertIn("templates", templates)
         self.assertIn("study", templates["templates"])
         self.assertIn("references", templates)
+        self.assertIn("cmc_references", templates)
         self.assertGreaterEqual(len(templates["references"]), 1)
 
         study = templates["templates"]["study"]
         rows = templates["templates"]["bioanalysis_rows"]
+        cmc = templates["templates"]["cmc"]
+        batch_results = templates["templates"]["cmc_batch_results"]
+        stability_rows = templates["templates"]["cmc_stability_results_rows"]
 
         plan = self._request(
             "POST",
@@ -622,10 +626,72 @@ class StudioApiTest(unittest.TestCase):
         workup = self._request(
             "POST",
             "/api/preclinical/workup",
-            {"study": study, "rows": rows, "seed": 7, "lloq_ng_ml": 1.0},
+            {
+                "study": study,
+                "rows": rows,
+                "seed": 7,
+                "lloq_ng_ml": 1.0,
+                "cmc_config": cmc,
+                "batch_results": batch_results,
+                "stability_results": stability_rows,
+                "batch_id": "BATCH-API-001",
+            },
         )
         self.assertIn("workup", workup)
         self.assertIn("plan", workup["workup"])
+        self.assertIn("cmc", workup["workup"])
+
+        cmc_templates = self._request("GET", "/api/preclinical/cmc/templates")
+        self.assertIn("templates", cmc_templates)
+        self.assertIn("cmc", cmc_templates["templates"])
+
+        cmc_plan = self._request(
+            "POST",
+            "/api/preclinical/cmc/plan",
+            {"cmc_config": cmc},
+        )
+        self.assertIn("cmc_plan", cmc_plan)
+        self.assertIn("quality_by_design", cmc_plan["cmc_plan"])
+
+        batch_record = self._request(
+            "POST",
+            "/api/preclinical/cmc/batch-record",
+            {
+                "cmc_config": cmc,
+                "batch_id": "BATCH-API-001",
+                "operator": "qa-user",
+                "site": "pilot-site",
+            },
+        )
+        self.assertIn("batch_record", batch_record)
+        self.assertEqual(batch_record["batch_record"]["batch_id"], "BATCH-API-001")
+
+        stability_plan = self._request(
+            "POST",
+            "/api/preclinical/cmc/stability-plan",
+            {"cmc_config": cmc, "batch_ids": ["BATCH-API-001"]},
+        )
+        self.assertIn("stability_plan", stability_plan)
+        self.assertGreater(stability_plan["stability_plan"]["sample_count"], 0)
+
+        stability_assessment = self._request(
+            "POST",
+            "/api/preclinical/cmc/stability-assess",
+            {"cmc_config": cmc, "rows": stability_rows},
+        )
+        self.assertIn("stability_assessment", stability_assessment)
+
+        release_assessment = self._request(
+            "POST",
+            "/api/preclinical/cmc/release-assess",
+            {
+                "cmc_config": cmc,
+                "batch_results": batch_results,
+                "stability_results": stability_rows,
+            },
+        )
+        self.assertIn("release_assessment", release_assessment)
+        self.assertTrue(release_assessment["release_assessment"]["passed"])
 
     def test_async_run_job(self) -> None:
         run_payload = self._request(

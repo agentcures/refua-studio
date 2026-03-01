@@ -1575,6 +1575,12 @@ class StudioApp:
         except Exception as exc:  # noqa: BLE001
             raise BadRequestError(str(exc)) from exc
 
+    def preclinical_cmc_templates(self) -> dict[str, Any]:
+        try:
+            return self.bridge.preclinical_cmc_templates()
+        except Exception as exc:  # noqa: BLE001
+            raise BadRequestError(str(exc)) from exc
+
     def preclinical_plan(self, payload: dict[str, Any]) -> dict[str, Any]:
         study = payload.get("study")
         if not isinstance(study, dict):
@@ -1624,12 +1630,130 @@ class StudioApp:
             rows = [item for item in rows_raw if isinstance(item, dict)]
         seed = _coerce_int(payload.get("seed", 7), "seed")
         lloq_ng_ml = _coerce_float(payload.get("lloq_ng_ml", 1.0), "lloq_ng_ml", minimum=0.0)
+        cmc_config = _optional_mapping(payload.get("cmc_config"), "cmc_config")
+
+        stability_results_raw = payload.get("stability_results")
+        stability_results: list[dict[str, Any]] | None = None
+        if stability_results_raw is not None:
+            if not isinstance(stability_results_raw, list):
+                raise BadRequestError("stability_results must be an array when provided")
+            stability_results = [
+                item
+                for item in stability_results_raw
+                if isinstance(item, dict)
+            ]
+
+        batch_results_raw = payload.get("batch_results")
+        batch_results: dict[str, Any] | list[dict[str, Any]] | None = None
+        if batch_results_raw is not None:
+            if isinstance(batch_results_raw, dict):
+                batch_results = batch_results_raw
+            elif isinstance(batch_results_raw, list):
+                batch_results = [
+                    item for item in batch_results_raw if isinstance(item, dict)
+                ]
+            else:
+                raise BadRequestError("batch_results must be an object or array when provided")
+
+        batch_id = _optional_nonempty_string(payload.get("batch_id"), "batch_id") or "BATCH-001"
         try:
             return self.bridge.preclinical_workup(
                 study=study,
                 rows=rows,
                 seed=seed,
                 lloq_ng_ml=lloq_ng_ml,
+                cmc_config=cmc_config,
+                stability_results=stability_results,
+                batch_results=batch_results,
+                batch_id=batch_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise BadRequestError(str(exc)) from exc
+
+    def preclinical_cmc_plan(self, payload: dict[str, Any]) -> dict[str, Any]:
+        cmc_config = _optional_mapping(payload.get("cmc_config"), "cmc_config")
+        try:
+            return self.bridge.preclinical_cmc_plan(cmc_config=cmc_config)
+        except Exception as exc:  # noqa: BLE001
+            raise BadRequestError(str(exc)) from exc
+
+    def preclinical_batch_record(self, payload: dict[str, Any]) -> dict[str, Any]:
+        cmc_config = _optional_mapping(payload.get("cmc_config"), "cmc_config")
+        batch_id = _optional_nonempty_string(payload.get("batch_id"), "batch_id") or "BATCH-001"
+        operator = _optional_nonempty_string(payload.get("operator"), "operator") or "TBD"
+        site = _optional_nonempty_string(payload.get("site"), "site") or "TBD"
+        manufacture_date = _optional_nonempty_string(
+            payload.get("manufacture_date"),
+            "manufacture_date",
+        )
+        try:
+            return self.bridge.preclinical_batch_record(
+                cmc_config=cmc_config,
+                batch_id=batch_id,
+                operator=operator,
+                site=site,
+                manufacture_date=manufacture_date,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise BadRequestError(str(exc)) from exc
+
+    def preclinical_stability_plan(self, payload: dict[str, Any]) -> dict[str, Any]:
+        cmc_config = _optional_mapping(payload.get("cmc_config"), "cmc_config")
+        batch_ids_raw = payload.get("batch_ids")
+        batch_ids: list[str] | None = None
+        if batch_ids_raw is not None:
+            if not isinstance(batch_ids_raw, list):
+                raise BadRequestError("batch_ids must be an array when provided")
+            batch_ids = [
+                str(item).strip()
+                for item in batch_ids_raw
+                if str(item).strip()
+            ]
+        try:
+            return self.bridge.preclinical_stability_plan(
+                cmc_config=cmc_config,
+                batch_ids=batch_ids,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise BadRequestError(str(exc)) from exc
+
+    def preclinical_stability_assess(self, payload: dict[str, Any]) -> dict[str, Any]:
+        cmc_config = _optional_mapping(payload.get("cmc_config"), "cmc_config")
+        rows_raw = payload.get("rows")
+        if not isinstance(rows_raw, list):
+            raise BadRequestError("rows must be an array of stability result objects")
+        rows = [item for item in rows_raw if isinstance(item, dict)]
+        try:
+            return self.bridge.preclinical_stability_assess(
+                cmc_config=cmc_config,
+                rows=rows,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise BadRequestError(str(exc)) from exc
+
+    def preclinical_release_assess(self, payload: dict[str, Any]) -> dict[str, Any]:
+        cmc_config = _optional_mapping(payload.get("cmc_config"), "cmc_config")
+        batch_results_raw = payload.get("batch_results")
+        if isinstance(batch_results_raw, dict):
+            batch_results: dict[str, Any] | list[dict[str, Any]] = batch_results_raw
+        elif isinstance(batch_results_raw, list):
+            batch_results = [item for item in batch_results_raw if isinstance(item, dict)]
+        else:
+            raise BadRequestError("batch_results must be an object or array of objects")
+
+        stability_results_raw = payload.get("stability_results")
+        stability_results: list[dict[str, Any]] | None = None
+        if stability_results_raw is not None:
+            if not isinstance(stability_results_raw, list):
+                raise BadRequestError("stability_results must be an array when provided")
+            stability_results = [
+                item for item in stability_results_raw if isinstance(item, dict)
+            ]
+        try:
+            return self.bridge.preclinical_release_assess(
+                cmc_config=cmc_config,
+                batch_results=batch_results,
+                stability_results=stability_results,
             )
         except Exception as exc:  # noqa: BLE001
             raise BadRequestError(str(exc)) from exc
@@ -1963,6 +2087,9 @@ def create_handler(app: StudioApp):
                 if path == "/api/preclinical/templates":
                     _json_response(self, HTTPStatus.OK, app.preclinical_templates())
                     return
+                if path == "/api/preclinical/cmc/templates":
+                    _json_response(self, HTTPStatus.OK, app.preclinical_cmc_templates())
+                    return
                 if path.startswith("/api/clinical/trials/"):
                     parts = [token for token in path.split("/") if token]
                     if len(parts) < 4:
@@ -2164,6 +2291,21 @@ def create_handler(app: StudioApp):
                     return
                 if path == "/api/preclinical/workup":
                     _json_response(self, HTTPStatus.OK, app.preclinical_workup(payload))
+                    return
+                if path == "/api/preclinical/cmc/plan":
+                    _json_response(self, HTTPStatus.OK, app.preclinical_cmc_plan(payload))
+                    return
+                if path == "/api/preclinical/cmc/batch-record":
+                    _json_response(self, HTTPStatus.OK, app.preclinical_batch_record(payload))
+                    return
+                if path == "/api/preclinical/cmc/stability-plan":
+                    _json_response(self, HTTPStatus.OK, app.preclinical_stability_plan(payload))
+                    return
+                if path == "/api/preclinical/cmc/stability-assess":
+                    _json_response(self, HTTPStatus.OK, app.preclinical_stability_assess(payload))
+                    return
+                if path == "/api/preclinical/cmc/release-assess":
+                    _json_response(self, HTTPStatus.OK, app.preclinical_release_assess(payload))
                     return
                 if path == "/api/jobs/clear":
                     _json_response(self, HTTPStatus.OK, app.clear_jobs(payload))

@@ -493,6 +493,38 @@
               <button id="bioanalyzePreclinicalButton" class="btn btn-outline btn-small">Bioanalysis</button>
             </div>
           </article>
+          <article class="subpanel">
+            <h3>CMC Config</h3>
+            <label for="preclinicalCmcInput">CMC JSON</label>
+            <textarea id="preclinicalCmcInput" rows="8" spellcheck="false"></textarea>
+            <label for="preclinicalCmcBatchResultsInput">Batch Results JSON</label>
+            <textarea id="preclinicalCmcBatchResultsInput" rows="5" spellcheck="false"></textarea>
+            <label for="preclinicalCmcStabilityResultsInput">Stability Rows JSON</label>
+            <textarea id="preclinicalCmcStabilityResultsInput" rows="5" spellcheck="false"></textarea>
+            <div class="row three">
+              <label>
+                Batch ID
+                <input type="text" id="preclinicalCmcBatchIdInput" value="BATCH-001" />
+              </label>
+              <label>
+                Operator
+                <input type="text" id="preclinicalCmcOperatorInput" value="TBD" />
+              </label>
+              <label>
+                Site
+                <input type="text" id="preclinicalCmcSiteInput" value="TBD" />
+              </label>
+            </div>
+            <div class="button-row">
+              <button id="planPreclinicalCmcButton" class="btn btn-outline btn-small">CMC Plan</button>
+              <button id="batchRecordPreclinicalButton" class="btn btn-outline btn-small">Batch Record</button>
+              <button id="stabilityPlanPreclinicalButton" class="btn btn-outline btn-small">Stability Plan</button>
+            </div>
+            <div class="button-row">
+              <button id="stabilityAssessPreclinicalButton" class="btn btn-outline btn-small">Stability Assess</button>
+              <button id="releaseAssessPreclinicalButton" class="btn btn-outline btn-small">Release Assess</button>
+            </div>
+          </article>
         </div>
       </section>
 

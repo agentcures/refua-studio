@@ -9,7 +9,7 @@ It provides:
 - Portfolio ranking UI for disease program prioritization
 - Clinical trial management UI (trial CRUD, human/simulated enrollment, outcome capture, simulation refresh)
 - Program graph command center (program registry, timeline events, stage-gate approvals/e-signature capture)
-- Cross-package orchestration for `refua-data`, `refua-preclinical`, `refua-bench`, `refua-wetlab`, and `refua-regulatory`
+- Cross-package orchestration for `refua-data`, `refua-preclinical` (including CMC workflows), `refua-bench`, `refua-wetlab`, and `refua-regulatory`
 - Dataset catalog and materialization controls with provenance extraction
 - Benchmark gate execution against baselines for release decisions
 - Wet-lab protocol validation/compile/run controls with lineage events
@@ -135,6 +135,7 @@ CLI flags:
 - `GET /api/clinical/trials/{trial_id}/sites`
 - `GET /api/clinical/trials/{trial_id}/ops`
 - `GET /api/preclinical/templates`
+- `GET /api/preclinical/cmc/templates`
 - `GET /api/jobs?limit=80&status=running,failed`
 - `GET /api/jobs/{job_id}`
 - `POST /api/jobs/{job_id}/cancel`
@@ -164,6 +165,11 @@ CLI flags:
 - `POST /api/preclinical/schedule`
 - `POST /api/preclinical/bioanalysis`
 - `POST /api/preclinical/workup`
+- `POST /api/preclinical/cmc/plan`
+- `POST /api/preclinical/cmc/batch-record`
+- `POST /api/preclinical/cmc/stability-plan`
+- `POST /api/preclinical/cmc/stability-assess`
+- `POST /api/preclinical/cmc/release-assess`
 
 ### `POST /api/run` payload
 

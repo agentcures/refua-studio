@@ -102,7 +102,7 @@ _PRODUCT_REGISTRY: tuple[dict[str, str], ...] = (
         "name": "refua-preclinical",
         "repo": "refua-preclinical",
         "module": "refua_preclinical",
-        "role": "Preclinical tox/pharmacology planning and bioanalysis",
+        "role": "Preclinical tox/pharmacology planning, bioanalysis, and CMC lifecycle workflows",
     },
     {
         "id": "refua_regulatory",
@@ -1243,6 +1243,26 @@ class CampaignBridge:
         pre_mod = self._import("refua_preclinical")
         templates = pre_mod.default_templates()
         references = pre_mod.latest_preclinical_references()
+        cmc_references = (
+            pre_mod.latest_cmc_references()
+            if hasattr(pre_mod, "latest_cmc_references")
+            else []
+        )
+        return {
+            "templates": _to_plain_data(templates),
+            "references": _to_plain_data(references),
+            "cmc_references": _to_plain_data(cmc_references),
+            "version": getattr(pre_mod, "__version__", None),
+        }
+
+    def preclinical_cmc_templates(self) -> dict[str, Any]:
+        pre_mod = self._import("refua_preclinical")
+        templates = pre_mod.default_cmc_templates()
+        references = (
+            pre_mod.latest_cmc_references()
+            if hasattr(pre_mod, "latest_cmc_references")
+            else []
+        )
         return {
             "templates": _to_plain_data(templates),
             "references": _to_plain_data(references),
@@ -1305,6 +1325,10 @@ class CampaignBridge:
         rows: list[dict[str, Any]] | None,
         seed: int,
         lloq_ng_ml: float,
+        cmc_config: dict[str, Any] | None,
+        stability_results: list[dict[str, Any]] | None,
+        batch_results: dict[str, Any] | list[dict[str, Any]] | None,
+        batch_id: str,
     ) -> dict[str, Any]:
         pre_mod = self._import("refua_preclinical")
         spec = pre_mod.study_spec_from_mapping(study)
@@ -1313,10 +1337,112 @@ class CampaignBridge:
             samples=rows,
             seed=int(seed),
             lloq_ng_ml=float(lloq_ng_ml),
+            cmc_config=cmc_config,
+            stability_results=stability_results,
+            batch_results=batch_results,
+            batch_id=str(batch_id),
         )
         return {
             "study_id": spec.study_id,
             "workup": _to_plain_data(payload),
+            "version": getattr(pre_mod, "__version__", None),
+        }
+
+    def preclinical_cmc_plan(
+        self,
+        *,
+        cmc_config: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        pre_mod = self._import("refua_preclinical")
+        payload = pre_mod.build_formulation_process_plan(cmc_config)
+        return {
+            "cmc_plan": _to_plain_data(payload),
+            "version": getattr(pre_mod, "__version__", None),
+        }
+
+    def preclinical_batch_record(
+        self,
+        *,
+        cmc_config: dict[str, Any] | None,
+        batch_id: str,
+        operator: str,
+        site: str,
+        manufacture_date: str | None,
+    ) -> dict[str, Any]:
+        pre_mod = self._import("refua_preclinical")
+        payload = pre_mod.generate_batch_record(
+            cmc_config,
+            batch_id=str(batch_id),
+            operator=str(operator),
+            site=str(site),
+            manufacture_date=manufacture_date,
+        )
+        return {
+            "batch_record": _to_plain_data(payload),
+            "version": getattr(pre_mod, "__version__", None),
+        }
+
+    def preclinical_stability_plan(
+        self,
+        *,
+        cmc_config: dict[str, Any] | None,
+        batch_ids: list[str] | None,
+    ) -> dict[str, Any]:
+        pre_mod = self._import("refua_preclinical")
+        payload = pre_mod.build_stability_study_plan(
+            cmc_config,
+            batch_ids=batch_ids,
+        )
+        return {
+            "stability_plan": _to_plain_data(payload),
+            "version": getattr(pre_mod, "__version__", None),
+        }
+
+    def preclinical_stability_assess(
+        self,
+        *,
+        cmc_config: dict[str, Any] | None,
+        rows: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        pre_mod = self._import("refua_preclinical")
+        criteria = pre_mod.build_formulation_process_plan(cmc_config)["cmc"][
+            "release_criteria"
+        ]
+        payload = pre_mod.assess_stability_results(
+            rows,
+            release_criteria=criteria,
+        )
+        return {
+            "stability_assessment": _to_plain_data(payload),
+            "version": getattr(pre_mod, "__version__", None),
+        }
+
+    def preclinical_release_assess(
+        self,
+        *,
+        cmc_config: dict[str, Any] | None,
+        batch_results: dict[str, Any] | list[dict[str, Any]],
+        stability_results: list[dict[str, Any]] | None,
+    ) -> dict[str, Any]:
+        pre_mod = self._import("refua_preclinical")
+        cmc_plan = pre_mod.build_formulation_process_plan(cmc_config)
+        criteria = cmc_plan["cmc"]["release_criteria"]
+        cqa = cmc_plan["cmc"]["critical_quality_attributes"]
+        stability_assessment = None
+        if stability_results is not None:
+            stability_assessment = pre_mod.assess_stability_results(
+                stability_results,
+                release_criteria=criteria,
+            )
+        payload = pre_mod.evaluate_release_criteria(
+            batch_results=batch_results,
+            release_criteria=criteria,
+            stability_assessment=stability_assessment,
+            critical_quality_attributes=cqa,
+        )
+        return {
+            "release_assessment": _to_plain_data(payload),
+            "stability_assessment": _to_plain_data(stability_assessment),
             "version": getattr(pre_mod, "__version__", None),
         }
 
