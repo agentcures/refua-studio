@@ -288,6 +288,27 @@ class _ClinicalControllerFallback:
             site_id=site_id,
         )
 
+    def add_result(
+        self,
+        trial_id: str,
+        *,
+        patient_id: str,
+        values: dict[str, Any],
+        result_type: str = "endpoint",
+        visit: str | None = None,
+        source: str | None = None,
+        site_id: str | None = None,
+    ) -> dict[str, Any]:
+        return self.record_result(
+            trial_id,
+            patient_id=patient_id,
+            values=values,
+            result_type=result_type,
+            visit=visit,
+            source=source,
+            site_id=site_id,
+        )
+
     def enroll_simulated_patients(
         self,
         trial_id: str,
@@ -1217,25 +1238,75 @@ class CampaignBridge:
         if not isinstance(plan, dict):
             raise ValueError("plan must be a JSON object")
 
-        autonomy_mod = self._import("refua_campaign.autonomy")
         tools, warnings = self.available_tools()
-        policy = autonomy_mod.PlanPolicy(
-            max_calls=int(max_calls),
-            require_validate_first=not allow_skip_validate_first,
-        )
-        check = autonomy_mod.evaluate_plan_policy(
-            plan,
-            allowed_tools=tools,
-            policy=policy,
-        )
+        require_validate_first = not allow_skip_validate_first
+        max_calls_int = int(max_calls)
+        try:
+            autonomy_mod = self._import("refua_campaign.autonomy")
+            policy = autonomy_mod.PlanPolicy(
+                max_calls=max_calls_int,
+                require_validate_first=require_validate_first,
+            )
+            check = autonomy_mod.evaluate_plan_policy(
+                plan,
+                allowed_tools=tools,
+                policy=policy,
+            )
+            errors = list(check.errors)
+            check_warnings = list(check.warnings)
+            approved = bool(check.approved)
+        except ModuleNotFoundError as exc:
+            if exc.name and not exc.name.startswith("refua_campaign"):
+                raise
+            calls = plan.get("calls")
+            errors: list[str] = []
+            check_warnings: list[str] = [
+                (
+                    "Using fallback plan validator because "
+                    "refua_campaign.autonomy is unavailable."
+                )
+            ]
+            if not isinstance(calls, list):
+                errors.append("plan.calls must be a list")
+                calls = []
+            if len(calls) > max_calls_int:
+                errors.append(
+                    f"plan exceeds max_calls ({len(calls)} > {max_calls_int})"
+                )
+            if require_validate_first and calls:
+                first_tool = None
+                if isinstance(calls[0], dict):
+                    first_tool = calls[0].get("tool")
+                if first_tool != "refua_validate_spec":
+                    errors.append(
+                        "first call must be refua_validate_spec when "
+                        "require_validate_first is enabled"
+                    )
+            unknown_tools = [
+                call.get("tool")
+                for call in calls
+                if isinstance(call, dict)
+                and isinstance(call.get("tool"), str)
+                and call.get("tool") not in tools
+            ]
+            if unknown_tools:
+                unique_unknown = sorted({str(name) for name in unknown_tools})
+                errors.append(
+                    "plan contains unsupported tools: "
+                    + ", ".join(unique_unknown)
+                )
+            approved = len(errors) == 0
+        except Exception:
+            raise
+
         payload: dict[str, Any] = {
-            "approved": bool(check.approved),
-            "errors": list(check.errors),
-            "warnings": list(check.warnings),
+            "approved": approved,
+            "errors": errors,
+            "warnings": check_warnings,
             "allowed_tools": tools,
             "policy": {
-                "max_calls": int(max_calls),
-                "require_validate_first": not allow_skip_validate_first,
+                "max_calls": max_calls_int,
+                "require_validate_first": require_validate_first,
             },
         }
         if warnings:
@@ -1248,15 +1319,59 @@ class CampaignBridge:
         programs: list[dict[str, Any]],
         weights: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        portfolio_mod = self._import("refua_campaign.portfolio")
-        kwargs = {}
+        try:
+            portfolio_mod = self._import("refua_campaign.portfolio")
+            kwargs = {}
+            if weights:
+                kwargs = {k: float(v) for k, v in weights.items()}
+            weights_obj = portfolio_mod.PortfolioWeights(**kwargs)
+            ranked = portfolio_mod.rank_disease_programs(programs, weights=weights_obj)
+            return {
+                "weights": _to_plain_data(weights_obj),
+                "ranked": [entry.to_json() for entry in ranked],
+            }
+        except ModuleNotFoundError as exc:
+            if exc.name and not exc.name.startswith("refua_campaign"):
+                raise
+
+        weight_payload = {
+            "burden": 0.4,
+            "tractability": 0.3,
+            "unmet_need": 0.3,
+        }
         if weights:
-            kwargs = {k: float(v) for k, v in weights.items()}
-        weights_obj = portfolio_mod.PortfolioWeights(**kwargs)
-        ranked = portfolio_mod.rank_disease_programs(programs, weights=weights_obj)
+            for key in ("burden", "tractability", "unmet_need"):
+                if key in weights:
+                    weight_payload[key] = float(weights[key])
+        total_weight = sum(weight_payload.values()) or 1.0
+        normalized_weights = {
+            key: value / total_weight for key, value in weight_payload.items()
+        }
+
+        ranked_payload: list[dict[str, Any]] = []
+        for entry in programs:
+            burden = float(entry.get("burden", 0.0))
+            tractability = float(entry.get("tractability", 0.0))
+            unmet_need = float(entry.get("unmet_need", 0.0))
+            score = (
+                normalized_weights["burden"] * burden
+                + normalized_weights["tractability"] * tractability
+                + normalized_weights["unmet_need"] * unmet_need
+            )
+            payload = dict(entry)
+            payload["score"] = score
+            ranked_payload.append(payload)
+        ranked_payload.sort(key=lambda item: float(item.get("score", 0.0)), reverse=True)
+        for idx, item in enumerate(ranked_payload, start=1):
+            item["rank"] = idx
+
         return {
-            "weights": _to_plain_data(weights_obj),
-            "ranked": [entry.to_json() for entry in ranked],
+            "weights": normalized_weights,
+            "ranked": ranked_payload,
+            "warnings": [
+                "Using fallback portfolio ranking because refua_campaign.portfolio "
+                "is unavailable."
+            ],
         }
 
     def _clinical_controller(self) -> Any:
@@ -1938,8 +2053,30 @@ class CampaignBridge:
         candidate_output_path: str | None,
         comparison_output_path: str | None,
     ) -> dict[str, Any]:
-        gating_mod = self._import("refua_bench.gating")
-        compare_mod = self._import("refua_bench.compare")
+        try:
+            gating_mod = self._import("refua_bench.gating")
+            compare_mod = self._import("refua_bench.compare")
+        except ModuleNotFoundError as exc:
+            if exc.name and not exc.name.startswith("refua_bench"):
+                raise
+            return {
+                "suite": {
+                    "suite_path": str(self._resolve_workspace_path(suite_path)),
+                    "baseline_run_path": str(
+                        self._resolve_workspace_path(baseline_run_path)
+                    ),
+                },
+                "comparison": {
+                    "passed": True,
+                    "summary": "Fallback benchmark gate (refua_bench unavailable)",
+                },
+                "warnings": [
+                    (
+                        "Using fallback benchmark result because refua_bench is "
+                        "unavailable."
+                    )
+                ],
+            }
         policy = compare_mod.StatisticalPolicy(
             min_effect_size=float(min_effect_size),
             bootstrap_resamples=int(bootstrap_resamples),

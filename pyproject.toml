@@ -35,6 +35,10 @@ dependencies = [
   "scipy>=1.13.0",
   "pyyaml>=6.0.1",
   "refua-clinical>=0.7.0",
+  "refua-data>=0.7.0",
+  "refua-preclinical>=0.7.0",
+  "refua-regulatory>=0.7.0",
+  "refua-wetlab>=0.7.0",
 ]
 
 [project.urls]
