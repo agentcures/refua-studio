@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "refua-studio"
-version = "0.7.0"
+version = "0.7.1"
 description = "Web control plane for Refua campaign orchestration and scientific execution."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
@@ -34,11 +34,11 @@ dependencies = [
   "pandas>=2.2.2",
   "scipy>=1.13.0",
   "pyyaml>=6.0.1",
-  "refua-clinical>=0.7.0",
-  "refua-data>=0.7.0",
-  "refua-preclinical>=0.7.0",
-  "refua-regulatory>=0.7.0",
-  "refua-wetlab>=0.7.0",
+  "refua-clinical>=0.7.1",
+  "refua-data>=0.7.1",
+  "refua-preclinical>=0.7.1",
+  "refua-regulatory>=0.7.1",
+  "refua-wetlab>=0.7.1",
 ]
 
 [project.urls]
