@@ -26,6 +26,10 @@ class StudioConfig:
         return self.data_dir / "studio.db"
 
     @property
+    def wetlab_database_path(self) -> Path:
+        return self.data_dir / "wetlab.sqlite3"
+
+    @property
     def resolved_workspace_root(self) -> Path:
         if self.workspace_root is not None:
             return self.workspace_root.resolve()

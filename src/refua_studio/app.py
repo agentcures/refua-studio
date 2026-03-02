@@ -102,6 +102,12 @@ class NotFoundError(ApiError):
     status_code = HTTPStatus.NOT_FOUND
 
 
+class ConflictError(ApiError):
+    """Raised when request conflicts with current state."""
+
+    status_code = HTTPStatus.CONFLICT
+
+
 class StudioApp:
     """Application service container and API implementation."""
 
@@ -115,6 +121,7 @@ class StudioApp:
 
     def shutdown(self) -> None:
         self.runner.shutdown()
+        self.bridge.shutdown()
 
     def health(self) -> dict[str, Any]:
         tools, warnings = self.bridge.available_tools()
@@ -133,6 +140,7 @@ class StudioApp:
                 "host": self.config.host,
                 "port": self.config.port,
                 "data_dir": str(self.config.data_dir),
+                "wetlab_database_path": str(self.config.wetlab_database_path),
                 "workspace_root": str(self.config.resolved_workspace_root),
                 "max_workers": self.config.max_workers,
                 "auth": {
@@ -744,6 +752,40 @@ class StudioApp:
                 raise NotFoundError(f"Unknown program_id: {program_id}") from exc
 
         return {"result": result}
+
+    def wetlab_lms_get(
+        self,
+        *,
+        path: str,
+        query: dict[str, list[str]],
+    ) -> dict[str, Any]:
+        wetlab_path = _studio_to_wetlab_lms_path(path)
+        try:
+            return self.bridge.wetlab_lms_get(
+                path=wetlab_path,
+                query=query,
+                database_path=self.config.wetlab_database_path,
+                max_workers=self.config.max_workers,
+            )
+        except Exception as exc:  # noqa: BLE001
+            _raise_wetlab_lms_bridge_error(exc)
+
+    def wetlab_lms_post(
+        self,
+        *,
+        path: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        wetlab_path = _studio_to_wetlab_lms_path(path)
+        try:
+            return self.bridge.wetlab_lms_post(
+                path=wetlab_path,
+                payload=payload,
+                database_path=self.config.wetlab_database_path,
+                max_workers=self.config.max_workers,
+            )
+        except Exception as exc:  # noqa: BLE001
+            _raise_wetlab_lms_bridge_error(exc)
 
     def list_regulatory_bundles(self, *, query: dict[str, list[str]]) -> dict[str, Any]:
         limit = _query_int(query, name="limit", default=100, minimum=1)
@@ -2117,6 +2159,29 @@ def _read_json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     return parsed
 
 
+def _studio_to_wetlab_lms_path(path: str) -> str:
+    if path == "/api/wetlab/lms":
+        return "/api/lms"
+    prefix = "/api/wetlab/lms/"
+    if path.startswith(prefix):
+        suffix = path.removeprefix(prefix)
+        return f"/api/lms/{suffix}"
+    raise NotFoundError("unknown wetlab lms endpoint")
+
+
+def _raise_wetlab_lms_bridge_error(exc: Exception) -> None:
+    error_type = type(exc).__name__
+    if error_type == "LmsNotFoundError":
+        raise NotFoundError(str(exc)) from exc
+    if error_type == "LmsConflictError":
+        raise ConflictError(str(exc)) from exc
+    if error_type in {"LmsValidationError", "ProtocolValidationError"}:
+        raise BadRequestError(str(exc)) from exc
+    if error_type == "UnknownProviderError":
+        raise BadRequestError(str(exc)) from exc
+    raise BadRequestError(str(exc)) from exc
+
+
 def _required_api_role(*, method: str, path: str) -> str | None:
     if not path.startswith("/api/"):
         return None
@@ -2297,6 +2362,14 @@ def create_handler(app: StudioApp):
                 if path == "/api/wetlab/providers":
                     _json_response(self, HTTPStatus.OK, app.wetlab_providers())
                     return
+                if path == "/api/wetlab/lms" or path.startswith("/api/wetlab/lms/"):
+                    query = parse_qs(parsed.query, keep_blank_values=False)
+                    _json_response(
+                        self,
+                        HTTPStatus.OK,
+                        app.wetlab_lms_get(path=path, query=query),
+                    )
+                    return
                 if path == "/api/regulatory/bundles":
                     query = parse_qs(parsed.query, keep_blank_values=False)
                     _json_response(
@@ -2471,6 +2544,13 @@ def create_handler(app: StudioApp):
                     return
                 if path == "/api/wetlab/run":
                     _json_response(self, HTTPStatus.OK, app.wetlab_run(payload))
+                    return
+                if path == "/api/wetlab/lms" or path.startswith("/api/wetlab/lms/"):
+                    _json_response(
+                        self,
+                        HTTPStatus.OK,
+                        app.wetlab_lms_post(path=path, payload=payload),
+                    )
                     return
                 if path == "/api/regulatory/bundle/build":
                     _json_response(

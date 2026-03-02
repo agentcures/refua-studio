@@ -19,6 +19,9 @@ class CampaignBridgeTest(unittest.TestCase):
         self.workspace_root = Path(__file__).resolve().parents[2]
         self.bridge = CampaignBridge(self.workspace_root)
 
+    def tearDown(self) -> None:
+        self.bridge.shutdown()
+
     def test_available_tools_has_known_entries(self) -> None:
         tools, _warnings = self.bridge.available_tools()
         self.assertIn("refua_validate_spec", tools)
@@ -85,6 +88,26 @@ class CampaignBridgeTest(unittest.TestCase):
             }
         )
         self.assertTrue(payload["valid"])
+
+    def test_wetlab_lms_routes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            db_path = Path(tmp) / "wetlab.sqlite3"
+            created = self.bridge.wetlab_lms_post(
+                path="/api/lms/projects",
+                payload={"name": "Bridge LMS"},
+                database_path=db_path,
+                max_workers=1,
+            )
+            project = created["project"]
+            self.assertIn("project_id", project)
+
+            summary = self.bridge.wetlab_lms_get(
+                path="/api/lms/summary",
+                query={},
+                database_path=db_path,
+                max_workers=1,
+            )
+            self.assertGreaterEqual(summary["counts"]["projects"]["total"], 1)
 
     def test_build_clawcures_handoff(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

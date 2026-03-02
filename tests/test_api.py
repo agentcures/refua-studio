@@ -330,6 +330,60 @@ class StudioApiTest(unittest.TestCase):
         self.assertIn("result", benchmark)
         self.assertIn("comparison", benchmark["result"])
 
+    def test_wetlab_lms_endpoints(self) -> None:
+        project = self._request(
+            "POST",
+            "/api/wetlab/lms/projects",
+            {"name": "Studio LMS", "owner": "studio"},
+        )["project"]
+        project_id = project["project_id"]
+
+        sample = self._request(
+            "POST",
+            "/api/wetlab/lms/samples",
+            {
+                "project_id": project_id,
+                "name": "studio-sample-001",
+                "sample_type": "cell_lysate",
+                "volume_ul": 100,
+            },
+        )["sample"]
+        sample_id = sample["sample_id"]
+
+        experiment = self._request(
+            "POST",
+            "/api/wetlab/lms/experiments",
+            {
+                "project_id": project_id,
+                "name": "Studio LMS run",
+                "provider": "opentrons",
+                "sample_ids": [sample_id],
+                "protocol": {
+                    "name": "studio-lms-protocol",
+                    "steps": [
+                        {
+                            "type": "transfer",
+                            "source": "plate:A1",
+                            "destination": "plate:B1",
+                            "volume_ul": 15,
+                        }
+                    ],
+                },
+            },
+        )["experiment"]
+        experiment_id = experiment["experiment_id"]
+
+        scheduled = self._request(
+            "POST",
+            f"/api/wetlab/lms/experiments/{experiment_id}/schedule-run",
+            {"async_mode": False, "dry_run": True},
+        )
+        self.assertEqual(scheduled["run"]["status"], "completed")
+        self.assertEqual(scheduled["experiment"]["status"], "completed")
+
+        summary = self._request("GET", "/api/wetlab/lms/summary")
+        self.assertGreaterEqual(summary["counts"]["projects"]["total"], 1)
+
     def test_regulatory_bundle_endpoints(self) -> None:
         payload = self._request(
             "POST",

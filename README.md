@@ -125,6 +125,9 @@ CLI flags:
 - `POST /api/wetlab/protocol/validate`
 - `POST /api/wetlab/protocol/compile`
 - `POST /api/wetlab/run`
+- `GET /api/wetlab/lms` (resource index)
+- `GET /api/wetlab/lms/*` (mirrors `refua-wetlab` LMS GET resources)
+- `POST /api/wetlab/lms/*` (mirrors `refua-wetlab` LMS POST resources)
 - `GET /api/regulatory/bundles?limit=100`
 - `POST /api/regulatory/bundle/build`
 - `POST /api/regulatory/bundle/verify`

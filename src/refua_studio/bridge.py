@@ -186,6 +186,18 @@ class CampaignBridge:
     def __init__(self, workspace_root: Path) -> None:
         self._workspace_root = workspace_root
         self._paths_ready = False
+        self._wetlab_lms_api: Any | None = None
+        self._wetlab_lms_key: tuple[str, int] | None = None
+
+    def shutdown(self) -> None:
+        lms_api = self._wetlab_lms_api
+        self._wetlab_lms_api = None
+        self._wetlab_lms_key = None
+        if lms_api is None:
+            return
+        shutdown = getattr(lms_api, "shutdown", None)
+        if callable(shutdown):
+            shutdown()
 
     def _ensure_paths(self) -> None:
         if self._paths_ready:
@@ -1647,6 +1659,81 @@ class CampaignBridge:
             "providers": _to_plain_data(providers),
             "count": len(providers),
         }
+
+    def _create_wetlab_lms_api(
+        self,
+        *,
+        database_path: Path,
+        max_workers: int,
+    ) -> Any:
+        lms_mod = self._import("refua_wetlab.lms")
+        lms_api_mod = self._import("refua_wetlab.lms_api")
+        storage_mod = self._import("refua_wetlab.storage")
+        runner_mod = self._import("refua_wetlab.runner")
+        engine_mod = self._import("refua_wetlab.engine")
+
+        resolved_db = database_path.expanduser().resolve()
+        lms_store = lms_mod.LmsStore(resolved_db)
+        run_store = storage_mod.RunStore(resolved_db)
+        runner = runner_mod.RunBackgroundRunner(
+            run_store,
+            max_workers=max(1, int(max_workers)),
+        )
+        engine = engine_mod.UnifiedWetLabEngine()
+        return lms_api_mod.LmsApi(
+            lms_store=lms_store,
+            run_store=run_store,
+            runner=runner,
+            engine=engine,
+        )
+
+    def _get_wetlab_lms_api(
+        self,
+        *,
+        database_path: Path,
+        max_workers: int,
+    ) -> Any:
+        key = (str(database_path.expanduser().resolve()), max(1, int(max_workers)))
+        if self._wetlab_lms_api is not None and self._wetlab_lms_key == key:
+            return self._wetlab_lms_api
+
+        self.shutdown()
+        self._wetlab_lms_api = self._create_wetlab_lms_api(
+            database_path=database_path,
+            max_workers=max_workers,
+        )
+        self._wetlab_lms_key = key
+        return self._wetlab_lms_api
+
+    def wetlab_lms_get(
+        self,
+        *,
+        path: str,
+        query: dict[str, list[str]],
+        database_path: Path,
+        max_workers: int,
+    ) -> dict[str, Any]:
+        api = self._get_wetlab_lms_api(
+            database_path=database_path,
+            max_workers=max_workers,
+        )
+        payload = api.route_get(path=path, query=query)
+        return _to_plain_data(payload)
+
+    def wetlab_lms_post(
+        self,
+        *,
+        path: str,
+        payload: dict[str, Any],
+        database_path: Path,
+        max_workers: int,
+    ) -> dict[str, Any]:
+        api = self._get_wetlab_lms_api(
+            database_path=database_path,
+            max_workers=max_workers,
+        )
+        response = api.route_post(path=path, payload=payload)
+        return _to_plain_data(response)
 
     def wetlab_validate_protocol(self, *, protocol: dict[str, Any]) -> dict[str, Any]:
         engine_mod = self._import("refua_wetlab.engine")
