@@ -9,6 +9,7 @@ import time
 import unittest
 from pathlib import Path
 from urllib.error import HTTPError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -185,6 +186,41 @@ class StudioApiTest(unittest.TestCase):
         )
         self.assertIn("summary", alias_payload)
         self.assertIn("candidates", alias_payload)
+
+    def test_structure_file_endpoint_reads_file_within_allowed_roots(self) -> None:
+        structure_path = Path(self._tmp.name) / "data" / "structures" / "candidate.cif"
+        structure_path.parent.mkdir(parents=True, exist_ok=True)
+        structure_path.write_text(
+            "data_candidate\nloop_\n_atom_site.group_PDB\nATOM\n",
+            encoding="utf-8",
+        )
+
+        encoded = quote(str(structure_path))
+        payload = self._request("GET", f"/api/structure-file?path={encoded}")
+        self.assertEqual(payload["format"], "mmcif")
+        self.assertEqual(payload["encoding"], "utf-8")
+        self.assertTrue(Path(payload["path"]).samefile(structure_path))
+        self.assertIn("data_candidate", payload["content"])
+
+    def test_structure_file_endpoint_rejects_path_outside_allowed_roots(self) -> None:
+        outside_dir = Path(tempfile.mkdtemp())
+        outside_path = outside_dir / "outside.pdb"
+        outside_path.write_text(
+            "HEADER    OUTSIDE\nATOM      1  N   ALA A   1\n",
+            encoding="utf-8",
+        )
+        try:
+            encoded = quote(str(outside_path))
+            payload = self._request(
+                "GET",
+                f"/api/structure-file?path={encoded}",
+                allow_error=True,
+            )
+            self.assertEqual(payload["status_code"], 400)
+            self.assertIn("workspace root", payload["body"]["error"])
+        finally:
+            outside_path.unlink(missing_ok=True)
+            outside_dir.rmdir()
 
     def test_program_graph_endpoints(self) -> None:
         upserted = self._request(

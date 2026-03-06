@@ -29,6 +29,8 @@ const cureAssessment = document.getElementById("cureAssessment");
 const cureMetricPills = document.getElementById("cureMetricPills");
 const admetKeyMetrics = document.getElementById("admetKeyMetrics");
 const admetPropertiesGrid = document.getElementById("admetPropertiesGrid");
+const molstarStatus = document.getElementById("molstarStatus");
+const molstarMount = document.getElementById("molstarMount");
 
 const productGrid = document.getElementById("productGrid");
 const ecosystemWarnings = document.getElementById("ecosystemWarnings");
@@ -84,6 +86,13 @@ const gateTemplateSummary = document.getElementById("gateTemplateSummary");
 const gateCriteriaChecklist = document.getElementById("gateCriteriaChecklist");
 const commandCenterCapabilities = document.getElementById("commandCenterCapabilities");
 const programEventTimeline = document.getElementById("programEventTimeline");
+const themeToggleButton = document.getElementById("themeToggleButton");
+const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
+const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
+
+const THEME_STORAGE_KEY = "refua_studio_theme";
+const TAB_STORAGE_KEY = "refua_studio_tab";
+const STRUCTURE_FILE_API = "/api/structure-file";
 
 const state = {
   selectedJobId: null,
@@ -114,6 +123,11 @@ const state = {
     gateTemplates: [],
     programCounts: {},
   },
+  molstar: {
+    viewer: null,
+    loading: false,
+    pendingCandidate: null,
+  },
 };
 
 function pretty(value) {
@@ -134,6 +148,90 @@ function setConnection(ok, text) {
   connectionChip.classList.toggle("offline", !ok);
   const node = connectionChip.querySelector(".status-text");
   node.textContent = text;
+}
+
+function _storedValue(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (_err) {
+    return null;
+  }
+}
+
+function _persistValue(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (_err) {
+    // Ignore storage failures (private browsing / locked-down clients).
+  }
+}
+
+function applyTheme(themeName) {
+  const normalized = themeName === "dark" ? "dark" : "light";
+  document.body.dataset.theme = normalized;
+  if (!themeToggleButton) {
+    return;
+  }
+  const nextLabel = normalized === "dark" ? "Light mode" : "Dark mode";
+  themeToggleButton.textContent = nextLabel;
+  themeToggleButton.setAttribute("aria-pressed", normalized === "dark" ? "true" : "false");
+}
+
+function initThemeToggle() {
+  const storedTheme = _storedValue(THEME_STORAGE_KEY);
+  if (storedTheme === "dark" || storedTheme === "light") {
+    applyTheme(storedTheme);
+  } else {
+    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(prefersDark ? "dark" : "light");
+  }
+
+  if (!themeToggleButton) {
+    return;
+  }
+  themeToggleButton.addEventListener("click", () => {
+    const current = document.body.dataset.theme === "dark" ? "dark" : "light";
+    const next = current === "dark" ? "light" : "dark";
+    applyTheme(next);
+    _persistValue(THEME_STORAGE_KEY, next);
+  });
+}
+
+function setActiveTab(tabName) {
+  let hasMatch = false;
+  for (const panel of tabPanels) {
+    const isActive = panel.dataset.tabPanel === tabName;
+    panel.hidden = !isActive;
+    if (isActive) {
+      hasMatch = true;
+    }
+  }
+  for (const button of tabButtons) {
+    const isActive = button.dataset.tabTarget === tabName;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", isActive ? "true" : "false");
+  }
+  if (hasMatch) {
+    _persistValue(TAB_STORAGE_KEY, tabName);
+    return;
+  }
+  if (tabName !== "overview") {
+    setActiveTab("overview");
+  }
+}
+
+function initTabs() {
+  if (!tabButtons.length || !tabPanels.length) {
+    return;
+  }
+  const storedTab = _storedValue(TAB_STORAGE_KEY);
+  setActiveTab(storedTab || "overview");
+  for (const button of tabButtons) {
+    button.addEventListener("click", () => {
+      const target = button.dataset.tabTarget || "overview";
+      setActiveTab(target);
+    });
+  }
 }
 
 function bootstrapWidgetSparks() {
@@ -309,6 +407,336 @@ function normalizedAdmet(candidate) {
     status: admet.status,
     assessment: admet.assessment,
   };
+}
+
+function setMolstarStatus(message, tone = "info") {
+  if (!molstarStatus) {
+    return;
+  }
+  molstarStatus.textContent = message;
+  molstarStatus.classList.remove("is-info", "is-ok", "is-warn");
+  if (tone === "ok") {
+    molstarStatus.classList.add("is-ok");
+    return;
+  }
+  if (tone === "warn") {
+    molstarStatus.classList.add("is-warn");
+    return;
+  }
+  molstarStatus.classList.add("is-info");
+}
+
+function collectStringLeaves(value, path, out) {
+  if (value === null || value === undefined) {
+    return;
+  }
+  if (typeof value === "string") {
+    out.push({ path, value });
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item, idx) => {
+      collectStringLeaves(item, `${path}[${idx}]`, out);
+    });
+    return;
+  }
+  if (typeof value === "object") {
+    Object.entries(value).forEach(([key, item]) => {
+      const nextPath = path ? `${path}.${key}` : key;
+      collectStringLeaves(item, nextPath, out);
+    });
+  }
+}
+
+function inferStructureFormat(raw) {
+  const normalized = String(raw || "").trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+  if (normalized.endsWith(".pdb")) {
+    return "pdb";
+  }
+  if (normalized.endsWith(".cif") || normalized.endsWith(".mmcif")) {
+    return "mmcif";
+  }
+  if (normalized.endsWith(".bcif")) {
+    return "bcif";
+  }
+  return null;
+}
+
+function looksLikePdbData(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const text = value.trim();
+  if (text.length < 120) {
+    return false;
+  }
+  return (
+    text.includes("\nATOM ") ||
+    text.includes("\nHETATM") ||
+    text.startsWith("HEADER") ||
+    text.startsWith("ATOM ")
+  );
+}
+
+function looksLikeMmcifData(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const text = value.trim();
+  if (text.length < 120) {
+    return false;
+  }
+  if (!text.startsWith("data_")) {
+    return false;
+  }
+  return text.includes("_atom_site.") || text.includes("loop_");
+}
+
+function looksLikeHttpUrl(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch (_err) {
+    return false;
+  }
+}
+
+function detectMolstarSource(candidate) {
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+
+  const leaves = [];
+  collectStringLeaves(candidate.tool_output, "tool_output", leaves);
+  collectStringLeaves(candidate.tool_args, "tool_args", leaves);
+  collectStringLeaves(candidate.evidence_paths, "evidence_paths", leaves);
+
+  for (const entry of leaves) {
+    const text = entry.value.trim();
+    if (!text) {
+      continue;
+    }
+    if (looksLikeMmcifData(text)) {
+      return {
+        kind: "inline",
+        format: "mmcif",
+        label: `Inline mmCIF (${entry.path})`,
+        content: text,
+      };
+    }
+    if (looksLikePdbData(text)) {
+      return {
+        kind: "inline",
+        format: "pdb",
+        label: `Inline PDB (${entry.path})`,
+        content: text,
+      };
+    }
+  }
+
+  for (const entry of leaves) {
+    const text = entry.value.trim();
+    if (!text) {
+      continue;
+    }
+    const format = inferStructureFormat(text);
+    if (!format) {
+      continue;
+    }
+    if (looksLikeHttpUrl(text)) {
+      return {
+        kind: "url",
+        format,
+        label: `Remote structure (${entry.path})`,
+        url: text,
+      };
+    }
+    return {
+      kind: "file",
+      format,
+      label: `Local structure (${entry.path})`,
+      path: text,
+    };
+  }
+
+  for (const entry of leaves) {
+    const key = entry.path.toLowerCase();
+    const text = entry.value.trim();
+    if (!key.includes("pdb") || !key.includes("id")) {
+      continue;
+    }
+    if (!/^[a-z0-9]{4}$/i.test(text)) {
+      continue;
+    }
+    return {
+      kind: "url",
+      format: "mmcif",
+      label: `RCSB PDB ${text.toUpperCase()}`,
+      url: `https://files.rcsb.org/download/${text.toUpperCase()}.cif`,
+    };
+  }
+
+  return null;
+}
+
+async function ensureMolstarViewer() {
+  if (!molstarMount) {
+    throw new Error("Mol* viewer mount not found.");
+  }
+  if (state.molstar.viewer) {
+    return state.molstar.viewer;
+  }
+  const viewerApi = window.molstar?.Viewer;
+  if (!viewerApi) {
+    throw new Error("Mol* runtime is unavailable.");
+  }
+
+  let viewer;
+  const options = {
+    layoutShowControls: false,
+    layoutShowLeftPanel: false,
+    layoutShowSequence: true,
+    layoutShowLog: false,
+    viewportShowExpand: false,
+    viewportShowAnimation: false,
+    viewportShowSelectionMode: false,
+  };
+  if (typeof viewerApi.create === "function") {
+    viewer = await viewerApi.create("molstarMount", options);
+  } else {
+    viewer = new viewerApi("molstarMount", options);
+  }
+  state.molstar.viewer = viewer;
+  return viewer;
+}
+
+async function clearMolstarViewer(viewer) {
+  if (!viewer) {
+    return;
+  }
+  try {
+    if (typeof viewer.clear === "function") {
+      await viewer.clear();
+      return;
+    }
+  } catch (_err) {
+    // Continue with plugin-level fallback.
+  }
+  try {
+    if (viewer.plugin?.clear) {
+      await viewer.plugin.clear();
+      return;
+    }
+  } catch (_err) {
+    // Ignore clear failures before loading new structure.
+  }
+  try {
+    const hierarchy = viewer.plugin?.managers?.structure?.hierarchy;
+    if (hierarchy && typeof hierarchy.removeAllStructures === "function") {
+      await hierarchy.removeAllStructures();
+    }
+  } catch (_err) {
+    // Non-fatal; Mol* can still try to load the next model.
+  }
+}
+
+async function loadMolstarFromSource(source) {
+  const viewer = await ensureMolstarViewer();
+  await clearMolstarViewer(viewer);
+
+  if (source.kind === "url") {
+    await viewer.loadStructureFromUrl(source.url, source.format, source.format === "bcif");
+    return;
+  }
+
+  let content = "";
+  let format = source.format;
+  if (source.kind === "inline") {
+    content = source.content;
+  } else if (source.kind === "file") {
+    const payload = await api(
+      `${STRUCTURE_FILE_API}?path=${encodeURIComponent(source.path)}`,
+      { method: "GET" }
+    );
+    format = payload.format || format || "mmcif";
+    if (payload.encoding === "base64") {
+      const decoded = atob(payload.content || "");
+      const bytes = new Uint8Array(decoded.length);
+      for (let idx = 0; idx < decoded.length; idx += 1) {
+        bytes[idx] = decoded.charCodeAt(idx);
+      }
+      const blobUrl = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+      try {
+        await viewer.loadStructureFromUrl(blobUrl, format, true);
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
+      return;
+    }
+    content = payload.content || "";
+  } else {
+    throw new Error("Unsupported structure source.");
+  }
+
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const blobUrl = URL.createObjectURL(blob);
+  try {
+    await viewer.loadStructureFromUrl(blobUrl, format, false);
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+  }
+}
+
+async function refreshMolstarForCandidate(candidate) {
+  if (!candidate) {
+    state.molstar.pendingCandidate = null;
+    setMolstarStatus("Select a candidate to load a complex structure.", "info");
+    if (state.molstar.viewer) {
+      void clearMolstarViewer(state.molstar.viewer);
+    }
+    return;
+  }
+
+  if (state.molstar.loading) {
+    state.molstar.pendingCandidate = candidate;
+    setMolstarStatus("Loading selected complex... latest selection queued.", "info");
+    return;
+  }
+
+  const source = detectMolstarSource(candidate);
+  if (!source) {
+    setMolstarStatus(
+      "No structure source found in this candidate output. Re-run with fold/affinity structure output enabled.",
+      "warn"
+    );
+    return;
+  }
+
+  state.molstar.loading = true;
+  setMolstarStatus(`Loading ${source.label}...`, "info");
+  try {
+    await loadMolstarFromSource(source);
+    const stillSelected =
+      !state.selectedCandidateId || candidate.candidate_id === state.selectedCandidateId;
+    if (stillSelected) {
+      setMolstarStatus(`Loaded ${source.label}`, "ok");
+    }
+  } catch (err) {
+    setMolstarStatus(`Could not load Mol*: ${err.message}`, "warn");
+  } finally {
+    state.molstar.loading = false;
+    const pending = state.molstar.pendingCandidate;
+    state.molstar.pendingCandidate = null;
+    if (pending && pending.candidate_id !== candidate.candidate_id) {
+      void refreshMolstarForCandidate(pending);
+    }
+  }
 }
 
 function setSelectOptions(select, options, labelGetter) {
@@ -557,13 +985,14 @@ function renderDrugSummary(summary) {
 
 function renderDrugDetail(candidate) {
   if (!candidate) {
-    cureDetailHeader.textContent = "Select a candidate cure";
+    cureDetailHeader.textContent = "Select a promising drug";
     cureAssessment.textContent =
-      "Pick a therapeutic card to inspect full ADMET properties and assessment.";
+      "Pick a card to inspect all ADMET properties and the protein-ligand complex.";
     cureMetricPills.innerHTML = "";
     admetKeyMetrics.innerHTML = '<div class="admet-empty">No ADMET metrics yet.</div>';
     admetPropertiesGrid.innerHTML = '<div class="admet-empty">No ADMET properties yet.</div>';
     drugPortfolioDetail.textContent = "Select a candidate to view full details.";
+    setMolstarStatus("Select a candidate to load a complex structure.", "info");
     return;
   }
 
@@ -632,22 +1061,32 @@ function renderDrugDetail(candidate) {
   }
 
   drugPortfolioDetail.textContent = pretty(candidate);
+  void refreshMolstarForCandidate(candidate);
 }
 
 function renderDrugCards(candidates) {
   drugPortfolioCards.innerHTML = "";
+  const ranked = Array.isArray(candidates) ? candidates.filter((item) => item?.promising) : [];
+  const visibleCandidates = ranked.length > 0 ? ranked : candidates;
 
-  if (!Array.isArray(candidates) || candidates.length === 0) {
+  if (!Array.isArray(visibleCandidates) || visibleCandidates.length === 0) {
     const empty = document.createElement("div");
     empty.className = "summary-item";
     empty.innerHTML =
-      '<div class="summary-label">Cures</div><div class="summary-value">No promising therapeutics yet</div>';
+      '<div class="summary-label">Drugs</div><div class="summary-value">No promising drugs found yet</div>';
     drugPortfolioCards.appendChild(empty);
     renderDrugDetail(null);
     return;
   }
 
-  for (const candidate of candidates) {
+  if (
+    !state.selectedCandidateId ||
+    !visibleCandidates.some((item) => item.candidate_id === state.selectedCandidateId)
+  ) {
+    state.selectedCandidateId = visibleCandidates[0].candidate_id;
+  }
+
+  for (const candidate of visibleCandidates) {
     const card = document.createElement("button");
     card.className = "drug-card";
     if (candidate.candidate_id === state.selectedCandidateId) {
@@ -679,24 +1118,22 @@ function renderDrugCards(candidates) {
 
     card.addEventListener("click", () => {
       state.selectedCandidateId = candidate.candidate_id;
-      renderDrugCards(candidates);
+      renderDrugCards(visibleCandidates);
       renderDrugDetail(candidate);
     });
 
     drugPortfolioCards.appendChild(card);
   }
-
-  if (!state.selectedCandidateId && candidates.length > 0) {
-    state.selectedCandidateId = candidates[0].candidate_id;
-  }
-
-  const selected = candidates.find((item) => item.candidate_id === state.selectedCandidateId);
-  renderDrugDetail(selected || null);
+  const selected =
+    visibleCandidates.find((item) => item.candidate_id === state.selectedCandidateId) ||
+    visibleCandidates[0] ||
+    null;
+  renderDrugDetail(selected);
 }
 
 async function refreshDrugPortfolio() {
   const minScore = Number(drugMinScoreInput.value || 50);
-  const query = `?limit=60&min_score=${encodeURIComponent(minScore)}`;
+  const query = `?limit=60&include_raw=true&min_score=${encodeURIComponent(minScore)}`;
   const payload = await api(`/api/promising-cures${query}`, { method: "GET" });
 
   state.drugCandidates = payload.candidates || [];
@@ -2885,6 +3322,8 @@ function seedFallbackDefaults() {
 }
 
 async function init() {
+  initThemeToggle();
+  initTabs();
   seedFallbackDefaults();
   bootstrapWidgetSparks();
   updateTelemetryWidgets();

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import traceback
 from datetime import UTC, datetime
@@ -1235,6 +1236,67 @@ class StudioApp:
     def promising_cures(self, *, query: dict[str, list[str]]) -> dict[str, Any]:
         return self.drug_portfolio(query=query)
 
+    def structure_file(self, *, query: dict[str, list[str]]) -> dict[str, Any]:
+        raw_path = _query_optional_string(query, name="path")
+        if not raw_path:
+            raise BadRequestError("path query parameter is required")
+
+        resolved = self._resolve_allowed_structure_path(raw_path)
+        if not resolved.exists() or not resolved.is_file():
+            raise NotFoundError(f"Structure file not found: {resolved}")
+
+        suffix = resolved.suffix.lower()
+        if suffix not in {".pdb", ".cif", ".mmcif", ".bcif"}:
+            raise BadRequestError(
+                "Unsupported structure format. Allowed: .pdb, .cif, .mmcif, .bcif"
+            )
+
+        max_bytes = 8 * 1024 * 1024
+        file_size = resolved.stat().st_size
+        if file_size > max_bytes:
+            raise BadRequestError(
+                f"Structure file is too large ({file_size} bytes). Limit is {max_bytes} bytes."
+            )
+
+        if suffix == ".bcif":
+            content = base64.b64encode(resolved.read_bytes()).decode("ascii")
+            return {
+                "path": str(resolved),
+                "format": "bcif",
+                "encoding": "base64",
+                "content": content,
+            }
+
+        text = resolved.read_text(encoding="utf-8")
+        format_name = "pdb" if suffix == ".pdb" else "mmcif"
+        return {
+            "path": str(resolved),
+            "format": format_name,
+            "encoding": "utf-8",
+            "content": text,
+        }
+
+    def _resolve_allowed_structure_path(self, raw_path: str) -> Path:
+        text = raw_path.strip()
+        if not text:
+            raise BadRequestError("path must be a non-empty string")
+
+        candidate = Path(text).expanduser()
+        if not candidate.is_absolute():
+            candidate = (self.config.resolved_workspace_root / candidate).resolve()
+        else:
+            candidate = candidate.resolve()
+
+        allowed_roots = (
+            self.config.resolved_workspace_root.resolve(),
+            self.config.data_dir.resolve(),
+        )
+        if not any(_is_path_within(candidate, root) for root in allowed_roots):
+            raise BadRequestError(
+                "path must be within the configured workspace root or studio data directory"
+            )
+        return candidate
+
     def clawcures_handoff(self, payload: dict[str, Any]) -> dict[str, Any]:
         objective = _optional_nonempty_string(payload.get("objective"), "objective")
         system_prompt = _optional_nonempty_string(
@@ -2102,6 +2164,14 @@ def _optional_string_list(value: Any, field_name: str) -> list[str] | None:
     return normalized
 
 
+def _is_path_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
 def _to_metric_float(value: Any) -> float | None:
     if value is None:
         return None
@@ -2384,6 +2454,12 @@ def create_handler(app: StudioApp):
                     query = parse_qs(parsed.query, keep_blank_values=False)
                     _json_response(
                         self, HTTPStatus.OK, app.promising_cures(query=query)
+                    )
+                    return
+                if path == "/api/structure-file":
+                    query = parse_qs(parsed.query, keep_blank_values=False)
+                    _json_response(
+                        self, HTTPStatus.OK, app.structure_file(query=query)
                     )
                     return
                 if path == "/api/clinical/trials":
