@@ -21,15 +21,22 @@ const maxCallsInput = document.getElementById("maxCallsInput");
 const skipValidateFirstToggle = document.getElementById("skipValidateFirstToggle");
 
 const drugMinScoreInput = document.getElementById("drugMinScoreInput");
+const drugPortfolioSpotlight = document.getElementById("drugPortfolioSpotlight");
 const drugPortfolioSummary = document.getElementById("drugPortfolioSummary");
+const drugSearchInput = document.getElementById("drugSearchInput");
+const drugSortSelect = document.getElementById("drugSortSelect");
+const drugResultMeta = document.getElementById("drugResultMeta");
 const drugPortfolioCards = document.getElementById("drugPortfolioCards");
 const drugPortfolioDetail = document.getElementById("drugPortfolioDetail");
 const cureDetailHeader = document.getElementById("cureDetailHeader");
 const cureAssessment = document.getElementById("cureAssessment");
 const cureMetricPills = document.getElementById("cureMetricPills");
+const cureOverviewGrid = document.getElementById("cureOverviewGrid");
+const cureFocusSummary = document.getElementById("cureFocusSummary");
 const cureReportCard = document.getElementById("cureReportCard");
 const admetKeyMetrics = document.getElementById("admetKeyMetrics");
 const admetPropertiesGrid = document.getElementById("admetPropertiesGrid");
+const cureEvidencePaths = document.getElementById("cureEvidencePaths");
 const molstarStatus = document.getElementById("molstarStatus");
 const molstarMount = document.getElementById("molstarMount");
 
@@ -112,6 +119,7 @@ const state = {
   ecosystem: null,
   handoff: null,
   drugCandidates: [],
+  drugSummary: {},
   clinicalTrials: [],
   telemetry: {
     runningJobs: 0,
@@ -462,6 +470,171 @@ function normalizedReportCard(candidate) {
     strengths,
     concerns,
   };
+}
+
+function candidateDisplayName(candidate) {
+  return candidate?.name || candidate?.smiles || candidate?.candidate_id || "Unnamed lead";
+}
+
+function candidateSource(candidate) {
+  const source = candidate?.source;
+  return source && typeof source === "object" ? source : {};
+}
+
+function candidateSearchText(candidate) {
+  return [
+    candidateDisplayName(candidate),
+    candidate?.target,
+    candidate?.tool,
+    candidate?.assessment,
+    candidateSource(candidate).objective,
+    candidate?.candidate_id,
+  ]
+    .filter((value) => typeof value === "string" && value.trim())
+    .join(" ")
+    .toLowerCase();
+}
+
+function readinessRank(candidate) {
+  const tone = normalizedReportCard(candidate).readiness.tone;
+  if (tone === "advance") {
+    return 2;
+  }
+  if (tone === "watch") {
+    return 1;
+  }
+  return 0;
+}
+
+function averageCandidateScore(candidates) {
+  const scores = Array.isArray(candidates)
+    ? candidates
+        .map((candidate) => candidate?.score)
+        .filter((value) => typeof value === "number" && !Number.isNaN(value))
+    : [];
+  if (!scores.length) {
+    return null;
+  }
+  return scores.reduce((total, value) => total + value, 0) / scores.length;
+}
+
+function dominantCandidateTool(candidates) {
+  const counts = new Map();
+  for (const candidate of Array.isArray(candidates) ? candidates : []) {
+    const tool = candidate?.tool || "unknown_tool";
+    counts.set(tool, (counts.get(tool) || 0) + 1);
+  }
+  const ranked = Array.from(counts.entries()).sort((left, right) => right[1] - left[1]);
+  return ranked[0]?.[0] || "-";
+}
+
+function leadSortComparator(sortValue) {
+  if (sortValue === "readiness_desc") {
+    return (left, right) => {
+      const readinessDiff = readinessRank(right) - readinessRank(left);
+      if (readinessDiff !== 0) {
+        return readinessDiff;
+      }
+      return (Number(right?.score) || 0) - (Number(left?.score) || 0);
+    };
+  }
+  if (sortValue === "name_asc") {
+    return (left, right) => candidateDisplayName(left).localeCompare(candidateDisplayName(right));
+  }
+  if (sortValue === "target_asc") {
+    return (left, right) => String(left?.target || "").localeCompare(String(right?.target || ""));
+  }
+  return (left, right) => (Number(right?.score) || 0) - (Number(left?.score) || 0);
+}
+
+function visibleDrugCandidates(candidates) {
+  const searchTerm = drugSearchInput?.value.trim().toLowerCase() || "";
+  const sortValue = drugSortSelect?.value || "score_desc";
+  const visible = Array.isArray(candidates) ? candidates.slice() : [];
+  const shortlisted = visible.some((candidate) => candidate?.promising)
+    ? visible.filter((candidate) => candidate?.promising)
+    : visible;
+  const filtered = searchTerm
+    ? shortlisted.filter((candidate) => candidateSearchText(candidate).includes(searchTerm))
+    : shortlisted;
+  filtered.sort(leadSortComparator(sortValue));
+  return filtered;
+}
+
+function renderDrugPortfolioMeta(visibleCandidates, totalLoaded) {
+  if (!drugResultMeta) {
+    return;
+  }
+  const searchTerm = drugSearchInput?.value.trim();
+  const sortLabel = drugSortSelect?.selectedOptions?.[0]?.textContent || "Highest score";
+  const shown = Array.isArray(visibleCandidates) ? visibleCandidates.length : 0;
+  const base = `${shown} lead${shown === 1 ? "" : "s"} shown`;
+  const scope = totalLoaded > shown ? ` of ${totalLoaded}` : "";
+  const searchNote = searchTerm ? ` for "${searchTerm}"` : "";
+  drugResultMeta.textContent = `${base}${scope}${searchNote}. Sorted by ${sortLabel}.`;
+}
+
+function renderDrugSpotlight(candidates) {
+  if (!drugPortfolioSpotlight) {
+    return;
+  }
+  const spotlight = Array.isArray(candidates) && candidates.length > 0
+    ? candidates
+        .slice()
+        .sort((left, right) => (Number(right?.score) || 0) - (Number(left?.score) || 0))[0]
+    : null;
+
+  if (!spotlight) {
+    drugPortfolioSpotlight.innerHTML =
+      '<div class="lead-spotlight-empty">No leads match the current portfolio filters.</div>';
+    return;
+  }
+
+  const report = normalizedReportCard(spotlight);
+  const source = candidateSource(spotlight);
+  const highlight = report.strengths[0] || "No major strength is called out in the current screen.";
+  const validation = report.concerns[0] || "No specific follow-up risk is flagged in the current screen.";
+  const spotlightStats = [
+    { label: "Score", value: metricText(spotlight.score, 1) },
+    { label: "Target", value: shortText(spotlight.target || "Unassigned target", 28) },
+    { label: "Updated", value: shortText(formatDate(source.updated_at), 28) },
+  ];
+
+  drugPortfolioSpotlight.innerHTML = `
+    <div class="lead-spotlight-top">
+      <div>
+        <div class="lead-spotlight-kicker">Portfolio spotlight</div>
+        <div class="lead-spotlight-title">${escapeHtml(shortText(candidateDisplayName(spotlight), 78))}</div>
+        <p class="lead-spotlight-copy">${escapeHtml(shortText(report.decision, 170))}</p>
+      </div>
+      <div class="cure-grade-badge ${reportToneClass(report.readiness.tone)}">
+        <div class="cure-grade-label">${escapeHtml(report.readiness.label)}</div>
+        <div class="cure-grade-value">${escapeHtml(report.overall_grade)}</div>
+      </div>
+    </div>
+    <div class="lead-spotlight-metrics">
+      ${spotlightStats
+        .map(
+          (entry) => `
+          <div class="spotlight-stat">
+            <div class="spotlight-stat-label">${escapeHtml(entry.label)}</div>
+            <div class="spotlight-stat-value">${escapeHtml(entry.value)}</div>
+          </div>
+        `
+        )
+        .join("")}
+    </div>
+    <div class="lead-spotlight-foot">
+      <div class="lead-spotlight-note is-good">
+        <span class="report-note-kicker">Lead signal</span>
+        <span>${escapeHtml(shortText(highlight, 120))}</span>
+      </div>
+      <div class="lead-spotlight-note is-watch">
+        <span class="report-note-kicker">Validate next</span>
+        <span>${escapeHtml(shortText(validation, 120))}</span>
+      </div>
+    </div>
+  `;
 }
 
 function reportToneClass(tone) {
@@ -1100,13 +1273,14 @@ async function loadJob(jobId) {
   showOutput("Job Detail", payload);
 }
 
-function renderDrugSummary(summary) {
+function renderDrugSummary(summary, visibleCandidates) {
+  const avgScore = averageCandidateScore(visibleCandidates);
   const entries = [
     { label: "Total Found", value: summary.total_candidates ?? 0 },
-    { label: "Returned", value: summary.returned_candidates ?? 0 },
-    { label: "Promising", value: summary.promising_count ?? 0 },
-    { label: "With ADMET", value: summary.with_admet_properties ?? 0 },
-    { label: "Min Score", value: summary.min_score ?? 0 },
+    { label: "Loaded", value: summary.returned_candidates ?? 0 },
+    { label: "Showing", value: Array.isArray(visibleCandidates) ? visibleCandidates.length : 0 },
+    { label: "Avg Score", value: avgScore === null ? "-" : metricText(avgScore, 1) },
+    { label: "Top Tool", value: dominantCandidateTool(visibleCandidates) },
   ];
 
   drugPortfolioSummary.innerHTML = entries
@@ -1127,9 +1301,14 @@ function renderDrugDetail(candidate) {
     cureAssessment.textContent =
       "Pick a card to inspect the report card, ADMET profile, and linked clinical drill-down.";
     cureMetricPills.innerHTML = "";
+    cureOverviewGrid.innerHTML =
+      '<div class="admet-empty">Select a lead to populate the program snapshot.</div>';
+    cureFocusSummary.innerHTML =
+      '<div class="admet-empty">Select a lead to inspect the current recommendation and watch items.</div>';
     cureReportCard.innerHTML = '<div class="admet-empty">Select a report card to inspect the grading breakdown.</div>';
     admetKeyMetrics.innerHTML = '<div class="admet-empty">No ADMET metrics yet.</div>';
     admetPropertiesGrid.innerHTML = '<div class="admet-empty">No ADMET properties yet.</div>';
+    cureEvidencePaths.innerHTML = '<div class="admet-empty">No provenance loaded yet.</div>';
     drugPortfolioDetail.textContent = "Select a candidate to view full details.";
     renderClinicalCandidateContext(null);
     setMolstarStatus("Select a candidate to load a complex structure.", "info");
@@ -1138,10 +1317,19 @@ function renderDrugDetail(candidate) {
 
   const admet = normalizedAdmet(candidate);
   const report = normalizedReportCard(candidate);
+  const source = candidateSource(candidate);
   const metrics = candidate.metrics || {};
   const score = valueText(candidate.score);
-  const cureName = candidate.name || candidate.smiles || candidate.candidate_id;
+  const cureName = candidateDisplayName(candidate);
   const admetAssessment = candidate.assessment || admet.assessment || "No explicit assessment provided.";
+  const leadStrength = report.strengths[0] || "No lead signal has been summarized yet.";
+  const watchItem = report.concerns[0] || "No specific validation risk has been summarized yet.";
+  const overviewEntries = [
+    { label: "Target", value: candidate.target || "Unassigned target" },
+    { label: "Source tool", value: candidate.tool || "unknown_tool" },
+    { label: "Updated", value: formatDate(source.updated_at) },
+    { label: "Run objective", value: source.objective || "No run objective recorded." },
+  ];
 
   cureDetailHeader.innerHTML = `
     <div class="cure-report-hero">
@@ -1161,7 +1349,9 @@ function renderDrugDetail(candidate) {
     </div>
   `;
   cureAssessment.textContent =
-    report.decision === admetAssessment ? report.decision : `${report.decision} ${admetAssessment}`;
+    report.decision === admetAssessment
+      ? report.decision
+      : `${report.decision} ADMET assessment: ${admetAssessment}`;
 
   const metricEntries = [
     ["Composite", candidate.score],
@@ -1175,8 +1365,32 @@ function renderDrugDetail(candidate) {
     .map(
       ([label, value]) =>
         `<span class="metric-chip">${escapeHtml(label)} ${escapeHtml(valueText(value))}</span>`
+      )
+    .join("");
+
+  cureOverviewGrid.innerHTML = overviewEntries
+    .map(
+      (entry) => `
+      <div class="cure-overview-item">
+        <div class="cure-overview-label">${escapeHtml(entry.label)}</div>
+        <div class="cure-overview-value">${escapeHtml(shortText(entry.value, 110))}</div>
+      </div>
+    `
     )
     .join("");
+
+  cureFocusSummary.innerHTML = `
+    <article class="cure-focus-card is-primary">
+      <div class="report-note-kicker">What stands out</div>
+      <div class="cure-focus-title">${escapeHtml(report.readiness.label)}</div>
+      <p class="cure-focus-copy">${escapeHtml(leadStrength)}</p>
+    </article>
+    <article class="cure-focus-card is-secondary">
+      <div class="report-note-kicker">What to validate next</div>
+      <div class="cure-focus-title">Next check</div>
+      <p class="cure-focus-copy">${escapeHtml(watchItem)}</p>
+    </article>
+  `;
 
   cureReportCard.innerHTML = `
     <div class="cure-report-summary">
@@ -1242,6 +1456,29 @@ function renderDrugDetail(candidate) {
       .join("");
   }
 
+  const evidenceEntries = [
+    { label: "Job ID", value: source.job_id || "-" },
+    { label: "Job kind", value: source.kind || "-" },
+    ...Object.entries(candidate.evidence_paths || {})
+      .filter(([, value]) => value !== null && value !== undefined && String(value).trim())
+      .map(([key, value]) => ({
+        label: key.replaceAll("_", " "),
+        value: String(value),
+      })),
+  ];
+  cureEvidencePaths.innerHTML = evidenceEntries.length
+    ? evidenceEntries
+        .map(
+          (entry) => `
+          <div class="evidence-path-item">
+            <div class="evidence-path-label">${escapeHtml(entry.label)}</div>
+            <div class="evidence-path-value">${escapeHtml(entry.value)}</div>
+          </div>
+        `
+        )
+        .join("")
+    : '<div class="admet-empty">No linked evidence paths available.</div>';
+
   drugPortfolioDetail.textContent = pretty(candidate);
   renderClinicalCandidateContext(candidate);
   void refreshMolstarForCandidate(candidate);
@@ -1249,17 +1486,18 @@ function renderDrugDetail(candidate) {
 
 function renderDrugCards(candidates) {
   drugPortfolioCards.innerHTML = "";
-  const ranked = Array.isArray(candidates) ? candidates.filter((item) => item?.promising) : [];
-  const visibleCandidates = ranked.length > 0 ? ranked : candidates;
+  const visibleCandidates = Array.isArray(candidates) ? candidates : [];
 
-  if (!Array.isArray(visibleCandidates) || visibleCandidates.length === 0) {
+  if (visibleCandidates.length === 0) {
+    const searchTerm = drugSearchInput?.value.trim() || "";
     const empty = document.createElement("div");
-    empty.className = "summary-item";
+    empty.className = "drug-list-empty";
     empty.innerHTML =
-      '<div class="summary-label">Drugs</div><div class="summary-value">No promising drugs found yet</div>';
+      searchTerm
+        ? `<div class="summary-label">No matches</div><div class="summary-value">Nothing matched "${escapeHtml(searchTerm)}"</div>`
+        : '<div class="summary-label">Drugs</div><div class="summary-value">No promising drugs found yet</div>';
     drugPortfolioCards.appendChild(empty);
-    renderDrugDetail(null);
-    return;
+    return null;
   }
 
   if (
@@ -1280,21 +1518,24 @@ function renderDrugCards(candidates) {
     }
 
     const report = normalizedReportCard(candidate);
+    const admet = normalizedAdmet(candidate);
+    const metrics = candidate.metrics || {};
+    const source = candidateSource(candidate);
     const leadStrength =
       report.strengths[0] || "No major strength called out in the current screen.";
     const watchItem =
       report.concerns[0] || "No material concern flagged in the current screen.";
+    const quickMetrics = [
+      ["Binding", metrics.binding_probability],
+      ["ADMET", metrics.admet_score ?? admet.key_metrics?.admet_score],
+      ["Affinity", metrics.affinity],
+    ];
     card.innerHTML = `
       <div class="drug-card-top">
         <div>
-          <div class="drug-name">${escapeHtml(
-            shortText(candidate.name || candidate.smiles || candidate.candidate_id, 46)
-          )}</div>
-          <div class="drug-meta">
-            ${escapeHtml(candidate.promising ? "Promising lead" : "Needs optimization")}<br />
-            Target: ${escapeHtml(shortText(candidate.target, 28))}<br />
-            Tool: ${escapeHtml(shortText(candidate.tool, 22))}
-          </div>
+          <div class="drug-name">${escapeHtml(shortText(candidateDisplayName(candidate), 52))}</div>
+          <div class="drug-card-target">${escapeHtml(shortText(candidate.target || "Unassigned target", 40))}</div>
+          <div class="drug-meta">${escapeHtml(shortText(report.decision, 148))}</div>
         </div>
         <div class="drug-card-score-stack">
           <div class="drug-card-grade ${reportToneClass(report.readiness.tone)}" data-testid="drug-report-grade">
@@ -1304,35 +1545,56 @@ function renderDrugCards(candidates) {
           <div class="drug-score">${escapeHtml(metricText(candidate.score, 1))}</div>
         </div>
       </div>
-      <div class="drug-report-domains">
-        ${renderReportDomains(report.domains, { compact: true })}
+      <div class="drug-quick-metrics">
+        ${quickMetrics
+          .map(
+            ([label, value]) => `
+            <div class="drug-quick-metric">
+              <span class="drug-quick-metric-label">${escapeHtml(label)}</span>
+              <strong class="drug-quick-metric-value">${escapeHtml(valueText(value))}</strong>
+            </div>
+          `
+          )
+          .join("")}
       </div>
-      <div class="report-summary">${escapeHtml(shortText(report.decision, 118))}</div>
-      <div class="report-note-strip">
-        <div class="report-note-pill is-good">
+      <div class="drug-card-signals">
+        <div class="drug-card-signal is-good">
           <span class="report-note-kicker">Strength</span>
           <span>${escapeHtml(shortText(leadStrength, 88))}</span>
         </div>
-        <div class="report-note-pill is-watch">
+        <div class="drug-card-signal is-watch">
           <span class="report-note-kicker">Watch</span>
           <span>${escapeHtml(shortText(watchItem, 88))}</span>
         </div>
+      </div>
+      <div class="drug-card-footer">
+        <span>${escapeHtml(candidate.promising ? "Promising lead" : "Needs optimization")}</span>
+        <span>${escapeHtml(shortText(candidate.tool || "unknown_tool", 22))}</span>
+        <span>${escapeHtml(shortText(formatDate(source.updated_at), 28))}</span>
       </div>
     `;
 
     card.addEventListener("click", () => {
       state.selectedCandidateId = candidate.candidate_id;
-      renderDrugCards(visibleCandidates);
-      renderDrugDetail(candidate);
+      renderDrugPortfolioView();
     });
 
     drugPortfolioCards.appendChild(card);
   }
-  const selected =
+  return (
     visibleCandidates.find((item) => item.candidate_id === state.selectedCandidateId) ||
     visibleCandidates[0] ||
-    null;
-  renderDrugDetail(selected);
+    null
+  );
+}
+
+function renderDrugPortfolioView() {
+  const visibleCandidates = visibleDrugCandidates(state.drugCandidates);
+  renderDrugSummary(state.drugSummary || {}, visibleCandidates);
+  renderDrugPortfolioMeta(visibleCandidates, Array.isArray(state.drugCandidates) ? state.drugCandidates.length : 0);
+  renderDrugSpotlight(visibleCandidates);
+  const selectedCandidate = renderDrugCards(visibleCandidates);
+  renderDrugDetail(selectedCandidate);
 }
 
 async function refreshDrugPortfolio() {
@@ -1341,10 +1603,10 @@ async function refreshDrugPortfolio() {
   const payload = await api(`/api/promising-cures${query}`, { method: "GET" });
 
   state.drugCandidates = payload.candidates || [];
+  state.drugSummary = payload.summary || {};
   state.telemetry.promisingLeads = Number(payload.summary?.promising_count || 0);
   updateTelemetryWidgets();
-  renderDrugSummary(payload.summary || {});
-  renderDrugCards(state.drugCandidates);
+  renderDrugPortfolioView();
 }
 
 function resolveClinicalTrialId() {
@@ -3069,6 +3331,15 @@ function bindActions() {
   document.getElementById("refreshDrugPortfolioButton").addEventListener("click", () =>
     wrapAction(refreshDrugPortfolio)
   );
+  drugMinScoreInput.addEventListener("change", () => {
+    wrapAction(refreshDrugPortfolio);
+  });
+  drugSearchInput.addEventListener("input", () => {
+    renderDrugPortfolioView();
+  });
+  drugSortSelect.addEventListener("change", () => {
+    renderDrugPortfolioView();
+  });
   document.getElementById("refreshEcosystemButton").addEventListener("click", () =>
     wrapAction(async () => {
       await refreshEcosystem();

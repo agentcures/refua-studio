@@ -438,10 +438,43 @@
           </div>
         </div>
 
-        <div id="drugPortfolioSummary" class="drug-summary-grid"></div>
+        <div class="discovery-overview">
+          <article id="drugPortfolioSpotlight" class="lead-spotlight-card">
+            <div class="lead-spotlight-empty">Loading lead portfolio...</div>
+          </article>
+          <div id="drugPortfolioSummary" class="drug-summary-grid"></div>
+        </div>
 
         <div class="cures-layout simplified-cures-layout">
-          <div id="drugPortfolioCards" class="drug-cards"></div>
+          <aside class="drug-browser-panel">
+            <div class="drug-browser-head">
+              <div>
+                <p class="cures-kicker">Lead Queue</p>
+                <h3>Summary Cards</h3>
+                <p class="subpanel-text">
+                  Scan the shortlist quickly, then click into one lead for a full review.
+                </p>
+              </div>
+              <div class="drug-browser-controls">
+                <label for="drugSearchInput">Search leads</label>
+                <input
+                  type="search"
+                  id="drugSearchInput"
+                  placeholder="Search name, target, tool"
+                  spellcheck="false"
+                />
+                <label for="drugSortSelect">Sort by</label>
+                <select id="drugSortSelect">
+                  <option value="score_desc">Highest score</option>
+                  <option value="readiness_desc">Readiness</option>
+                  <option value="name_asc">Name</option>
+                  <option value="target_asc">Target</option>
+                </select>
+              </div>
+            </div>
+            <div id="drugResultMeta" class="drug-results-meta">Loading leads...</div>
+            <div id="drugPortfolioCards" class="drug-cards"></div>
+          </aside>
 
           <article class="cure-detail-card">
             <div id="cureDetailHeader" class="cure-detail-header">Select a promising drug</div>
@@ -449,6 +482,8 @@
               Pick a card to inspect the report card, ADMET profile, and linked clinical drill-down.
             </p>
             <div id="cureMetricPills" class="metric-row"></div>
+            <div id="cureOverviewGrid" class="cure-overview-grid"></div>
+            <div id="cureFocusSummary" class="cure-focus-summary"></div>
 
             <h3>Lead Report Card</h3>
             <div id="cureReportCard" class="cure-report-card"></div>
@@ -458,6 +493,9 @@
 
             <h3>Full ADMET Properties</h3>
             <div id="admetPropertiesGrid" class="admet-property-grid"></div>
+
+            <h3>Evidence &amp; Provenance</h3>
+            <div id="cureEvidencePaths" class="evidence-path-grid"></div>
 
             <h3>Complex (Mol*)</h3>
             <div id="molstarStatus" class="molstar-status">Select a candidate to load a complex structure.</div>
