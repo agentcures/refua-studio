@@ -596,6 +596,31 @@ class CampaignBridge:
         except Exception as exc:  # noqa: BLE001
             return _StaticToolAdapter(fallback_tools), str(exc)
 
+    def _planner_tool_allowlist(self) -> list[str]:
+        allowlist = list(STATIC_TOOL_LIST)
+        try:
+            adapter_mod = self._import("refua_campaign.refua_mcp_adapter")
+            raw_allowlist = getattr(adapter_mod, "DEFAULT_TOOL_LIST", ())
+            if isinstance(raw_allowlist, (list, tuple)):
+                filtered = [
+                    str(name).strip()
+                    for name in raw_allowlist
+                    if isinstance(name, str) and str(name).strip()
+                ]
+                if filtered:
+                    allowlist = filtered
+        except Exception:
+            pass
+        try:
+            adapter, error = self._build_adapter()
+        except Exception:
+            adapter = None
+            error = None
+        if error is None and adapter is not None:
+            supported = set(adapter.available_tools())
+            allowlist = [name for name in allowlist if name in supported]
+        return sorted(dict.fromkeys(allowlist))
+
     def _extract_promising_cures_from_results(
         self,
         serialized_results: list[dict[str, Any]],
@@ -815,7 +840,10 @@ class CampaignBridge:
                 "Falling back to static tool list because refua-mcp runtime is unavailable: "
                 f"{error}"
             )
-        tool_names = sorted(set(adapter.available_tools()) | set(STATIC_TOOL_LIST))
+        if error is not None:
+            tool_names = sorted(set(adapter.available_tools()) | set(STATIC_TOOL_LIST))
+        else:
+            tool_names = sorted(set(adapter.available_tools()))
         return tool_names, warnings
 
     def runtime_config(self) -> dict[str, Any]:
@@ -964,9 +992,11 @@ class CampaignBridge:
 
         resolved_prompt = system_prompt or prompts_mod.load_system_prompt()
         adapter, adapter_error = self._build_adapter()
+        planner_tools = self._planner_tool_allowlist()
         orchestrator = orchestrator_mod.CampaignOrchestrator(
             openclaw=openclaw_mod.OpenClawClient(config_mod.OpenClawConfig.from_env()),
             refua_mcp=adapter,
+            planner_tools=planner_tools,
         )
         planner_text, plan = orchestrator.plan(
             objective=objective_text,
@@ -1065,9 +1095,11 @@ class CampaignBridge:
 
         resolved_prompt = system_prompt or prompts_mod.load_system_prompt()
         adapter, adapter_error = self._build_adapter()
+        planner_tools = self._planner_tool_allowlist()
         orchestrator = orchestrator_mod.CampaignOrchestrator(
             openclaw=openclaw_mod.OpenClawClient(config_mod.OpenClawConfig.from_env()),
             refua_mcp=adapter,
+            planner_tools=planner_tools,
         )
 
         planner_text = ""
@@ -1142,7 +1174,7 @@ class CampaignBridge:
         config_mod = self._import("refua_campaign.config")
 
         adapter, adapter_error = self._build_adapter()
-        tools = sorted(adapter.available_tools())
+        tools = self._planner_tool_allowlist()
         policy = autonomy_mod.PlanPolicy(
             max_calls=int(max_calls),
             require_validate_first=not allow_skip_validate_first,

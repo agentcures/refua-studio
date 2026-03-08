@@ -482,6 +482,7 @@ def _extract_candidates_from_job(job: dict[str, Any]) -> list[DrugCandidate]:
     tool_results = result.get("results")
     if isinstance(tool_results, list):
         existing_ids = {candidate.candidate_id for candidate in extracted}
+        existing_keys = {_candidate_identity_key(candidate) for candidate in extracted}
         for index, item in enumerate(tool_results):
             if not isinstance(item, Mapping):
                 continue
@@ -495,9 +496,23 @@ def _extract_candidates_from_job(job: dict[str, Any]) -> list[DrugCandidate]:
                 continue
             if candidate.candidate_id in existing_ids:
                 continue
+            candidate_key = _candidate_identity_key(candidate)
+            if candidate_key in existing_keys:
+                continue
             extracted.append(candidate)
+            existing_keys.add(candidate_key)
 
     return extracted
+
+
+def _candidate_identity_key(candidate: DrugCandidate) -> tuple[str, str, str, str, str]:
+    return (
+        candidate.source_job_id,
+        candidate.tool,
+        candidate.name or "",
+        candidate.smiles or "",
+        candidate.target or "",
+    )
 
 
 def _candidate_from_promising_cure(

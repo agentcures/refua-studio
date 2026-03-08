@@ -109,6 +109,72 @@ class DrugPortfolioTest(unittest.TestCase):
         self.assertEqual(candidate["report_card"]["readiness"]["label"], "Advance")
         self.assertGreaterEqual(len(candidate["report_card"]["concerns"]), 1)
 
+    def test_dedupes_promising_cure_against_matching_tool_result(self) -> None:
+        jobs = [
+            {
+                "job_id": "job-3",
+                "kind": "campaign_run",
+                "status": "completed",
+                "updated_at": "2026-03-08T09:20:04+00:00",
+                "request": {"objective": "KRAS objective"},
+                "result": {
+                    "promising_cures": [
+                        {
+                            "cure_id": "refua_affinity:kras-g12d-mrtx1133-affinity",
+                            "name": "kras_g12d_mrtx1133_affinity",
+                            "smiles": "CCO",
+                            "tool": "refua_affinity",
+                            "score": 59.9,
+                            "promising": True,
+                            "assessment": "Early signal candidate requiring optimization.",
+                            "metrics": {
+                                "binding_probability": 0.95,
+                                "affinity": -3.53,
+                                "ic50": -3.53,
+                            },
+                            "admet": {
+                                "status": "unavailable",
+                                "properties": {"reason": "Install refua[admet]."},
+                                "key_metrics": {},
+                            },
+                        }
+                    ],
+                    "results": [
+                        {
+                            "tool": "refua_affinity",
+                            "args": {
+                                "name": "kras_g12d_mrtx1133_affinity",
+                                "entities": [
+                                    {"type": "protein", "id": "A", "sequence": "MKTAYI"},
+                                    {"type": "ligand", "id": "candidate", "smiles": "CCO"},
+                                ],
+                                "binder": "candidate",
+                            },
+                            "output": {
+                                "name": "kras_g12d_mrtx1133_affinity",
+                                "affinity": {
+                                    "binding_probability": 0.95,
+                                    "ic50": -3.53,
+                                },
+                                "admet": {
+                                    "status": "unavailable",
+                                    "reason": "Install refua[admet].",
+                                },
+                            },
+                        }
+                    ],
+                },
+            }
+        ]
+
+        payload = build_drug_portfolio(jobs, min_score=0.0, limit=20, include_raw=False)
+        self.assertEqual(payload["summary"]["total_candidates"], 1)
+        self.assertEqual(len(payload["candidates"]), 1)
+        self.assertEqual(
+            payload["candidates"][0]["candidate_id"],
+            "refua_affinity:kras-g12d-mrtx1133-affinity",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
