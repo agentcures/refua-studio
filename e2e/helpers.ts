@@ -5,7 +5,7 @@ import { expect, Page } from "@playwright/test";
 
 export async function bootStudio(page: Page): Promise<void> {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Refua Studio" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "ClawCures UI" })).toBeVisible();
   await expect(page.locator("#connectionChip"))
     .toHaveClass(/online/, { timeout: 30_000 });
   await expect.poll(async () => page.getByTestId("agent-card").count(), {
