@@ -9,7 +9,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from refua_studio.drug_portfolio import build_drug_portfolio
+from clawcures_ui.drug_portfolio import build_drug_portfolio
 
 
 class DrugPortfolioTest(unittest.TestCase):

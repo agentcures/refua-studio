@@ -17,8 +17,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from refua_studio.app import create_server
-from refua_studio.config import StudioConfig
+from clawcures_ui.app import create_server
+from clawcures_ui.config import StudioConfig
 
 
 class StudioApiTest(unittest.TestCase):
@@ -104,7 +104,7 @@ class StudioApiTest(unittest.TestCase):
         self.assertGreaterEqual(len(payload["products"]), 1)
         self.assertIn("default_objective", payload["clawcures"])
         names = {item.get("name") for item in payload["products"]}
-        self.assertIn("refua-preclinical", names)
+        self.assertIn("clawcures-ui", names)
 
     def test_command_center_capabilities_endpoint(self) -> None:
         payload = self._request("GET", "/api/command-center/capabilities")

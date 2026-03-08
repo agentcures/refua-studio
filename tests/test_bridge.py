@@ -11,7 +11,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from refua_studio.bridge import CampaignBridge
+from clawcures_ui.bridge import CampaignBridge
 
 
 class CampaignBridgeTest(unittest.TestCase):
@@ -66,7 +66,7 @@ class CampaignBridgeTest(unittest.TestCase):
         self.assertGreaterEqual(len(payload["products"]), 1)
         self.assertIn("default_objective", payload["clawcures"])
         names = {item.get("name") for item in payload["products"]}
-        self.assertIn("refua-preclinical", names)
+        self.assertIn("clawcures-ui", names)
 
     def test_command_center_capabilities(self) -> None:
         payload = self.bridge.command_center_capabilities()

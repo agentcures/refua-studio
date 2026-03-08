@@ -19,4 +19,4 @@ USER studio
 
 EXPOSE 8787
 
-CMD ["refua-studio", "--host", "0.0.0.0", "--port", "8787", "--data-dir", "/data", "--workspace-root", "/workspace"]
+CMD ["clawcures-ui", "--host", "0.0.0.0", "--port", "8787", "--data-dir", "/data", "--workspace-root", "/workspace"]

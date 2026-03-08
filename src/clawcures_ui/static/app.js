@@ -99,8 +99,10 @@ const themeToggleButton = document.getElementById("themeToggleButton");
 const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
 const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
 
-const THEME_STORAGE_KEY = "refua_studio_theme";
-const TAB_STORAGE_KEY = "refua_studio_tab";
+const THEME_STORAGE_KEY = "clawcures_ui_theme";
+const LEGACY_THEME_STORAGE_KEY = "refua_studio_theme";
+const TAB_STORAGE_KEY = "clawcures_ui_tab";
+const LEGACY_TAB_STORAGE_KEY = "refua_studio_tab";
 const STRUCTURE_FILE_API = "/api/structure-file";
 const DEFAULT_TAB = "agents";
 const FOCUSED_AGENT_IDS = ["clawcures", "refua_mcp", "refua_clinical", "refua_preclinical", "refua_regulatory"];
@@ -163,9 +165,15 @@ function setConnection(ok, text) {
   node.textContent = text;
 }
 
-function _storedValue(key) {
+function _storedValue(...keys) {
   try {
-    return localStorage.getItem(key);
+    for (const key of keys) {
+      const value = localStorage.getItem(key);
+      if (value !== null) {
+        return value;
+      }
+    }
+    return null;
   } catch (_err) {
     return null;
   }
@@ -191,7 +199,7 @@ function applyTheme(themeName) {
 }
 
 function initThemeToggle() {
-  const storedTheme = _storedValue(THEME_STORAGE_KEY);
+  const storedTheme = _storedValue(THEME_STORAGE_KEY, LEGACY_THEME_STORAGE_KEY);
   if (storedTheme === "dark" || storedTheme === "light") {
     applyTheme(storedTheme);
   } else {
@@ -237,7 +245,7 @@ function initTabs() {
   if (!tabButtons.length || !tabPanels.length) {
     return;
   }
-  const storedTab = _storedValue(TAB_STORAGE_KEY);
+  const storedTab = _storedValue(TAB_STORAGE_KEY, LEGACY_TAB_STORAGE_KEY);
   setActiveTab(storedTab || DEFAULT_TAB);
   for (const button of tabButtons) {
     button.addEventListener("click", () => {
@@ -1978,7 +1986,7 @@ function renderProgramTimeline(events, approvals) {
       title: event.title || event.event_type || "event",
       status: event.status || "recorded",
       at: event.created_at || "",
-      meta: event.source || "refua-studio",
+      meta: event.source || "clawcures-ui",
       runId: event.run_id || "",
     });
   }
@@ -2110,7 +2118,7 @@ async function doUpsertProgram() {
     indication: programIndicationInput.value.trim() || null,
     owner: programOwnerInput.value.trim() || null,
     metadata: {
-      source: "refua-studio",
+      source: "clawcures-ui",
     },
   };
   const result = await api("/api/programs/upsert", {
@@ -2141,7 +2149,7 @@ async function doApproveProgram() {
     body: JSON.stringify({
       gate: "stage_gate",
       decision: "approved",
-      signer: programOwnerInput.value.trim() || "refua-studio",
+      signer: programOwnerInput.value.trim() || "clawcures-ui",
       signature: `studio:${new Date().toISOString()}`,
       rationale: "Recorded from Studio command center",
       metadata: {
@@ -2176,7 +2184,7 @@ async function doEvaluateProgramGate() {
       template_id: templateId,
       metrics: parseGateMetrics(),
       auto_record: true,
-      signer: programOwnerInput.value.trim() || "refua-studio",
+      signer: programOwnerInput.value.trim() || "clawcures-ui",
     }),
   });
   showOutput("Stage Gate Evaluation", payload);
@@ -2282,7 +2290,7 @@ async function doBuildRegulatoryBundle() {
     objective: objectiveInput.value.trim() || null,
     plan: fallbackPlan,
     dry_run: dryRunToggle.checked,
-    source: "refua-studio-ui",
+    source: "clawcures-ui",
   };
   const payload = await api("/api/regulatory/bundle/build", {
     method: "POST",
@@ -3849,7 +3857,7 @@ function seedFallbackDefaults() {
     });
   }
   if (!regulatoryOutputDirInput.value.trim()) {
-    regulatoryOutputDirInput.value = ".refua-studio/regulatory/bundle_studio";
+    regulatoryOutputDirInput.value = ".clawcures-ui/regulatory/bundle_studio";
   }
   if (!gateMetricsInput.value.trim()) {
     gateMetricsInput.value = pretty({});

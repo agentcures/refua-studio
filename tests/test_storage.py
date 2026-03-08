@@ -10,7 +10,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from refua_studio.storage import JobStore
+from clawcures_ui.storage import JobStore
 
 
 class JobStoreTest(unittest.TestCase):

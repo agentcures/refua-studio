@@ -1,6 +1,6 @@
-# refua-studio
+# clawcures-ui
 
-`refua-studio` is the Refua web control plane for planning and running discovery campaigns.
+`clawcures-ui` is the ClawCures web control plane for planning and running discovery campaigns across the Refua workspace.
 
 It provides:
 
@@ -31,30 +31,36 @@ This project is designed to reuse existing workspace components:
 ## Install
 
 ```bash
-cd path/to/refua-studio
+cd path/to/clawcures-ui
 pip install -e .
 ```
 
 ## Run
 
 ```bash
-refua-studio --host 127.0.0.1 --port 8787 --open-browser
+clawcures-ui --host 127.0.0.1 --port 8787 --open-browser
 ```
 
 Or from source without install:
 
 ```bash
-cd path/to/refua-studio
-PYTHONPATH=src python -m refua_studio --host 127.0.0.1 --port 8787
+cd path/to/clawcures-ui
+PYTHONPATH=src python -m clawcures_ui --host 127.0.0.1 --port 8787
 ```
+
+Legacy compatibility is still shipped for existing automation:
+
+- `refua-studio` remains as a console-script alias
+- `python -m refua_studio` still works
+- legacy `REFUA_STUDIO_*` auth token env vars are still accepted
 
 ## Podman
 
 Build image:
 
 ```bash
-cd path/to/refua-studio
-podman build -t refua-studio:local -f Containerfile .
+cd path/to/clawcures-ui
+podman build -t clawcures-ui:local -f Containerfile .
 ```
 
 Run container:
@@ -62,20 +68,20 @@ Run container:
 ```bash
 podman run --rm -p 8787:8787 \
   -e REFUA_CAMPAIGN_OPENCLAW_BASE_URL=http://host.containers.internal:18789 \
-  -v "$(pwd)/.refua-studio-data:/data" \
+  -v "$(pwd)/.clawcures-ui-data:/data" \
   -v "$(pwd)/..:/workspace:ro" \
-  refua-studio:local
+  clawcures-ui:local
 ```
 
 Notes:
 
-- The container starts `refua-studio` on `0.0.0.0:8787`.
+- The container starts `clawcures-ui` on `0.0.0.0:8787`.
 - Mount the monorepo root at `/workspace` so Studio can integrate with `ClawCures`, `refua-mcp`, and other sibling projects.
-- Persistent job database lives in `.refua-studio-data/`.
+- Persistent job database lives in `.clawcures-ui-data/`.
 
 ## Podman Compose
 
-From `refua-studio/`:
+From `clawcures-ui/`:
 
 ```bash
 podman compose -f docker-compose.yml up --build
@@ -96,7 +102,7 @@ CLI flags:
 
 - `--host`
 - `--port`
-- `--data-dir` (default: `.refua-studio`)
+- `--data-dir` (default: `.clawcures-ui`, with fallback to `.refua-studio` when present)
 - `--workspace-root` (defaults to parent workspace)
 - `--max-workers` (background job concurrency)
 
@@ -264,14 +270,14 @@ Each job records request payload, status transitions (`queued` -> `running` -> `
 ## Tests
 
 ```bash
-cd path/to/refua-studio
+cd path/to/clawcures-ui
 python -m unittest discover -s tests -v
 ```
 
 Playwright E2E suite:
 
 ```bash
-cd path/to/refua-studio
+cd path/to/clawcures-ui
 npm install
 npx playwright install chromium
 npm run test:e2e
@@ -284,7 +290,7 @@ command center, planning/jobs, clinical operations, and wet-lab/regulatory flows
 ## Build
 
 ```bash
-cd path/to/refua-studio
+cd path/to/clawcures-ui
 python -m build
 ```
 
@@ -293,10 +299,10 @@ Build artifacts are written to `dist/` (`.tar.gz` and `.whl`).
 ## Project Layout
 
 ```text
-refua-studio/
+clawcures-ui/
   Containerfile
   docker-compose.yml
-  src/refua_studio/
+  src/clawcures_ui/
     app.py
     bridge.py
     cli.py
@@ -307,6 +313,8 @@ refua-studio/
       index.html
       app.js
       styles.css
+  src/refua_studio/
+    ...
   tests/
 ```
 

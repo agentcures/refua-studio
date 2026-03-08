@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "refua-studio"
-version = "0.7.1"
-description = "Web control plane for Refua campaign orchestration and scientific execution."
+name = "clawcures-ui"
+version = "0.8.0"
+description = "Web control plane for ClawCures campaign orchestration and scientific execution."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
 license = "MIT"
@@ -43,9 +43,9 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://agentcures.com/"
-Repository = "https://github.com/agentcures/refua"
-Documentation = "https://github.com/agentcures/refua#readme"
-Issues = "https://github.com/agentcures/refua/issues"
+Repository = "https://github.com/agentcures/clawcures-ui"
+Documentation = "https://github.com/agentcures/clawcures-ui#readme"
+Issues = "https://github.com/agentcures/clawcures-ui/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -53,13 +53,14 @@ dev = [
 ]
 
 [project.scripts]
+clawcures-ui = "clawcures_ui.cli:main"
 refua-studio = "refua_studio.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-refua_studio = ["static/*"]
+clawcures_ui = ["static/*"]
 
 [tool.setuptools.exclude-package-data]
 "*" = ["*.py[cod]", "__pycache__/*"]

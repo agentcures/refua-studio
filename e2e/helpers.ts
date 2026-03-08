@@ -102,7 +102,7 @@ from pathlib import Path
 import json
 import os
 
-from refua_studio.storage import JobStore
+from clawcures_ui.storage import JobStore
 
 store = JobStore(Path(os.environ["STUDIO_DATA_DIR"]) / "studio.db")
 job = store.create_job(

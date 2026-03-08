@@ -10,7 +10,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from refua_studio.program_store import ProgramStore
+from clawcures_ui.program_store import ProgramStore
 
 
 class ProgramStoreTest(unittest.TestCase):
