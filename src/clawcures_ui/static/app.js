@@ -203,8 +203,7 @@ function initThemeToggle() {
   if (storedTheme === "dark" || storedTheme === "light") {
     applyTheme(storedTheme);
   } else {
-    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    applyTheme(prefersDark ? "dark" : "light");
+    applyTheme("light");
   }
 
   if (!themeToggleButton) {
