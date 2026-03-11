@@ -32,8 +32,13 @@ This project is designed to reuse existing workspace components:
 
 ```bash
 cd path/to/clawcures-ui
+python3.13 -m venv .venv
+source .venv/bin/activate
 pip install -e .
 ```
+
+Use Python `>=3.11,<3.14`. Live execution depends on `refua-mcp`, which does not
+support Python `3.14+`.
 
 ## Run
 
@@ -286,6 +291,7 @@ npm run test:e2e
 The E2E runner boots a real Studio server via `.venv_release` on an isolated
 `.playwright-data/` directory and exercises mission-control workflows across
 command center, planning/jobs, clinical operations, and wet-lab/regulatory flows.
+Create `.venv_release` with Python `3.11`-`3.13`, not `3.14+`.
 
 ## Build
 
