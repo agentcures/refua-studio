@@ -722,7 +722,10 @@ tbody tr.is-selected {
 
 .report-shell {
   display: grid;
-  gap: 24px;
+  gap: 18px;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
 }
 
 .report-topbar {
@@ -734,100 +737,108 @@ tbody tr.is-selected {
 
 .report-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
-  gap: 24px;
-  padding: 30px;
-  border: 1px solid rgba(14, 116, 144, 0.14);
-  border-radius: 30px;
-  background:
-    radial-gradient(circle at top right, rgba(14, 116, 144, 0.16), transparent 28%),
-    radial-gradient(circle at bottom left, rgba(166, 92, 0, 0.1), transparent 24%),
-    linear-gradient(140deg, rgba(255, 252, 248, 0.96), rgba(224, 246, 250, 0.82));
-  box-shadow: var(--shadow);
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  gap: 18px;
+  padding: 22px 24px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f8fafc, #eef2ff);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
 }
 
 .report-hero-copy {
-  display: grid;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.report-hero .eyebrow {
+  color: #6366f1;
 }
 
 .report-title {
-  font-size: clamp(2.2rem, 4vw, 3.7rem);
-  line-height: 0.96;
-  letter-spacing: -0.05em;
+  font-size: clamp(1.8rem, 3vw, 2.7rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
 }
 
 .report-lead,
 .report-paragraph,
 .report-fact-value {
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 .report-lead {
-  max-width: 52rem;
-  font-size: 1.05rem;
-  color: rgba(23, 35, 58, 0.82);
+  max-width: 56rem;
+  font-size: 0.97rem;
+  color: #475569;
 }
 
 .report-paragraph {
-  color: var(--muted);
+  color: #475569;
 }
 
 .report-stat-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
   align-content: start;
 }
 
 .report-stat {
   display: grid;
-  gap: 8px;
-  padding: 18px;
-  border: 1px solid rgba(23, 35, 58, 0.08);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.72);
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
 }
 
 .report-stat.is-dark {
-  background: #17233a;
-  color: #f5f9ff;
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 .report-stat.is-dark .mini-label {
-  color: rgba(245, 249, 255, 0.7);
+  color: #64748b;
 }
 
 .report-stat.is-accent {
-  background: rgba(14, 116, 144, 0.12);
+  background: #f8fafc;
 }
 
 .report-stat.is-success {
-  background: rgba(20, 122, 76, 0.12);
+  background: #f0fdf4;
+  border-color: #bbf7d0;
 }
 
 .report-stat-value {
-  font-size: clamp(1.4rem, 3vw, 2.2rem);
+  font-size: clamp(1.1rem, 2vw, 1.55rem);
   line-height: 1;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.03em;
 }
 
 .report-main-grid,
 .report-secondary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
+  gap: 18px;
 }
 
 .report-card {
   display: grid;
-  gap: 16px;
-  padding: 24px;
-  border: 1px solid var(--line);
-  border-radius: 26px;
-  background: var(--panel);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.report-card > h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .report-visual-card {
@@ -850,15 +861,47 @@ tbody tr.is-selected {
   margin: 0;
 }
 
+.complex-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 2px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.complex-name {
+  color: #334155;
+  font-weight: 600;
+}
+
+.complex-status {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.complex-status.ready {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.complex-status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .molstar-stage {
   position: relative;
   min-height: 520px;
-  border: 1px solid rgba(14, 116, 144, 0.16);
-  border-radius: 28px;
+  border: 1px solid #dbe3ec;
+  border-radius: 14px;
   overflow: hidden;
-  background:
-    radial-gradient(circle at top right, rgba(14, 116, 144, 0.12), transparent 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 241, 231, 0.92));
+  background: #ffffff;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
 }
 
 .molstar-stage-viewer,
@@ -870,26 +913,36 @@ tbody tr.is-selected {
 .complex-figure-svg {
   width: 100%;
   height: auto;
-  border-radius: 28px;
+  border-radius: 14px;
 }
 
 .molstar-loading {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  backdrop-filter: blur(3px);
+  top: 50%;
+  left: 50%;
+  inset: auto;
+  transform: translate(-50%, -50%);
+  display: block;
+  padding: 0;
+  color: #6b7280;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  backdrop-filter: none;
 }
 
 .complex-figure-caption {
   max-width: 60rem;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.report-shell .status-pill {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
 }
 
 .report-facts-grid,
@@ -904,28 +957,24 @@ tbody tr.is-selected {
 .report-evidence-item {
   display: grid;
   gap: 8px;
-  padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--panel-strong);
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
 }
 
 .report-entity-card.is-protein {
-  background:
-    linear-gradient(180deg, rgba(23, 35, 58, 0.96), rgba(35, 53, 82, 0.96)),
-    var(--panel-strong);
-  color: #f5f9ff;
+  background: #ffffff;
+  color: #1e293b;
 }
 
 .report-entity-card.is-protein .mini-label,
 .report-entity-card.is-protein .panel-copy {
-  color: rgba(245, 249, 255, 0.72);
+  color: #64748b;
 }
 
 .report-entity-card.is-ligand {
-  background:
-    linear-gradient(180deg, rgba(14, 116, 144, 0.18), rgba(255, 252, 248, 0.96)),
-    var(--panel-strong);
+  background: #ffffff;
 }
 
 .report-evidence-list {
@@ -935,14 +984,15 @@ tbody tr.is-selected {
 
 .report-evidence-path {
   display: block;
-  padding: 11px 12px;
-  border-radius: 14px;
-  background: #101a2a;
-  color: #e7eef8;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-family: "Consolas", "Monaco", monospace;
+  font-size: 0.78rem;
 }
 
 .detail-hero {
@@ -965,9 +1015,9 @@ tbody tr.is-selected {
 .metric-card,
 .source-item {
   padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--panel-strong);
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
 }
 
 .detail-item,
@@ -988,7 +1038,7 @@ tbody tr.is-selected {
 
 .metric-value {
   font-size: 1.08rem;
-  color: var(--ink);
+  color: #0f172a;
 }
 
 .source-list {

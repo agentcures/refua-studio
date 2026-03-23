@@ -1298,6 +1298,23 @@ function renderEntityCards(report) {
 
 function renderMolstarStructureStage(drug, report) {
   const wrapper = createElement("figure", "molstar-stage-figure");
+  const meta = createElement("div", "complex-meta");
+  meta.appendChild(
+    createElement(
+      "span",
+      "complex-name",
+      report.structurePath ? `${drug.name || drug.drug_id} · ${report.structureFormat || "structure"}` : (drug.name || drug.drug_id)
+    )
+  );
+  meta.appendChild(
+    createElement(
+      "span",
+      `complex-status ${report.hasStructureArtifact ? "ready" : "pending"}`,
+      report.hasStructureArtifact ? "3D Ready" : "Pending"
+    )
+  );
+  wrapper.appendChild(meta);
+
   const stage = createElement("div", "molstar-stage");
   stage.setAttribute("data-refua-molstar-stage", "1");
   stage.dataset.url = report.structureUrl || "";
