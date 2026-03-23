@@ -18,6 +18,9 @@ _FINISHED_STATUSES: tuple[str, ...] = ("completed", "failed", "cancelled")
 _ALLOWED_JOB_STATUSES: frozenset[str] = frozenset(
     {"queued", "running", "completed", "failed", "cancelled"}
 )
+_ALLOWED_STRUCTURE_SUFFIXES: frozenset[str] = frozenset(
+    {".bcif", ".cif", ".mmcif", ".pdb"}
+)
 _ROLE_VIEWER = "viewer"
 _ROLE_OPERATOR = "operator"
 _ROLE_ADMIN = "admin"
@@ -95,6 +98,36 @@ class StudioApp:
     def list_promising_drugs(self, *, query: dict[str, list[str]]) -> dict[str, Any]:
         limit = _parse_limit_query(query, default=300)
         return self.store.list_promising_drugs(limit=limit)
+
+    def read_structure_file(self, *, path_value: str) -> tuple[bytes, str]:
+        raw_path = path_value.strip()
+        if not raw_path:
+            raise BadRequestError("path is required")
+
+        requested = Path(raw_path)
+        if requested.is_absolute():
+            resolved = requested.resolve()
+        else:
+            resolved = (self.config.resolved_workspace_root / requested).resolve()
+
+        allowed_roots = (
+            self.config.resolved_workspace_root,
+            self.config.data_dir.resolve(),
+        )
+        if not any(_is_within_root(resolved, root) for root in allowed_roots):
+            raise NotFoundError("Requested structure path is outside allowed roots")
+        if not resolved.exists() or not resolved.is_file():
+            raise NotFoundError(f"Structure file not found: {resolved}")
+        if resolved.suffix.lower() not in _ALLOWED_STRUCTURE_SUFFIXES:
+            raise BadRequestError(
+                "Unsupported structure format. Expected one of: .bcif, .cif, .mmcif, .pdb"
+            )
+
+        try:
+            data = resolved.read_bytes()
+        except OSError as exc:
+            raise ApiError(f"Failed reading structure file: {exc}") from exc
+        return data, _structure_content_type(resolved)
 
     def get_job(self, job_id: str) -> dict[str, Any]:
         job = self.store.get_job(job_id)
@@ -341,6 +374,23 @@ def _read_json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
     return parsed
 
 
+def _is_within_root(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _structure_content_type(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".bcif":
+        return "application/octet-stream"
+    if suffix == ".pdb":
+        return "chemical/x-pdb; charset=utf-8"
+    return "chemical/x-cif; charset=utf-8"
+
+
 def _required_api_role(*, method: str, path: str) -> str | None:
     if not path.startswith("/api/"):
         return None
@@ -464,6 +514,19 @@ def create_handler(app: StudioApp):
                     query = parse_qs(parsed.query, keep_blank_values=False)
                     _json_response(
                         self, HTTPStatus.OK, app.list_promising_drugs(query=query)
+                    )
+                    return
+                if path == "/structures/file":
+                    query = parse_qs(parsed.query, keep_blank_values=False)
+                    path_value = query.get("path", [""])[0]
+                    data, content_type = app.read_structure_file(
+                        path_value=path_value
+                    )
+                    _text_response(
+                        self,
+                        status=HTTPStatus.OK,
+                        content_type=content_type,
+                        data=data,
                     )
                     return
                 if path.startswith("/api/jobs/"):

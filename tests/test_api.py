@@ -7,6 +7,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from urllib.parse import quote
 from unittest import mock
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -209,6 +210,22 @@ class StudioApiTest(unittest.TestCase):
             payload["drugs"][0]["sources"][0]["objective"],
             "Cross-check Lumotril ADMET",
         )
+
+    def test_structure_file_endpoint(self) -> None:
+        structure_path = self.app.config.data_dir / "mock_complex.cif"
+        structure_path.write_text(
+            "data_mock\n#\nloop_\n_atom_site.group_PDB\nATOM\n",
+            encoding="utf-8",
+        )
+
+        url_path = quote(str(structure_path), safe="")
+        url = f"http://{self.host}:{self.port}/structures/file?path={url_path}"
+        request = Request(url, method="GET")
+        with urlopen(request, timeout=5) as response:
+            body = response.read().decode("utf-8")
+            self.assertEqual(response.status, 200)
+            self.assertEqual(response.headers.get_content_type(), "chemical/x-cif")
+            self.assertIn("data_mock", body)
 
     def test_validate_plan_endpoint(self) -> None:
         payload = self._request(

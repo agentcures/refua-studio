@@ -28,6 +28,7 @@ test("filters promising drugs and opens the dedicated report page", async ({ pag
   await expect(page.locator("#drugReportPage")).toContainText("Lumatrol");
   await expect(page.locator("#drugReportPage")).toContainText("KRAS G12D");
   await expect(page.locator("#drugReportPage")).toContainText("Structure-backed complex");
+  await expect(page.locator("[data-refua-molstar-stage='1']")).toBeVisible();
   await expect(page.locator("#drugReportPage")).toContainText(
     "ADMET profile remains favorable after cross-check."
   );

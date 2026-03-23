@@ -38,6 +38,13 @@ const VIEW_TAB_TARGETS = {
   "drug-report": "promising-drugs",
 };
 
+const MOLSTAR_JS_CDN =
+  "https://cdn.jsdelivr.net/npm/molstar@4.18.0/build/viewer/molstar.min.js";
+const MOLSTAR_CSS_CDN =
+  "https://cdn.jsdelivr.net/npm/molstar@4.18.0/build/viewer/molstar.min.css";
+
+let molstarScriptPromise = null;
+
 const DRUG_METRIC_LABELS = {
   binding_probability: "Binding Probability",
   admet_score: "ADMET Score",
@@ -126,6 +133,332 @@ function asObject(value) {
 function asText(value) {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized || null;
+}
+
+function collectChainIds(value) {
+  const tokens = [];
+
+  function collect(item) {
+    if (item === null || item === undefined) {
+      return;
+    }
+    if (Array.isArray(item)) {
+      for (const nested of item) {
+        collect(nested);
+      }
+      return;
+    }
+    if (typeof item === "string") {
+      for (const piece of item.split(/[\s,;]+/)) {
+        if (piece) {
+          tokens.push(piece);
+        }
+      }
+      return;
+    }
+    tokens.push(String(item));
+  }
+
+  collect(value);
+  return Array.from(new Set(tokens.map((token) => token.trim()).filter(Boolean)));
+}
+
+function inferMolstarFormat(pathValue, formatValue) {
+  const explicit = String(formatValue || "").trim().toLowerCase();
+  if (explicit === "bcif") {
+    return "bcif";
+  }
+  if (explicit === "pdb") {
+    return "pdb";
+  }
+  if (explicit === "cif" || explicit === "mmcif") {
+    return "mmcif";
+  }
+
+  const pathText = String(pathValue || "").trim().toLowerCase();
+  if (pathText.endsWith(".bcif")) {
+    return "bcif";
+  }
+  if (pathText.endsWith(".pdb")) {
+    return "pdb";
+  }
+  if (pathText.endsWith(".cif") || pathText.endsWith(".mmcif")) {
+    return "mmcif";
+  }
+  return null;
+}
+
+function buildStructureUrl(pathValue) {
+  const pathText = asText(pathValue);
+  if (!pathText) {
+    return null;
+  }
+  return `/structures/file?path=${encodeURIComponent(pathText)}`;
+}
+
+function ensureMolstarCss() {
+  if (document.querySelector('link[data-refua-molstar-css="1"]')) {
+    return;
+  }
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = MOLSTAR_CSS_CDN;
+  link.setAttribute("data-refua-molstar-css", "1");
+  document.head.appendChild(link);
+}
+
+function ensureMolstarAssets() {
+  ensureMolstarCss();
+  if (typeof window.molstar !== "undefined") {
+    return Promise.resolve(window.molstar);
+  }
+  if (molstarScriptPromise) {
+    return molstarScriptPromise;
+  }
+
+  molstarScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = MOLSTAR_JS_CDN;
+    script.async = true;
+    script.setAttribute("data-refua-molstar-js", "1");
+    script.onload = () => resolve(window.molstar);
+    script.onerror = () => reject(new Error("Failed to load Mol* viewer assets"));
+    document.head.appendChild(script);
+  });
+  return molstarScriptPromise;
+}
+
+function normalizeChainGroups(rawGroups) {
+  if (!Array.isArray(rawGroups)) {
+    return [];
+  }
+
+  const seen = new Set();
+  const groups = [];
+  for (const rawGroup of rawGroups) {
+    if (!Array.isArray(rawGroup)) {
+      continue;
+    }
+    const group = [];
+    for (const token of rawGroup) {
+      const normalized = String(token || "").trim();
+      if (!normalized || seen.has(normalized)) {
+        continue;
+      }
+      seen.add(normalized);
+      group.push(normalized);
+    }
+    if (group.length > 0) {
+      groups.push(group);
+    }
+  }
+  return groups;
+}
+
+function buildMolstarColorPlan(report) {
+  return {
+    protein_chain_groups: report.proteins.map((item) => item.chainIds || []),
+    ligand_chain_groups: report.ligands.map((item) => item.chainIds || []),
+    other_chain_groups: report.otherEntities.map((item) => item.chainIds || []),
+    nucleic_chain_groups: [],
+    ion_chain_groups: [],
+  };
+}
+
+function makeChainSelector(chainIds) {
+  if (!Array.isArray(chainIds) || chainIds.length === 0) {
+    return null;
+  }
+  const selectors = [];
+  const seen = new Set();
+  for (const chainId of chainIds) {
+    const normalized = String(chainId || "").trim();
+    if (!normalized) {
+      continue;
+    }
+    const labelKey = `label:${normalized}`;
+    if (!seen.has(labelKey)) {
+      seen.add(labelKey);
+      selectors.push({ label_asym_id: normalized });
+    }
+    const authKey = `auth:${normalized}`;
+    if (!seen.has(authKey)) {
+      seen.add(authKey);
+      selectors.push({ auth_asym_id: normalized });
+    }
+  }
+  if (selectors.length === 0) {
+    return null;
+  }
+  return selectors.length === 1 ? selectors[0] : selectors;
+}
+
+function addChainRepresentation(structure, chainIds, type, color, opacity) {
+  const selector = makeChainSelector(chainIds);
+  if (!selector) {
+    return null;
+  }
+  const component = structure.component({ selector });
+  const colorProps = { color };
+  if (typeof opacity === "number") {
+    colorProps.opacity = opacity;
+  }
+  component.representation({ type }).color(colorProps);
+  return component;
+}
+
+function applyMolstarColorPlan(structure, colorPlan, ligandName) {
+  const proteinPalette = ["#2563eb", "#0891b2", "#7c3aed", "#0f766e"];
+  const ligandPalette = ["#db2777", "#c026d3", "#e11d48", "#ec4899"];
+
+  const proteinGroups = normalizeChainGroups(colorPlan?.protein_chain_groups);
+  const ligandGroups = normalizeChainGroups(colorPlan?.ligand_chain_groups);
+  const otherGroups = normalizeChainGroups(colorPlan?.other_chain_groups);
+
+  if (proteinGroups.length > 0) {
+    for (const [index, group] of proteinGroups.entries()) {
+      addChainRepresentation(
+        structure,
+        group,
+        "cartoon",
+        proteinPalette[index % proteinPalette.length],
+        1
+      );
+    }
+  } else {
+    structure
+      .component({ selector: "protein" })
+      .representation({ type: "cartoon" })
+      .color({ color: "#2563eb" });
+  }
+
+  if (ligandGroups.length > 0) {
+    for (const [index, group] of ligandGroups.entries()) {
+      const ligandComponent = addChainRepresentation(
+        structure,
+        group,
+        "ball_and_stick",
+        ligandPalette[index % ligandPalette.length],
+        1
+      );
+      if (ligandName && index === 0 && ligandComponent) {
+        ligandComponent.label({ text: ligandName });
+      }
+    }
+  } else {
+    const ligandComponent = structure.component({ selector: "ligand" });
+    if (ligandName) {
+      ligandComponent.label({ text: ligandName });
+    }
+    ligandComponent
+      .representation({ type: "ball_and_stick" })
+      .color({ color: "#db2777" });
+  }
+
+  for (const group of otherGroups) {
+    addChainRepresentation(structure, group, "ball_and_stick", "#64748b", 1);
+  }
+}
+
+async function initMolstarStage(stageNode) {
+  if (!stageNode || stageNode.dataset.refuaInitialized === "1") {
+    return;
+  }
+  stageNode.dataset.refuaInitialized = "1";
+
+  const viewerNode = stageNode.querySelector("[data-refua-molstar-viewer='1']");
+  const loadingNode = stageNode.querySelector("[data-refua-molstar-loading='1']");
+  const structureUrl = stageNode.dataset.url || "";
+  const formatType = stageNode.dataset.format || "mmcif";
+  const ligandName = stageNode.dataset.ligand || null;
+  const colorPlan = JSON.parse(stageNode.dataset.colorPlan || "{}");
+
+  try {
+    const molstar = await ensureMolstarAssets();
+    if (!document.body.contains(stageNode) || !viewerNode) {
+      return;
+    }
+
+    function loadWithMvs(viewer) {
+      try {
+        const mvs = molstar?.PluginExtensions?.mvs;
+        if (!mvs?.MVSData || typeof mvs.loadMVS !== "function") {
+          return Promise.resolve(false);
+        }
+
+        const builder = mvs.MVSData.createBuilder();
+        const structure = builder
+          .download({ url: structureUrl })
+          .parse({ format: formatType })
+          .modelStructure({});
+        applyMolstarColorPlan(structure, colorPlan, ligandName);
+
+        return mvs
+          .loadMVS(viewer.plugin, builder.getState(), {
+            sourceUrl: null,
+            sanityChecks: true,
+            replaceExisting: false,
+          })
+          .then(() => {
+            stageNode.dataset.refuaLoadedPath = "mvs";
+            stageNode.dataset.refuaLoadedFormat = formatType;
+            return true;
+          })
+          .catch(() => false);
+      } catch (_err) {
+        return Promise.resolve(false);
+      }
+    }
+
+    function loadDirectly(viewer) {
+      const isBinary = formatType === "bcif";
+      return viewer
+        .loadStructureFromUrl(structureUrl, formatType, isBinary, {
+          representationParams: {
+            theme: { globalName: "entity-id" },
+          },
+        })
+        .then(() => {
+          stageNode.dataset.refuaLoadedPath = "direct";
+          stageNode.dataset.refuaLoadedFormat = formatType;
+        });
+    }
+
+    const viewer = await molstar.Viewer.create(viewerNode.id, {
+      layoutIsExpanded: false,
+      layoutShowControls: false,
+      layoutShowRemoteState: false,
+      layoutShowSequence: true,
+      layoutShowLog: false,
+      layoutShowLeftPanel: false,
+      viewportShowExpand: false,
+      viewportShowSelectionMode: false,
+      viewportShowAnimation: false,
+      viewportShowTrajectoryControls: false,
+      disabledExtensions: ["volumes-and-segmentations"],
+    });
+
+    const loadedWithMvs = await loadWithMvs(viewer);
+    if (!loadedWithMvs) {
+      await loadDirectly(viewer);
+    }
+    if (loadingNode) {
+      loadingNode.style.display = "none";
+    }
+    viewer.plugin.managers.camera.reset();
+  } catch (err) {
+    console.error("Failed to initialize Mol* viewer", err);
+    if (loadingNode) {
+      loadingNode.textContent = "Failed to load structure";
+      loadingNode.style.display = "flex";
+    }
+  }
+}
+
+function activateStructureViewers(root = document) {
+  for (const node of root.querySelectorAll("[data-refua-molstar-stage='1']")) {
+    initMolstarStage(node);
+  }
 }
 
 function setConnection(ok, text) {
@@ -735,6 +1068,9 @@ function buildDrugReportModel(drug) {
       id: asText(entity.id) || `protein-${index + 1}`,
       name: asText(entity.name) || asText(entity.id) || drug.target || `Protein ${index + 1}`,
       sequenceLength: asText(entity.sequence)?.length || 0,
+      chainIds: collectChainIds(
+        entity.chain_ids ?? entity.chain_id ?? entity.label_asym_id ?? entity.auth_asym_id ?? entity.ids
+      ),
       inferred: false,
     }));
   const ligands = rawEntities
@@ -745,6 +1081,9 @@ function buildDrugReportModel(drug) {
         asText(entity.name) ||
         (index === 0 ? drug.name || drug.drug_id : `Ligand ${index + 1}`),
       smiles: asText(entity.smiles) || drug.smiles,
+      chainIds: collectChainIds(
+        entity.chain_ids ?? entity.chain_id ?? entity.label_asym_id ?? entity.auth_asym_id ?? entity.ids
+      ),
       inferred: false,
     }));
   const otherEntities = rawEntities
@@ -756,6 +1095,9 @@ function buildDrugReportModel(drug) {
       id: asText(entity.id) || `component-${index + 1}`,
       type: asText(entity.type) || "component",
       name: asText(entity.name) || asText(entity.id) || `Component ${index + 1}`,
+      chainIds: collectChainIds(
+        entity.chain_ids ?? entity.chain_id ?? entity.label_asym_id ?? entity.auth_asym_id ?? entity.ids
+      ),
     }));
 
   if (proteins.length === 0 && drug.target) {
@@ -763,6 +1105,7 @@ function buildDrugReportModel(drug) {
       id: "target",
       name: drug.target,
       sequenceLength: 0,
+      chainIds: [],
       inferred: true,
     });
   }
@@ -771,12 +1114,15 @@ function buildDrugReportModel(drug) {
       id: "candidate",
       name: drug.name || drug.drug_id,
       smiles: drug.smiles || null,
+      chainIds: [],
       inferred: true,
     });
   }
 
   const structurePath = asText(toolArgs.structure_output_path);
   const structureFormat = inferStructureFormat(structurePath, toolArgs.structure_output_format);
+  const structureUrl = buildStructureUrl(structurePath);
+  const viewerFormat = inferMolstarFormat(structurePath, toolArgs.structure_output_format);
   const bindingProbability = percentageOrNull(asObject(drug.metrics).binding_probability);
   const admetScore = percentageOrNull(
     asObject(drug.metrics).admet_score ?? admetKeyMetrics.admet_score
@@ -808,6 +1154,8 @@ function buildDrugReportModel(drug) {
     admetProperties,
     structurePath,
     structureFormat,
+    structureUrl,
+    viewerFormat,
     hasStructureArtifact,
     hasComplexSignal,
     complexConfidence,
@@ -948,7 +1296,41 @@ function renderEntityCards(report) {
   return grid;
 }
 
+function renderMolstarStructureStage(drug, report) {
+  const wrapper = createElement("figure", "molstar-stage-figure");
+  const stage = createElement("div", "molstar-stage");
+  stage.setAttribute("data-refua-molstar-stage", "1");
+  stage.dataset.url = report.structureUrl || "";
+  stage.dataset.format = report.viewerFormat || "mmcif";
+  stage.dataset.ligand = drug.name || drug.drug_id || "";
+  stage.dataset.colorPlan = JSON.stringify(buildMolstarColorPlan(report));
+
+  const viewerId = `molstar-stage-${String(drug.drug_id || "candidate").replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const viewerNode = createElement("div", "molstar-stage-viewer");
+  viewerNode.id = viewerId;
+  viewerNode.setAttribute("data-refua-molstar-viewer", "1");
+  stage.appendChild(viewerNode);
+
+  const loadingNode = createElement("div", "molstar-loading", "Loading structure...");
+  loadingNode.setAttribute("data-refua-molstar-loading", "1");
+  stage.appendChild(loadingNode);
+
+  wrapper.appendChild(stage);
+  wrapper.appendChild(
+    createElement(
+      "figcaption",
+      "panel-copy complex-figure-caption",
+      `Mol* is rendering ${report.structureFormat || "structure"} data directly from the stored artifact path for ${drug.name || drug.drug_id}.`
+    )
+  );
+  return wrapper;
+}
+
 function renderComplexVisualization(drug, report) {
+  if (report.structureUrl && report.viewerFormat) {
+    return renderMolstarStructureStage(drug, report);
+  }
+
   const figure = createElement("figure", "complex-figure");
   const svg = createSvgElement("svg", {
     viewBox: "0 0 860 380",
@@ -1251,7 +1633,7 @@ function renderDrugReportPage(drug) {
       "p",
       "panel-copy",
       report.hasStructureArtifact
-        ? "This candidate includes a stored structure artifact, so the report elevates it as the strongest evidence of a formed complex."
+        ? "This candidate includes a stored structure artifact, and the report now uses Mol* to render the captured CIF or BCIF complex directly."
         : "This page synthesizes the captured target, ligand, and scoring data into a direct interaction visualization."
     )
   );
@@ -1334,6 +1716,7 @@ function renderDrugReportPage(drug) {
   shell.appendChild(bottomGrid);
 
   drugReportPage.appendChild(shell);
+  activateStructureViewers(drugReportPage);
 }
 
 function renderDrugCards(drugs) {
