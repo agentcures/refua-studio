@@ -49,6 +49,7 @@ class JobStore:
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     request_json TEXT NOT NULL,
+                    progress_json TEXT,
                     result_json TEXT,
                     error_text TEXT
                 )
@@ -64,6 +65,8 @@ class JobStore:
                 conn.execute(
                     "ALTER TABLE jobs ADD COLUMN cancel_requested INTEGER NOT NULL DEFAULT 0"
                 )
+            if "progress_json" not in columns:
+                conn.execute("ALTER TABLE jobs ADD COLUMN progress_json TEXT")
             conn.commit()
 
     def create_job(self, *, kind: str, request: dict[str, Any]) -> dict[str, Any]:
@@ -74,8 +77,8 @@ class JobStore:
                 """
                 INSERT INTO jobs(
                     job_id, kind, status, cancel_requested, created_at, updated_at,
-                    request_json, result_json, error_text
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    request_json, progress_json, result_json, error_text
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job_id,
@@ -85,6 +88,7 @@ class JobStore:
                     now,
                     now,
                     json.dumps(request, ensure_ascii=True),
+                    None,
                     None,
                     None,
                 ),
@@ -217,12 +221,29 @@ class JobStore:
             conn.commit()
             return cursor.rowcount > 0
 
+    def update_progress(self, job_id: str, progress: dict[str, Any] | None) -> bool:
+        progress_json = (
+            json.dumps(progress, ensure_ascii=True) if progress is not None else None
+        )
+        now = _utc_now_iso()
+        with self._lock, closing(self._connect()) as conn:
+            cursor = conn.execute(
+                """
+                UPDATE jobs
+                SET updated_at = ?, progress_json = ?
+                WHERE job_id = ? AND status = 'running'
+                """,
+                (now, progress_json, job_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def get_job(self, job_id: str) -> dict[str, Any] | None:
         with self._lock, closing(self._connect()) as conn:
             row = conn.execute(
                 """
                 SELECT job_id, kind, status, created_at, updated_at,
-                       cancel_requested, request_json, result_json, error_text
+                       cancel_requested, request_json, progress_json, result_json, error_text
                 FROM jobs
                 WHERE job_id = ?
                 """,
@@ -245,7 +266,7 @@ class JobStore:
                 rows = conn.execute(
                     f"""
                     SELECT job_id, kind, status, created_at, updated_at,
-                           cancel_requested, request_json, result_json, error_text
+                           cancel_requested, request_json, progress_json, result_json, error_text
                     FROM jobs
                     WHERE status IN ({placeholders})
                     ORDER BY updated_at DESC
@@ -257,7 +278,7 @@ class JobStore:
                 rows = conn.execute(
                     """
                     SELECT job_id, kind, status, created_at, updated_at,
-                           cancel_requested, request_json, result_json, error_text
+                           cancel_requested, request_json, progress_json, result_json, error_text
                     FROM jobs
                     ORDER BY updated_at DESC
                     LIMIT ?
@@ -291,10 +312,14 @@ class JobStore:
     @staticmethod
     def _row_to_job(row: sqlite3.Row) -> dict[str, Any]:
         request_json = row["request_json"]
+        progress_json = row["progress_json"]
         result_json = row["result_json"]
         created_at = row["created_at"]
         updated_at = row["updated_at"]
         request = json.loads(request_json) if isinstance(request_json, str) else {}
+        progress = (
+            json.loads(progress_json) if isinstance(progress_json, str) else None
+        )
         result = json.loads(result_json) if isinstance(result_json, str) else None
         return {
             "job_id": row["job_id"],
@@ -305,6 +330,7 @@ class JobStore:
             "updated_at": updated_at,
             "duration_ms": _duration_ms(created_at, updated_at),
             "request": request,
+            "progress": progress,
             "result": result,
             "error": row["error_text"],
         }

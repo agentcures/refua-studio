@@ -4,633 +4,180 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ClawCures UI</title>
-    <link rel="stylesheet" href="https://unpkg.com/molstar/build/viewer/molstar.css" />
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body>
-    <header class="app-header reveal" style="--delay: 0.04s">
-      <div class="brand-block">
-        <p class="kicker">Refua Platform</p>
-        <div class="brand-title-row">
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <p class="eyebrow">Refua Platform</p>
           <h1>ClawCures UI</h1>
-          <p class="brand-tag">Campaign dashboard</p>
+          <p class="intro">
+            A focused workspace for launching campaigns, checking stack health, and watching jobs finish.
+          </p>
         </div>
-        <p class="subtitle">
-          Plan campaigns, monitor active work, and review shortlisted compounds from one cleaner dashboard.
-        </p>
-      </div>
-      <div class="header-actions">
-        <div class="status-chip" id="connectionChip" title="API connectivity">
-          <span class="dot"></span>
-          <span class="status-text">Checking...</span>
-        </div>
-        <button id="themeToggleButton" class="btn btn-outline btn-small" aria-pressed="false">Dark mode</button>
-        <button id="refreshEcosystemButton" class="btn btn-outline btn-small">Refresh Stack</button>
-      </div>
-    </header>
-
-    <nav class="workspace-tabs reveal" style="--delay: 0.05s" role="tablist" aria-label="Studio sections">
-      <button class="tab-button is-active" role="tab" aria-selected="true" data-tab-target="agents">Agents</button>
-      <button class="tab-button" role="tab" aria-selected="false" data-tab-target="discovery">Promising Drugs</button>
-      <button class="tab-button" role="tab" aria-selected="false" data-tab-target="logs">Logs</button>
-    </nav>
-
-    <main class="dashboard dashboard-simplified">
-      <section class="panel panel-full reveal mission-panel" style="--delay: 0.06s" data-tab-panel="agents">
-        <div class="panel-head panel-head-stacked">
-          <div>
-            <p class="cures-kicker">Agent Stack</p>
-            <h2>Agents</h2>
-            <p class="panel-copy">
-              Watch which services are available, launch discovery work, and follow active jobs without wading through every subsystem.
-            </p>
+        <div class="topbar-actions">
+          <div class="status-chip" id="connectionChip" title="API connectivity">
+            <span class="dot"></span>
+            <span class="status-text">Checking...</span>
           </div>
+          <button id="refreshEcosystemButton" class="btn btn-secondary">Refresh Stack</button>
         </div>
+      </header>
 
-        <div class="widget-grid widget-grid-compact">
-          <article class="widget-card">
-            <p class="widget-label">Active Runs</p>
-            <p class="widget-value" id="widgetRunningJobs">0</p>
-            <div class="widget-spark" id="widgetRunningJobsSpark"></div>
-          </article>
-          <article class="widget-card">
-            <p class="widget-label">Managed Trials</p>
-            <p class="widget-value" id="widgetTrialCount">0</p>
-            <div class="widget-spark" id="widgetTrialCountSpark"></div>
-          </article>
-          <article class="widget-card">
-            <p class="widget-label">Human Patients</p>
-            <p class="widget-value" id="widgetHumanPatients">0</p>
-            <div class="widget-spark" id="widgetHumanPatientsSpark"></div>
-          </article>
-          <article class="widget-card">
-            <p class="widget-label">Promising Drugs</p>
-            <p class="widget-value" id="widgetPromisingLeads">0</p>
-            <div class="widget-spark" id="widgetPromisingLeadsSpark"></div>
-          </article>
-          <article class="widget-card">
-            <p class="widget-label">Tools Online</p>
-            <p class="widget-value" id="widgetToolsOnline">0</p>
-            <div class="widget-spark" id="widgetToolsOnlineSpark"></div>
-          </article>
-        </div>
+      <main class="layout">
+        <section class="card card-main">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Core Run Flow</p>
+              <h2>Campaign</h2>
+            </div>
+          </div>
 
-        <div id="ecosystemWarnings" class="notice" hidden></div>
-        <div id="productGrid" class="product-grid agent-grid"></div>
-
-        <div class="platform-columns mission-columns">
-          <article class="subpanel">
-            <h3>Run Objective</h3>
-            <label for="objectiveTemplateSelect">Objective Template</label>
-            <div class="row actions-row">
+          <div class="field-row">
+            <label class="field field-grow" for="objectiveTemplateSelect">
+              <span>Objective Template</span>
               <select id="objectiveTemplateSelect"></select>
-              <button id="loadObjectiveTemplateButton" class="btn btn-outline btn-small">Load</button>
-              <button id="loadClawCuresObjectiveButton" class="btn btn-outline btn-small">Use Default</button>
-            </div>
-            <label for="objectiveInput">Objective</label>
-            <textarea id="objectiveInput" rows="5" spellcheck="false"></textarea>
-            <label for="systemPromptInput">System Prompt Override (optional)</label>
-            <textarea id="systemPromptInput" rows="4" spellcheck="false"></textarea>
-          </article>
-
-          <article class="subpanel">
-            <h3>Run Controls</h3>
-            <div class="row two-up compact-grid">
-              <label class="toggle">
-                <input type="checkbox" id="dryRunToggle" />
-                <span>Dry Run</span>
-              </label>
-              <label class="toggle">
-                <input type="checkbox" id="asyncToggle" checked />
-                <span>Async Job</span>
-              </label>
-            </div>
-            <div class="row three">
-              <label>
-                Max Rounds
-                <input type="number" id="maxRoundsInput" min="1" value="3" />
-              </label>
-              <label>
-                Max Calls
-                <input type="number" id="maxCallsInput" min="1" value="10" />
-              </label>
-              <label class="toggle compact">
-                <input type="checkbox" id="skipValidateFirstToggle" />
-                <span>Skip Validate-First</span>
-              </label>
-            </div>
-            <div class="button-row">
-              <button id="planButton" class="btn btn-outline">Plan</button>
-              <button id="runButton" class="btn btn-primary">Run</button>
-              <button id="autonomousButton" class="btn btn-accent">Run Autonomous</button>
-            </div>
-          </article>
-
-          <article class="subpanel">
-            <h3>Handoff</h3>
-            <label class="toggle compact-toggle">
-              <input type="checkbox" id="handoffWriteFileToggle" checked />
-              <span>Write Handoff Artifact</span>
             </label>
-            <label for="handoffArtifactNameInput">Artifact Name (optional)</label>
-            <input
-              type="text"
-              id="handoffArtifactNameInput"
-              placeholder="clawcures_kras_handoff.json"
-              spellcheck="false"
-            />
-            <div class="button-row">
-              <button id="generateHandoffButton" class="btn btn-accent btn-small">Generate Handoff</button>
-            </div>
-            <label>Default Objective</label>
-            <pre id="defaultObjectiveText" class="compact-pre">Loading...</pre>
-            <label>Default Prompt</label>
-            <pre id="defaultPromptPreview" class="compact-pre">Loading...</pre>
-            <label>Command Preview</label>
-            <pre id="clawcuresCommandOutput" class="compact-pre">Generate a handoff to populate commands.</pre>
-          </article>
-        </div>
-      </section>
-
-      <section class="panel panel-wide reveal" style="--delay: 0.08s" data-tab-panel="agents">
-        <div class="panel-head">
-          <div>
-            <h2>Active Runs</h2>
-            <p class="panel-copy">This is the shortest path to understanding which agents are actually doing work right now.</p>
-          </div>
-          <div class="inline-controls">
-            <select id="jobStatusFilter">
-              <option value="">All</option>
-              <option value="queued">Queued</option>
-              <option value="running">Running</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            <button id="refreshJobsButton" class="btn btn-outline btn-small">Refresh</button>
-            <button id="cancelJobButton" class="btn btn-outline btn-small">Cancel</button>
-            <button id="clearFinishedJobsButton" class="btn btn-outline btn-small">Clear Finished</button>
-          </div>
-        </div>
-
-        <div id="jobsCountSummary" class="panel-meta"></div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Job ID</th>
-                <th>Kind</th>
-                <th>Status</th>
-                <th>Updated</th>
-                <th>Duration</th>
-              </tr>
-            </thead>
-            <tbody id="jobsBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <details class="panel panel-full reveal advanced-drawer" style="--delay: 0.1s" data-tab-panel="agents">
-        <summary>Advanced planning</summary>
-        <div class="advanced-drawer-body">
-          <div class="platform-columns">
-            <article class="subpanel">
-              <h3>Plan</h3>
-              <label for="planTemplateSelect">Plan Template</label>
-              <div class="row actions-row">
-                <select id="planTemplateSelect"></select>
-                <button id="loadPlanTemplateButton" class="btn btn-outline btn-small">Load</button>
-                <button id="formatPlanButton" class="btn btn-outline btn-small">Format</button>
-              </div>
-              <label for="planInput">Tool Plan (JSON)</label>
-              <textarea id="planInput" rows="12" spellcheck="false"></textarea>
-              <div class="button-row">
-                <button id="validatePlanButton" class="btn btn-outline">Validate</button>
-                <button id="executePlanButton" class="btn btn-primary">Execute Plan</button>
-              </div>
-            </article>
-
-            <article class="subpanel">
-              <h3>Portfolio</h3>
-              <label for="portfolioTemplateSelect">Portfolio Template</label>
-              <div class="row actions-row">
-                <select id="portfolioTemplateSelect"></select>
-                <button id="loadPortfolioTemplateButton" class="btn btn-outline btn-small">Load</button>
-                <button id="formatPortfolioButton" class="btn btn-outline btn-small">Format</button>
-              </div>
-              <label for="portfolioInput">Disease Programs (JSON array)</label>
-              <textarea id="portfolioInput" rows="12" spellcheck="false"></textarea>
-              <div class="button-row">
-                <button id="rankPortfolioButton" class="btn btn-accent">Rank Portfolio</button>
-              </div>
-            </article>
-          </div>
-        </div>
-      </details>
-
-      <details class="panel panel-full reveal advanced-drawer" style="--delay: 0.12s" data-tab-panel="agents">
-        <summary>Advanced operations</summary>
-        <div class="advanced-drawer-body advanced-stack">
-          <div class="panel-head">
-            <h2>Program Graph and Bench</h2>
-            <div class="inline-controls">
-              <button id="refreshCommandCenterButton" class="btn btn-outline btn-small">Refresh</button>
-              <button id="syncProgramJobsButton" class="btn btn-outline btn-small">Sync Jobs</button>
-              <button id="loadProgramButton" class="btn btn-outline btn-small">Load Program</button>
+            <div class="button-group">
+              <button id="loadObjectiveTemplateButton" class="btn btn-secondary">Load Template</button>
+              <button id="loadClawCuresObjectiveButton" class="btn btn-secondary">Use Default</button>
             </div>
           </div>
 
-          <div id="commandCenterCapabilities" class="command-cap-grid"></div>
+          <label class="field" for="objectiveInput">
+            <span>Objective</span>
+            <textarea id="objectiveInput" rows="7" spellcheck="false"></textarea>
+          </label>
 
-          <div class="platform-columns">
-            <article class="subpanel">
-              <h3>Program Graph</h3>
-              <label>
-                Program ID
-                <input type="text" id="programIdInput" placeholder="kras-g12d-program" spellcheck="false" />
+          <details id="advancedOptions" class="advanced-panel">
+            <summary>Advanced run options</summary>
+            <div class="advanced-content">
+              <label class="field" for="systemPromptInput">
+                <span>System Prompt Override</span>
+                <textarea id="systemPromptInput" rows="5" spellcheck="false"></textarea>
               </label>
-              <label>
-                Program Name
-                <input type="text" id="programNameInput" placeholder="KRAS G12D Lead Program" spellcheck="false" />
-              </label>
-              <div class="row three">
-                <label>
-                  Stage
-                  <input type="text" id="programStageInput" placeholder="lead_optimization" spellcheck="false" />
+
+              <div class="options-grid">
+                <label class="toggle-field">
+                  <input type="checkbox" id="dryRunToggle" />
+                  <span>Dry Run</span>
                 </label>
-                <label>
-                  Indication
-                  <input type="text" id="programIndicationInput" placeholder="Pancreatic cancer" spellcheck="false" />
+                <label class="toggle-field">
+                  <input type="checkbox" id="asyncToggle" checked />
+                  <span>Async Job</span>
                 </label>
-                <label>
-                  Owner
-                  <input type="text" id="programOwnerInput" placeholder="oncology-team" spellcheck="false" />
+                <label class="field" for="maxRoundsInput">
+                  <span>Max Rounds</span>
+                  <input type="number" id="maxRoundsInput" min="1" value="3" />
+                </label>
+                <label class="field" for="maxCallsInput">
+                  <span>Max Calls</span>
+                  <input type="number" id="maxCallsInput" min="1" value="10" />
+                </label>
+                <label class="toggle-field toggle-wide">
+                  <input type="checkbox" id="skipValidateFirstToggle" />
+                  <span>Skip Validate-First</span>
                 </label>
               </div>
-              <div class="button-row">
-                <button id="upsertProgramButton" class="btn btn-primary btn-small">Upsert Program</button>
-                <button id="approveProgramButton" class="btn btn-outline btn-small">Record Approval</button>
-              </div>
 
-              <h3>Stage Gate</h3>
-              <label for="gateTemplateSelect">Template</label>
-              <select id="gateTemplateSelect"></select>
-              <div id="gateTemplateSummary" class="gate-template-summary">
-                Select a template to load gate criteria and defaults.
-              </div>
-              <div id="gateCriteriaChecklist" class="gate-criteria-list"></div>
-              <label for="gateMetricsInput">Metrics JSON</label>
-              <textarea id="gateMetricsInput" rows="5" spellcheck="false"></textarea>
-              <div class="button-row">
-                <button id="loadGateTemplateDefaultsButton" class="btn btn-outline btn-small">Load Defaults</button>
-                <button id="evaluateProgramGateButton" class="btn btn-accent btn-small">Evaluate Gate</button>
-              </div>
-              <label for="programSummaryOutput">Program Snapshot</label>
-              <pre id="programSummaryOutput" class="compact-pre">Program state will appear here.</pre>
-            </article>
+              <label class="field" for="planInput">
+                <span>Plan Editor (JSON)</span>
+                <textarea id="planInput" rows="11" spellcheck="false"></textarea>
+              </label>
 
-            <article class="subpanel">
-              <h3>Data and Bench</h3>
-              <label>
-                Dataset ID
-                <input type="text" id="datasetIdInput" placeholder="chembl_activity_ki_human" spellcheck="false" />
-              </label>
-              <div class="button-row">
-                <button id="materializeDatasetButton" class="btn btn-outline btn-small">Materialize Dataset</button>
-                <button id="listDatasetsButton" class="btn btn-outline btn-small">List Datasets</button>
+              <div class="button-group">
+                <button id="validatePlanButton" class="btn btn-secondary">Validate Plan</button>
+                <button id="executePlanButton" class="btn btn-secondary">Execute Plan</button>
               </div>
-              <label>
-                Suite Path
-                <input type="text" id="benchSuitePathInput" placeholder="refua-bench/benchmarks/sample_suite.yaml" spellcheck="false" />
-              </label>
-              <label>
-                Baseline Run Path
-                <input type="text" id="benchBaselinePathInput" placeholder="refua-bench/benchmarks/sample_baseline_run.json" spellcheck="false" />
-              </label>
-              <label>
-                Predictions Path
-                <input type="text" id="benchPredictionsPathInput" placeholder="refua-bench/benchmarks/sample_predictions_candidate.json" spellcheck="false" />
-              </label>
-              <div class="button-row">
-                <button id="runBenchmarkGateButton" class="btn btn-accent btn-small">Run Benchmark Gate</button>
-              </div>
-              <h3>Program Timeline</h3>
-              <div id="programEventTimeline" class="program-timeline"></div>
-            </article>
+            </div>
+          </details>
 
-            <article class="subpanel">
-              <h3>Wet Lab and Regulatory</h3>
-              <label for="wetlabProviderSelect">WetLab Provider</label>
-              <select id="wetlabProviderSelect"></select>
-              <label for="wetlabProtocolInput">Protocol JSON</label>
-              <textarea id="wetlabProtocolInput" rows="6" spellcheck="false"></textarea>
-              <div class="button-row">
-                <button id="validateWetlabProtocolButton" class="btn btn-outline btn-small">Validate Protocol</button>
-                <button id="runWetlabProtocolButton" class="btn btn-primary btn-small">Run Protocol</button>
-              </div>
-
-              <label>
-                Regulatory Job ID
-                <input type="text" id="regulatoryJobIdInput" placeholder="Optional: use completed job id" spellcheck="false" />
-              </label>
-              <label>
-                Bundle Output Dir
-                <input type="text" id="regulatoryOutputDirInput" placeholder=".clawcures-ui/regulatory/bundle_..." spellcheck="false" />
-              </label>
-              <div class="button-row">
-                <button id="buildRegulatoryBundleButton" class="btn btn-accent btn-small">Build Bundle</button>
-                <button id="verifyRegulatoryBundleButton" class="btn btn-outline btn-small">Verify Bundle</button>
-              </div>
-            </article>
+          <div class="button-group">
+            <button id="planButton" class="btn btn-secondary">Plan</button>
+            <button id="runButton" class="btn btn-primary">Run</button>
+            <button id="autonomousButton" class="btn btn-secondary">Run Autonomous</button>
           </div>
+        </section>
 
-          <div class="panel-head compact-head">
-            <h2>Preclinical</h2>
-            <div class="inline-controls">
-              <button id="loadPreclinicalTemplatesButton" class="btn btn-outline btn-small">Load Templates</button>
-              <button id="runPreclinicalWorkupButton" class="btn btn-accent btn-small">Run Workup</button>
+        <aside class="card stack-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Core State</p>
+              <h2>Stack Health</h2>
             </div>
           </div>
 
-          <div class="platform-columns">
-            <article class="subpanel">
-              <h3>Study Config</h3>
-              <label for="preclinicalStudyInput">Study JSON</label>
-              <textarea id="preclinicalStudyInput" rows="12" spellcheck="false"></textarea>
-            </article>
-            <article class="subpanel">
-              <h3>Bioanalysis Rows</h3>
-              <label for="preclinicalRowsInput">Rows JSON</label>
-              <textarea id="preclinicalRowsInput" rows="12" spellcheck="false"></textarea>
-              <div class="row three">
-                <label>
-                  Seed
-                  <input type="number" id="preclinicalSeedInput" min="0" value="7" />
-                </label>
-                <label>
-                  LLOQ (ng/mL)
-                  <input type="number" id="preclinicalLloqInput" min="0" value="1.0" step="0.1" />
-                </label>
-                <label>
-                  Rows
-                  <input type="number" id="preclinicalRowCountPreview" min="0" value="0" readonly />
-                </label>
-              </div>
-              <div class="button-row">
-                <button id="planPreclinicalButton" class="btn btn-outline btn-small">Plan</button>
-                <button id="schedulePreclinicalButton" class="btn btn-outline btn-small">Schedule</button>
-                <button id="bioanalyzePreclinicalButton" class="btn btn-outline btn-small">Bioanalysis</button>
-              </div>
-            </article>
-            <article class="subpanel">
-              <h3>CMC Config</h3>
-              <label for="preclinicalCmcInput">CMC JSON</label>
-              <textarea id="preclinicalCmcInput" rows="8" spellcheck="false"></textarea>
-              <label for="preclinicalCmcBatchResultsInput">Batch Results JSON</label>
-              <textarea id="preclinicalCmcBatchResultsInput" rows="5" spellcheck="false"></textarea>
-              <label for="preclinicalCmcStabilityResultsInput">Stability Rows JSON</label>
-              <textarea id="preclinicalCmcStabilityResultsInput" rows="5" spellcheck="false"></textarea>
-              <div class="row three">
-                <label>
-                  Batch ID
-                  <input type="text" id="preclinicalCmcBatchIdInput" value="BATCH-001" />
-                </label>
-                <label>
-                  Operator
-                  <input type="text" id="preclinicalCmcOperatorInput" value="TBD" />
-                </label>
-                <label>
-                  Site
-                  <input type="text" id="preclinicalCmcSiteInput" value="TBD" />
-                </label>
-              </div>
-              <div class="button-row">
-                <button id="planPreclinicalCmcButton" class="btn btn-outline btn-small">CMC Plan</button>
-                <button id="batchRecordPreclinicalButton" class="btn btn-outline btn-small">Batch Record</button>
-                <button id="stabilityPlanPreclinicalButton" class="btn btn-outline btn-small">Stability Plan</button>
-              </div>
-              <div class="button-row">
-                <button id="stabilityAssessPreclinicalButton" class="btn btn-outline btn-small">Stability Assess</button>
-                <button id="releaseAssessPreclinicalButton" class="btn btn-outline btn-small">Release Assess</button>
-              </div>
-            </article>
-          </div>
+          <div id="ecosystemWarnings" class="notice" hidden></div>
 
-          <div class="panel-head compact-head">
-            <h2>Tools</h2>
-            <button id="refreshToolsButton" class="btn btn-outline btn-small">Refresh</button>
-          </div>
-          <pre id="toolsOutput"></pre>
-        </div>
-      </details>
-
-      <section class="panel panel-full panel-cures reveal" style="--delay: 0.14s" data-tab-panel="discovery">
-        <div class="panel-head">
-          <div>
-            <p class="cures-kicker">Lead Review</p>
-            <h2>Promising Drugs</h2>
-            <p class="panel-copy">
-              Review report cards first. Use clinical drill-down only after a candidate looks worth advancing.
-            </p>
-          </div>
-          <div class="inline-controls">
-            <label class="inline-label" for="drugMinScoreInput">Min Score</label>
-            <input type="number" id="drugMinScoreInput" min="0" max="100" value="50" step="1" />
-            <button id="refreshDrugPortfolioButton" class="btn btn-outline btn-small">Refresh</button>
-          </div>
-        </div>
-
-        <div class="discovery-overview">
-          <article id="drugPortfolioSpotlight" class="lead-spotlight-card">
-            <div class="lead-spotlight-empty">Loading lead portfolio...</div>
-          </article>
-          <div id="drugPortfolioSummary" class="drug-summary-grid"></div>
-        </div>
-
-        <div class="cures-layout simplified-cures-layout">
-          <aside class="drug-browser-panel">
-            <div class="drug-browser-head">
-              <div>
-                <p class="cures-kicker">Lead Queue</p>
-                <h3>Summary Cards</h3>
-                <p class="subpanel-text">
-                  Scan the shortlist quickly, then click into one lead for a full review.
-                </p>
-              </div>
-              <div class="drug-browser-controls">
-                <label for="drugSearchInput">Search leads</label>
-                <input
-                  type="search"
-                  id="drugSearchInput"
-                  placeholder="Search name, target, tool"
-                  spellcheck="false"
-                />
-                <label for="drugSortSelect">Sort by</label>
-                <select id="drugSortSelect">
-                  <option value="score_desc">Highest score</option>
-                  <option value="readiness_desc">Readiness</option>
-                  <option value="name_asc">Name</option>
-                  <option value="target_asc">Target</option>
-                </select>
-              </div>
+          <div class="stack-defaults">
+            <div>
+              <p class="mini-label">Default Objective</p>
+              <pre id="defaultObjectiveText" class="mini-pre">Loading...</pre>
             </div>
-            <div id="drugResultMeta" class="drug-results-meta">Loading leads...</div>
-            <div id="drugPortfolioCards" class="drug-cards"></div>
-          </aside>
-
-          <article class="cure-detail-card">
-            <div id="cureDetailHeader" class="cure-detail-header">Select a promising drug</div>
-            <p id="cureAssessment" class="cure-assessment">
-              Pick a card to inspect the report card, ADMET profile, and linked clinical drill-down.
-            </p>
-            <div id="cureMetricPills" class="metric-row"></div>
-            <div id="cureOverviewGrid" class="cure-overview-grid"></div>
-            <div id="cureFocusSummary" class="cure-focus-summary"></div>
-
-            <h3>Lead Report Card</h3>
-            <div id="cureReportCard" class="cure-report-card"></div>
-
-            <h3>Key ADMET Metrics</h3>
-            <div id="admetKeyMetrics" class="admet-key-grid"></div>
-
-            <h3>Full ADMET Properties</h3>
-            <div id="admetPropertiesGrid" class="admet-property-grid"></div>
-
-            <h3>Evidence &amp; Provenance</h3>
-            <div id="cureEvidencePaths" class="evidence-path-grid"></div>
-
-            <h3>Complex (Mol*)</h3>
-            <div id="molstarStatus" class="molstar-status">Select a candidate to load a complex structure.</div>
-            <div id="molstarMount" class="molstar-viewer" aria-label="Molstar protein-ligand complex viewer"></div>
-
-            <section class="clinical-drilldown-block">
-              <div class="panel-head compact-head">
-                <div>
-                  <p class="cures-kicker">Clinical Drill-down</p>
-                  <h3>Trial Context</h3>
-                </div>
-                <div class="inline-controls">
-                  <button id="refreshClinicalTrialsButton" class="btn btn-outline btn-small">Refresh Trials</button>
-                  <button id="loadClinicalTrialButton" class="btn btn-outline btn-small">Load Trial</button>
-                  <button id="simulateClinicalTrialButton" class="btn btn-accent btn-small">Simulate Trial</button>
-                </div>
-              </div>
-
-              <div id="candidateClinicalContext" class="clinical-context-card">
-                Select a promising drug to focus trial review.
-              </div>
-
-              <div class="platform-columns clinical-drilldown-grid">
-                <article class="subpanel">
-                  <h3>Registry</h3>
-                  <label for="clinicalTrialSelect">Managed Trials</label>
-                  <select id="clinicalTrialSelect" size="8"></select>
-                  <div class="button-row">
-                    <button id="removeClinicalTrialButton" class="btn btn-outline btn-small">Remove Trial</button>
-                  </div>
-                  <pre id="clinicalTrialSummary" class="compact-pre">No trial selected.</pre>
-                </article>
-
-                <article class="subpanel">
-                  <h3>Trial Setup</h3>
-                  <div class="row">
-                    <label>
-                      Trial ID
-                      <input type="text" id="clinicalTrialIdInput" placeholder="trial-001" spellcheck="false" />
-                    </label>
-                    <label>
-                      Status
-                      <select id="clinicalTrialStatusInput">
-                        <option value="planned">planned</option>
-                        <option value="enrolling">enrolling</option>
-                        <option value="active">active</option>
-                        <option value="paused">paused</option>
-                        <option value="completed">completed</option>
-                        <option value="terminated">terminated</option>
-                      </select>
-                    </label>
-                  </div>
-                  <label for="clinicalTrialConfigInput">Config Patch JSON (optional)</label>
-                  <textarea id="clinicalTrialConfigInput" rows="8" spellcheck="false"></textarea>
-                  <div class="button-row">
-                    <button id="addClinicalTrialButton" class="btn btn-primary btn-small">Add Trial</button>
-                    <button id="updateClinicalTrialButton" class="btn btn-outline btn-small">Update Trial</button>
-                  </div>
-                </article>
-              </div>
-
-              <details class="advanced-drawer inline-drawer">
-                <summary>Advanced trial operations</summary>
-                <div class="advanced-drawer-body">
-                  <article class="subpanel">
-                    <h3>Patients and Ops</h3>
-                    <label for="clinicalPatientInput">Patient JSON</label>
-                    <textarea id="clinicalPatientInput" rows="4" spellcheck="false"></textarea>
-                    <label for="clinicalResultInput">Result JSON</label>
-                    <textarea id="clinicalResultInput" rows="4" spellcheck="false"></textarea>
-                    <label for="clinicalOpsInput">ClinOps JSON</label>
-                    <textarea id="clinicalOpsInput" rows="8" spellcheck="false"></textarea>
-                    <div class="row three">
-                      <label>
-                        Simulated Patients
-                        <input type="number" id="clinicalSimCountInput" min="1" value="10" />
-                      </label>
-                      <label>
-                        Replicates
-                        <input type="number" id="clinicalReplicatesInput" min="1" value="6" />
-                      </label>
-                      <label>
-                        Seed
-                        <input type="number" id="clinicalSeedInput" min="0" value="7" />
-                      </label>
-                    </div>
-                    <div class="button-row">
-                      <button id="enrollClinicalPatientButton" class="btn btn-outline btn-small">Enroll Patient</button>
-                      <button id="enrollClinicalSimulatedButton" class="btn btn-outline btn-small">Enroll Simulated</button>
-                      <button id="addClinicalResultButton" class="btn btn-outline btn-small">Add Result</button>
-                    </div>
-                    <div class="button-row">
-                      <button id="upsertClinicalSiteButton" class="btn btn-outline btn-small">Upsert Site</button>
-                      <button id="screenClinicalPatientButton" class="btn btn-outline btn-small">Screen</button>
-                      <button id="recordClinicalVisitButton" class="btn btn-outline btn-small">Monitoring Visit</button>
-                    </div>
-                    <div class="button-row">
-                      <button id="addClinicalQueryButton" class="btn btn-outline btn-small">Add Query</button>
-                      <button id="updateClinicalQueryButton" class="btn btn-outline btn-small">Update Query</button>
-                      <button id="addClinicalDeviationButton" class="btn btn-outline btn-small">Add Deviation</button>
-                    </div>
-                    <div class="button-row">
-                      <button id="addClinicalSafetyEventButton" class="btn btn-outline btn-small">Add Safety</button>
-                      <button id="upsertClinicalMilestoneButton" class="btn btn-outline btn-small">Upsert Milestone</button>
-                      <button id="refreshClinicalOpsButton" class="btn btn-accent btn-small">Ops Snapshot</button>
-                    </div>
-                  </article>
-                </div>
-              </details>
-            </section>
-
-            <details class="raw-json-toggle">
-              <summary>Raw Candidate JSON</summary>
-              <pre id="drugPortfolioDetail"></pre>
-            </details>
-          </article>
-        </div>
-      </section>
-
-      <section class="panel panel-full reveal" style="--delay: 0.16s" data-tab-panel="logs">
-        <div class="panel-head">
-          <div>
-            <h2>Logs</h2>
-            <p class="panel-copy">Low-level responses, job payloads, and action output land here.</p>
+            <div>
+              <p class="mini-label">Prompt Preview</p>
+              <pre id="defaultPromptPreview" class="mini-pre">Loading...</pre>
+            </div>
           </div>
-          <button id="clearOutputButton" class="btn btn-outline btn-small">Clear</button>
-        </div>
-        <pre id="resultOutput"></pre>
-      </section>
-    </main>
 
-    <script src="https://unpkg.com/molstar/build/viewer/molstar.js" defer></script>
+          <div id="productGrid" class="product-list"></div>
+        </aside>
+
+        <section class="card jobs-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Monitoring</p>
+              <h2>Jobs</h2>
+            </div>
+            <div class="toolbar">
+              <select id="jobStatusFilter" aria-label="Filter jobs by status">
+                <option value="">All</option>
+                <option value="queued">Queued</option>
+                <option value="running">Running</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+              <button id="refreshJobsButton" class="btn btn-secondary">Refresh</button>
+              <button id="cancelJobButton" class="btn btn-secondary">Cancel Selected</button>
+              <button id="clearFinishedJobsButton" class="btn btn-secondary">Clear Finished</button>
+            </div>
+          </div>
+
+          <div id="jobsCountSummary" class="meta-text"></div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Job ID</th>
+                  <th>Kind</th>
+                  <th>Status</th>
+                  <th>Progress</th>
+                  <th>Updated</th>
+                  <th>Duration</th>
+                </tr>
+              </thead>
+              <tbody id="jobsBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card output-card">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Output</p>
+              <h2>Responses</h2>
+            </div>
+            <button id="clearOutputButton" class="btn btn-secondary">Clear</button>
+          </div>
+
+          <pre id="resultOutput">No actions yet.</pre>
+        </section>
+      </main>
+    </div>
+
     <script src="/assets/app.js" defer></script>
   </body>
 </html>

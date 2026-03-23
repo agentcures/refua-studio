@@ -1,300 +1,68 @@
 const connectionChip = document.getElementById("connectionChip");
 const resultOutput = document.getElementById("resultOutput");
-const toolsOutput = document.getElementById("toolsOutput");
 const jobsBody = document.getElementById("jobsBody");
 const jobsCountSummary = document.getElementById("jobsCountSummary");
 
 const objectiveInput = document.getElementById("objectiveInput");
 const systemPromptInput = document.getElementById("systemPromptInput");
 const planInput = document.getElementById("planInput");
-const portfolioInput = document.getElementById("portfolioInput");
-
 const objectiveTemplateSelect = document.getElementById("objectiveTemplateSelect");
-const planTemplateSelect = document.getElementById("planTemplateSelect");
-const portfolioTemplateSelect = document.getElementById("portfolioTemplateSelect");
-const jobStatusFilter = document.getElementById("jobStatusFilter");
+const advancedOptions = document.getElementById("advancedOptions");
 
 const dryRunToggle = document.getElementById("dryRunToggle");
 const asyncToggle = document.getElementById("asyncToggle");
 const maxRoundsInput = document.getElementById("maxRoundsInput");
 const maxCallsInput = document.getElementById("maxCallsInput");
 const skipValidateFirstToggle = document.getElementById("skipValidateFirstToggle");
-
-const drugMinScoreInput = document.getElementById("drugMinScoreInput");
-const drugPortfolioSpotlight = document.getElementById("drugPortfolioSpotlight");
-const drugPortfolioSummary = document.getElementById("drugPortfolioSummary");
-const drugSearchInput = document.getElementById("drugSearchInput");
-const drugSortSelect = document.getElementById("drugSortSelect");
-const drugResultMeta = document.getElementById("drugResultMeta");
-const drugPortfolioCards = document.getElementById("drugPortfolioCards");
-const drugPortfolioDetail = document.getElementById("drugPortfolioDetail");
-const cureDetailHeader = document.getElementById("cureDetailHeader");
-const cureAssessment = document.getElementById("cureAssessment");
-const cureMetricPills = document.getElementById("cureMetricPills");
-const cureOverviewGrid = document.getElementById("cureOverviewGrid");
-const cureFocusSummary = document.getElementById("cureFocusSummary");
-const cureReportCard = document.getElementById("cureReportCard");
-const admetKeyMetrics = document.getElementById("admetKeyMetrics");
-const admetPropertiesGrid = document.getElementById("admetPropertiesGrid");
-const cureEvidencePaths = document.getElementById("cureEvidencePaths");
-const molstarStatus = document.getElementById("molstarStatus");
-const molstarMount = document.getElementById("molstarMount");
+const jobStatusFilter = document.getElementById("jobStatusFilter");
 
 const productGrid = document.getElementById("productGrid");
 const ecosystemWarnings = document.getElementById("ecosystemWarnings");
 const defaultObjectiveText = document.getElementById("defaultObjectiveText");
 const defaultPromptPreview = document.getElementById("defaultPromptPreview");
-const clawcuresCommandOutput = document.getElementById("clawcuresCommandOutput");
-const handoffWriteFileToggle = document.getElementById("handoffWriteFileToggle");
-const handoffArtifactNameInput = document.getElementById("handoffArtifactNameInput");
-const clinicalTrialSelect = document.getElementById("clinicalTrialSelect");
-const clinicalTrialSummary = document.getElementById("clinicalTrialSummary");
-const clinicalTrialIdInput = document.getElementById("clinicalTrialIdInput");
-const clinicalTrialStatusInput = document.getElementById("clinicalTrialStatusInput");
-const clinicalTrialConfigInput = document.getElementById("clinicalTrialConfigInput");
-const clinicalPatientInput = document.getElementById("clinicalPatientInput");
-const clinicalResultInput = document.getElementById("clinicalResultInput");
-const clinicalOpsInput = document.getElementById("clinicalOpsInput");
-const clinicalSimCountInput = document.getElementById("clinicalSimCountInput");
-const clinicalReplicatesInput = document.getElementById("clinicalReplicatesInput");
-const clinicalSeedInput = document.getElementById("clinicalSeedInput");
-const candidateClinicalContext = document.getElementById("candidateClinicalContext");
-const preclinicalStudyInput = document.getElementById("preclinicalStudyInput");
-const preclinicalRowsInput = document.getElementById("preclinicalRowsInput");
-const preclinicalSeedInput = document.getElementById("preclinicalSeedInput");
-const preclinicalLloqInput = document.getElementById("preclinicalLloqInput");
-const preclinicalRowCountPreview = document.getElementById("preclinicalRowCountPreview");
-const preclinicalCmcInput = document.getElementById("preclinicalCmcInput");
-const preclinicalCmcBatchResultsInput = document.getElementById("preclinicalCmcBatchResultsInput");
-const preclinicalCmcStabilityResultsInput = document.getElementById("preclinicalCmcStabilityResultsInput");
-const preclinicalCmcBatchIdInput = document.getElementById("preclinicalCmcBatchIdInput");
-const preclinicalCmcOperatorInput = document.getElementById("preclinicalCmcOperatorInput");
-const preclinicalCmcSiteInput = document.getElementById("preclinicalCmcSiteInput");
-const widgetRunningJobs = document.getElementById("widgetRunningJobs");
-const widgetTrialCount = document.getElementById("widgetTrialCount");
-const widgetHumanPatients = document.getElementById("widgetHumanPatients");
-const widgetPromisingLeads = document.getElementById("widgetPromisingLeads");
-const widgetToolsOnline = document.getElementById("widgetToolsOnline");
-const programIdInput = document.getElementById("programIdInput");
-const programNameInput = document.getElementById("programNameInput");
-const programStageInput = document.getElementById("programStageInput");
-const programIndicationInput = document.getElementById("programIndicationInput");
-const programOwnerInput = document.getElementById("programOwnerInput");
-const programSummaryOutput = document.getElementById("programSummaryOutput");
-const datasetIdInput = document.getElementById("datasetIdInput");
-const benchSuitePathInput = document.getElementById("benchSuitePathInput");
-const benchBaselinePathInput = document.getElementById("benchBaselinePathInput");
-const benchPredictionsPathInput = document.getElementById("benchPredictionsPathInput");
-const wetlabProviderSelect = document.getElementById("wetlabProviderSelect");
-const wetlabProtocolInput = document.getElementById("wetlabProtocolInput");
-const regulatoryJobIdInput = document.getElementById("regulatoryJobIdInput");
-const regulatoryOutputDirInput = document.getElementById("regulatoryOutputDirInput");
-const gateTemplateSelect = document.getElementById("gateTemplateSelect");
-const gateMetricsInput = document.getElementById("gateMetricsInput");
-const gateTemplateSummary = document.getElementById("gateTemplateSummary");
-const gateCriteriaChecklist = document.getElementById("gateCriteriaChecklist");
-const commandCenterCapabilities = document.getElementById("commandCenterCapabilities");
-const programEventTimeline = document.getElementById("programEventTimeline");
-const themeToggleButton = document.getElementById("themeToggleButton");
-const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
-const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
-
-const THEME_STORAGE_KEY = "clawcures_ui_theme";
-const LEGACY_THEME_STORAGE_KEY = "refua_studio_theme";
-const TAB_STORAGE_KEY = "clawcures_ui_tab";
-const LEGACY_TAB_STORAGE_KEY = "refua_studio_tab";
-const STRUCTURE_FILE_API = "/api/structure-file";
-const DEFAULT_TAB = "agents";
-const FOCUSED_AGENT_IDS = ["clawcures", "refua_mcp", "refua_clinical", "refua_preclinical", "refua_regulatory"];
 
 const state = {
   selectedJobId: null,
-  selectedCandidateId: null,
-  selectedClinicalTrialId: null,
-  lastSuggestedClinicalTrialId: null,
-  pollTimer: null,
+  jobs: [],
   examples: {
     objectives: [],
-    plan_templates: [],
-    portfolio_templates: [],
   },
   ecosystem: null,
-  handoff: null,
-  drugCandidates: [],
-  drugSummary: {},
-  clinicalTrials: [],
-  telemetry: {
-    runningJobs: 0,
-    trialCount: 0,
-    humanPatients: 0,
-    promisingLeads: 0,
-    toolsOnline: 0,
-  },
-  commandCenter: {
-    capabilities: null,
-    programs: [],
-    wetlabProviders: [],
-    selectedProgram: null,
-    gateTemplates: [],
-    programCounts: {},
-  },
-  molstar: {
-    viewer: null,
-    loading: false,
-    pendingCandidate: null,
-  },
+  pollTimer: null,
 };
 
 function pretty(value) {
   return JSON.stringify(value, null, 2);
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+function clearNode(node) {
+  while (node.firstChild) {
+    node.removeChild(node.firstChild);
+  }
+}
+
+function createElement(tagName, className, text) {
+  const node = document.createElement(tagName);
+  if (className) {
+    node.className = className;
+  }
+  if (text !== undefined) {
+    node.textContent = text;
+  }
+  return node;
 }
 
 function setConnection(ok, text) {
   connectionChip.classList.toggle("online", ok);
   connectionChip.classList.toggle("offline", !ok);
-  const node = connectionChip.querySelector(".status-text");
-  node.textContent = text;
-}
-
-function _storedValue(...keys) {
-  try {
-    for (const key of keys) {
-      const value = localStorage.getItem(key);
-      if (value !== null) {
-        return value;
-      }
-    }
-    return null;
-  } catch (_err) {
-    return null;
-  }
-}
-
-function _persistValue(key, value) {
-  try {
-    localStorage.setItem(key, value);
-  } catch (_err) {
-    // Ignore storage failures (private browsing / locked-down clients).
-  }
-}
-
-function applyTheme(themeName) {
-  const normalized = themeName === "dark" ? "dark" : "light";
-  document.body.dataset.theme = normalized;
-  if (!themeToggleButton) {
-    return;
-  }
-  const nextLabel = normalized === "dark" ? "Light mode" : "Dark mode";
-  themeToggleButton.textContent = nextLabel;
-  themeToggleButton.setAttribute("aria-pressed", normalized === "dark" ? "true" : "false");
-}
-
-function initThemeToggle() {
-  const storedTheme = _storedValue(THEME_STORAGE_KEY, LEGACY_THEME_STORAGE_KEY);
-  if (storedTheme === "dark" || storedTheme === "light") {
-    applyTheme(storedTheme);
-  } else {
-    applyTheme("light");
-  }
-
-  if (!themeToggleButton) {
-    return;
-  }
-  themeToggleButton.addEventListener("click", () => {
-    const current = document.body.dataset.theme === "dark" ? "dark" : "light";
-    const next = current === "dark" ? "light" : "dark";
-    applyTheme(next);
-    _persistValue(THEME_STORAGE_KEY, next);
-  });
-}
-
-function setActiveTab(tabName) {
-  let hasMatch = false;
-  for (const panel of tabPanels) {
-    const isActive = panel.dataset.tabPanel === tabName;
-    panel.hidden = !isActive;
-    if (isActive) {
-      hasMatch = true;
-    }
-  }
-  for (const button of tabButtons) {
-    const isActive = button.dataset.tabTarget === tabName;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-selected", isActive ? "true" : "false");
-  }
-  if (hasMatch) {
-    _persistValue(TAB_STORAGE_KEY, tabName);
-    return;
-  }
-  if (tabName !== DEFAULT_TAB) {
-    setActiveTab(DEFAULT_TAB);
-  }
-}
-
-function initTabs() {
-  if (!tabButtons.length || !tabPanels.length) {
-    return;
-  }
-  const storedTab = _storedValue(TAB_STORAGE_KEY, LEGACY_TAB_STORAGE_KEY);
-  setActiveTab(storedTab || DEFAULT_TAB);
-  for (const button of tabButtons) {
-    button.addEventListener("click", () => {
-      const target = button.dataset.tabTarget || DEFAULT_TAB;
-      setActiveTab(target);
-    });
-  }
-}
-
-function bootstrapWidgetSparks() {
-  const sparks = document.querySelectorAll(".widget-spark");
-  for (const spark of sparks) {
-    if (spark.children.length > 0) {
-      continue;
-    }
-    for (let idx = 0; idx < 14; idx += 1) {
-      const bar = document.createElement("span");
-      bar.style.setProperty("--i", String(idx));
-      bar.style.height = `${35 + ((idx * 17) % 55)}%`;
-      spark.appendChild(bar);
-    }
-  }
-}
-
-function setWidgetValue(node, value) {
-  if (!node) {
-    return;
-  }
-  const nextText = String(value);
-  if (node.textContent !== nextText) {
-    node.classList.remove("flash");
-    // Restart animation when value changes.
-    node.offsetWidth;
-    node.classList.add("flash");
-  }
-  node.textContent = nextText;
-}
-
-function updateTelemetryWidgets() {
-  setWidgetValue(widgetRunningJobs, state.telemetry.runningJobs ?? 0);
-  setWidgetValue(widgetTrialCount, state.telemetry.trialCount ?? 0);
-  setWidgetValue(widgetHumanPatients, state.telemetry.humanPatients ?? 0);
-  setWidgetValue(widgetPromisingLeads, state.telemetry.promisingLeads ?? 0);
-  setWidgetValue(widgetToolsOnline, state.telemetry.toolsOnline ?? 0);
+  const label = connectionChip.querySelector(".status-text");
+  label.textContent = text;
 }
 
 function showOutput(title, payload) {
-  const rendered = typeof payload === "string" ? payload : pretty(payload);
+  const body = typeof payload === "string" ? payload : pretty(payload);
   const stamp = new Date().toLocaleTimeString();
-  resultOutput.textContent = `[${stamp}] ${title}\n${"=".repeat(title.length + stamp.length + 3)}\n${rendered}`;
+  resultOutput.textContent = `[${stamp}] ${title}\n\n${body}`;
 }
 
 async function api(path, options = {}) {
@@ -338,713 +106,81 @@ function parseJsonText(text, label) {
   }
 }
 
-function formatDate(isoString) {
-  if (!isoString) {
-    return "-";
-  }
-  const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) {
-    return isoString;
-  }
-  return date.toLocaleString();
-}
-
-function formatDuration(ms) {
-  if (typeof ms !== "number" || Number.isNaN(ms)) {
-    return "-";
-  }
-  if (ms < 1000) {
-    return `${ms}ms`;
-  }
-  const sec = ms / 1000;
-  if (sec < 60) {
-    return `${sec.toFixed(1)}s`;
-  }
-  const min = Math.floor(sec / 60);
-  const rem = sec % 60;
-  return `${min}m ${rem.toFixed(0)}s`;
-}
-
-function shortText(value, maxLen = 30) {
+function requireObjective() {
+  const value = objectiveInput.value.trim();
   if (!value) {
-    return "-";
+    throw new Error("Objective is required");
   }
-  const text = String(value);
-  if (text.length <= maxLen) {
-    return text;
-  }
-  return `${text.slice(0, maxLen - 1)}...`;
+  return value;
 }
 
-function safeStatus(status) {
-  const normalized = String(status || "unknown")
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9_-]/g, "");
-  return normalized || "unknown";
-}
-
-function statusPill(status) {
-  const safe = safeStatus(status);
-  return `<span class="status-pill status-${safe}">${escapeHtml(safe)}</span>`;
-}
-
-function metricText(value, digits = 3) {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
+function positiveInt(value, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return fallback;
   }
-  return value.toFixed(digits);
-}
-
-function valueText(value) {
-  if (value === null || value === undefined) {
-    return "-";
-  }
-  if (typeof value === "number") {
-    if (Number.isNaN(value)) {
-      return "-";
-    }
-    if (Math.abs(value) >= 1000 || Math.abs(value) < 0.001) {
-      return value.toExponential(3);
-    }
-    return value.toFixed(4).replace(/0+$/, "").replace(/\\.$/, "");
-  }
-  if (typeof value === "boolean") {
-    return value ? "true" : "false";
-  }
-  return String(value);
-}
-
-function normalizedAdmet(candidate) {
-  const admet = candidate?.admet;
-  if (!admet || typeof admet !== "object") {
-    return { key_metrics: {}, properties: {} };
-  }
-  const keyMetrics = admet.key_metrics && typeof admet.key_metrics === "object" ? admet.key_metrics : {};
-  const properties = admet.properties && typeof admet.properties === "object" ? admet.properties : {};
-  return {
-    key_metrics: keyMetrics,
-    properties,
-    status: admet.status,
-    assessment: admet.assessment,
-  };
-}
-
-function normalizedReportCard(candidate) {
-  const fallbackTone = candidate?.promising ? "watch" : "rework";
-  const fallbackLabel = candidate?.promising ? "Watch" : "Rework";
-  const payload = candidate?.report_card;
-
-  if (!payload || typeof payload !== "object") {
-    return {
-      headline: `- / ${fallbackLabel}`,
-      overall_grade: "-",
-      overall_score: candidate?.score,
-      readiness: { tone: fallbackTone, label: fallbackLabel },
-      decision: candidate?.assessment || "No report card decision available yet.",
-      domains: [],
-      strengths: [],
-      concerns: [],
-    };
-  }
-
-  const readiness = payload.readiness && typeof payload.readiness === "object" ? payload.readiness : {};
-  const domains = Array.isArray(payload.domains)
-    ? payload.domains.filter((item) => item && typeof item === "object")
-    : [];
-  const strengths = Array.isArray(payload.strengths)
-    ? payload.strengths.filter((item) => typeof item === "string" && item.trim())
-    : [];
-  const concerns = Array.isArray(payload.concerns)
-    ? payload.concerns.filter((item) => typeof item === "string" && item.trim())
-    : [];
-
-  return {
-    headline: payload.headline || `${payload.overall_grade || "-"} / ${readiness.label || fallbackLabel}`,
-    overall_grade: payload.overall_grade || "-",
-    overall_score: typeof payload.overall_score === "number" ? payload.overall_score : candidate?.score,
-    readiness: {
-      tone: readiness.tone || fallbackTone,
-      label: readiness.label || fallbackLabel,
-    },
-    decision: payload.decision || candidate?.assessment || "No report card decision available yet.",
-    domains: domains.map((domain) => ({
-      id: domain.id || "domain",
-      label: domain.label || domain.id || "Domain",
-      grade: domain.grade || "N/A",
-      display_value: domain.display_value || "-",
-      note: domain.note || "",
-    })),
-    strengths,
-    concerns,
-  };
-}
-
-function candidateDisplayName(candidate) {
-  return candidate?.name || candidate?.smiles || candidate?.candidate_id || "Unnamed lead";
-}
-
-function candidateSource(candidate) {
-  const source = candidate?.source;
-  return source && typeof source === "object" ? source : {};
-}
-
-function candidateSearchText(candidate) {
-  return [
-    candidateDisplayName(candidate),
-    candidate?.target,
-    candidate?.tool,
-    candidate?.assessment,
-    candidateSource(candidate).objective,
-    candidate?.candidate_id,
-  ]
-    .filter((value) => typeof value === "string" && value.trim())
-    .join(" ")
-    .toLowerCase();
-}
-
-function readinessRank(candidate) {
-  const tone = normalizedReportCard(candidate).readiness.tone;
-  if (tone === "advance") {
-    return 2;
-  }
-  if (tone === "watch") {
-    return 1;
-  }
-  return 0;
-}
-
-function averageCandidateScore(candidates) {
-  const scores = Array.isArray(candidates)
-    ? candidates
-        .map((candidate) => candidate?.score)
-        .filter((value) => typeof value === "number" && !Number.isNaN(value))
-    : [];
-  if (!scores.length) {
-    return null;
-  }
-  return scores.reduce((total, value) => total + value, 0) / scores.length;
-}
-
-function dominantCandidateTool(candidates) {
-  const counts = new Map();
-  for (const candidate of Array.isArray(candidates) ? candidates : []) {
-    const tool = candidate?.tool || "unknown_tool";
-    counts.set(tool, (counts.get(tool) || 0) + 1);
-  }
-  const ranked = Array.from(counts.entries()).sort((left, right) => right[1] - left[1]);
-  return ranked[0]?.[0] || "-";
-}
-
-function leadSortComparator(sortValue) {
-  if (sortValue === "readiness_desc") {
-    return (left, right) => {
-      const readinessDiff = readinessRank(right) - readinessRank(left);
-      if (readinessDiff !== 0) {
-        return readinessDiff;
-      }
-      return (Number(right?.score) || 0) - (Number(left?.score) || 0);
-    };
-  }
-  if (sortValue === "name_asc") {
-    return (left, right) => candidateDisplayName(left).localeCompare(candidateDisplayName(right));
-  }
-  if (sortValue === "target_asc") {
-    return (left, right) => String(left?.target || "").localeCompare(String(right?.target || ""));
-  }
-  return (left, right) => (Number(right?.score) || 0) - (Number(left?.score) || 0);
-}
-
-function visibleDrugCandidates(candidates) {
-  const searchTerm = drugSearchInput?.value.trim().toLowerCase() || "";
-  const sortValue = drugSortSelect?.value || "score_desc";
-  const visible = Array.isArray(candidates) ? candidates.slice() : [];
-  const shortlisted = visible.some((candidate) => candidate?.promising)
-    ? visible.filter((candidate) => candidate?.promising)
-    : visible;
-  const filtered = searchTerm
-    ? shortlisted.filter((candidate) => candidateSearchText(candidate).includes(searchTerm))
-    : shortlisted;
-  filtered.sort(leadSortComparator(sortValue));
-  return filtered;
-}
-
-function renderDrugPortfolioMeta(visibleCandidates, totalLoaded) {
-  if (!drugResultMeta) {
-    return;
-  }
-  const searchTerm = drugSearchInput?.value.trim();
-  const sortLabel = drugSortSelect?.selectedOptions?.[0]?.textContent || "Highest score";
-  const shown = Array.isArray(visibleCandidates) ? visibleCandidates.length : 0;
-  const base = `${shown} lead${shown === 1 ? "" : "s"} shown`;
-  const scope = totalLoaded > shown ? ` of ${totalLoaded}` : "";
-  const searchNote = searchTerm ? ` for "${searchTerm}"` : "";
-  drugResultMeta.textContent = `${base}${scope}${searchNote}. Sorted by ${sortLabel}.`;
-}
-
-function renderDrugSpotlight(candidates) {
-  if (!drugPortfolioSpotlight) {
-    return;
-  }
-  const spotlight = Array.isArray(candidates) && candidates.length > 0
-    ? candidates
-        .slice()
-        .sort((left, right) => (Number(right?.score) || 0) - (Number(left?.score) || 0))[0]
-    : null;
-
-  if (!spotlight) {
-    drugPortfolioSpotlight.innerHTML =
-      '<div class="lead-spotlight-empty">No leads match the current portfolio filters.</div>';
-    return;
-  }
-
-  const report = normalizedReportCard(spotlight);
-  const source = candidateSource(spotlight);
-  const highlight = report.strengths[0] || "No major strength is called out in the current screen.";
-  const validation = report.concerns[0] || "No specific follow-up risk is flagged in the current screen.";
-  const spotlightStats = [
-    { label: "Score", value: metricText(spotlight.score, 1) },
-    { label: "Target", value: shortText(spotlight.target || "Unassigned target", 28) },
-    { label: "Updated", value: shortText(formatDate(source.updated_at), 28) },
-  ];
-
-  drugPortfolioSpotlight.innerHTML = `
-    <div class="lead-spotlight-top">
-      <div>
-        <div class="lead-spotlight-kicker">Portfolio spotlight</div>
-        <div class="lead-spotlight-title">${escapeHtml(shortText(candidateDisplayName(spotlight), 78))}</div>
-        <p class="lead-spotlight-copy">${escapeHtml(shortText(report.decision, 170))}</p>
-      </div>
-      <div class="cure-grade-badge ${reportToneClass(report.readiness.tone)}">
-        <div class="cure-grade-label">${escapeHtml(report.readiness.label)}</div>
-        <div class="cure-grade-value">${escapeHtml(report.overall_grade)}</div>
-      </div>
-    </div>
-    <div class="lead-spotlight-metrics">
-      ${spotlightStats
-        .map(
-          (entry) => `
-          <div class="spotlight-stat">
-            <div class="spotlight-stat-label">${escapeHtml(entry.label)}</div>
-            <div class="spotlight-stat-value">${escapeHtml(entry.value)}</div>
-          </div>
-        `
-        )
-        .join("")}
-    </div>
-    <div class="lead-spotlight-foot">
-      <div class="lead-spotlight-note is-good">
-        <span class="report-note-kicker">Lead signal</span>
-        <span>${escapeHtml(shortText(highlight, 120))}</span>
-      </div>
-      <div class="lead-spotlight-note is-watch">
-        <span class="report-note-kicker">Validate next</span>
-        <span>${escapeHtml(shortText(validation, 120))}</span>
-      </div>
-    </div>
-  `;
-}
-
-function reportToneClass(tone) {
-  if (tone === "advance") {
-    return "is-advance";
-  }
-  if (tone === "watch") {
-    return "is-watch";
-  }
-  return "is-rework";
-}
-
-function renderReportDomains(domains, { compact = false } = {}) {
-  if (!Array.isArray(domains) || domains.length === 0) {
-    return '<div class="admet-empty">No report domains available yet.</div>';
-  }
-
-  const containerClass = compact ? "report-domain compact" : "report-domain";
-  return domains
-    .map(
-      (domain) => `
-      <div class="${containerClass}" data-testid="drug-report-domain">
-        <div class="report-domain-head">
-          <span class="report-domain-label">${escapeHtml(domain.label)}</span>
-          <span class="report-domain-grade">${escapeHtml(domain.grade)}</span>
-        </div>
-        <div class="report-domain-value">${escapeHtml(domain.display_value || "-")}</div>
-        ${
-          compact
-            ? ""
-            : `<div class="report-domain-note">${escapeHtml(domain.note || "No note available.")}</div>`
-        }
-      </div>
-    `
-    )
-    .join("");
-}
-
-function renderReportNotes(title, items, tone, emptyText) {
-  const notes = Array.isArray(items) && items.length > 0 ? items : [emptyText];
-  return `
-    <section class="report-note-panel ${tone}">
-      <div class="report-note-heading">${escapeHtml(title)}</div>
-      <ul class="report-note-list">
-        ${notes
-          .map((item) => `<li class="report-note-item">${escapeHtml(item)}</li>`)
-          .join("")}
-      </ul>
-    </section>
-  `;
-}
-
-function setMolstarStatus(message, tone = "info") {
-  if (!molstarStatus) {
-    return;
-  }
-  molstarStatus.textContent = message;
-  molstarStatus.classList.remove("is-info", "is-ok", "is-warn");
-  if (tone === "ok") {
-    molstarStatus.classList.add("is-ok");
-    return;
-  }
-  if (tone === "warn") {
-    molstarStatus.classList.add("is-warn");
-    return;
-  }
-  molstarStatus.classList.add("is-info");
-}
-
-function collectStringLeaves(value, path, out) {
-  if (value === null || value === undefined) {
-    return;
-  }
-  if (typeof value === "string") {
-    out.push({ path, value });
-    return;
-  }
-  if (Array.isArray(value)) {
-    value.forEach((item, idx) => {
-      collectStringLeaves(item, `${path}[${idx}]`, out);
-    });
-    return;
-  }
-  if (typeof value === "object") {
-    Object.entries(value).forEach(([key, item]) => {
-      const nextPath = path ? `${path}.${key}` : key;
-      collectStringLeaves(item, nextPath, out);
-    });
-  }
-}
-
-function inferStructureFormat(raw) {
-  const normalized = String(raw || "").trim().toLowerCase();
-  if (!normalized) {
-    return null;
-  }
-  if (normalized.endsWith(".pdb")) {
-    return "pdb";
-  }
-  if (normalized.endsWith(".cif") || normalized.endsWith(".mmcif")) {
-    return "mmcif";
-  }
-  if (normalized.endsWith(".bcif")) {
-    return "bcif";
-  }
-  return null;
-}
-
-function looksLikePdbData(value) {
-  if (typeof value !== "string") {
-    return false;
-  }
-  const text = value.trim();
-  if (text.length < 120) {
-    return false;
-  }
-  return (
-    text.includes("\nATOM ") ||
-    text.includes("\nHETATM") ||
-    text.startsWith("HEADER") ||
-    text.startsWith("ATOM ")
-  );
-}
-
-function looksLikeMmcifData(value) {
-  if (typeof value !== "string") {
-    return false;
-  }
-  const text = value.trim();
-  if (text.length < 120) {
-    return false;
-  }
-  if (!text.startsWith("data_")) {
-    return false;
-  }
-  return text.includes("_atom_site.") || text.includes("loop_");
-}
-
-function looksLikeHttpUrl(value) {
-  if (typeof value !== "string") {
-    return false;
-  }
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch (_err) {
-    return false;
-  }
-}
-
-function detectMolstarSource(candidate) {
-  if (!candidate || typeof candidate !== "object") {
-    return null;
-  }
-
-  const leaves = [];
-  collectStringLeaves(candidate.tool_output, "tool_output", leaves);
-  collectStringLeaves(candidate.tool_args, "tool_args", leaves);
-  collectStringLeaves(candidate.evidence_paths, "evidence_paths", leaves);
-
-  for (const entry of leaves) {
-    const text = entry.value.trim();
-    if (!text) {
-      continue;
-    }
-    if (looksLikeMmcifData(text)) {
-      return {
-        kind: "inline",
-        format: "mmcif",
-        label: `Inline mmCIF (${entry.path})`,
-        content: text,
-      };
-    }
-    if (looksLikePdbData(text)) {
-      return {
-        kind: "inline",
-        format: "pdb",
-        label: `Inline PDB (${entry.path})`,
-        content: text,
-      };
-    }
-  }
-
-  for (const entry of leaves) {
-    const text = entry.value.trim();
-    if (!text) {
-      continue;
-    }
-    const format = inferStructureFormat(text);
-    if (!format) {
-      continue;
-    }
-    if (looksLikeHttpUrl(text)) {
-      return {
-        kind: "url",
-        format,
-        label: `Remote structure (${entry.path})`,
-        url: text,
-      };
-    }
-    return {
-      kind: "file",
-      format,
-      label: `Local structure (${entry.path})`,
-      path: text,
-    };
-  }
-
-  for (const entry of leaves) {
-    const key = entry.path.toLowerCase();
-    const text = entry.value.trim();
-    if (!key.includes("pdb") || !key.includes("id")) {
-      continue;
-    }
-    if (!/^[a-z0-9]{4}$/i.test(text)) {
-      continue;
-    }
-    return {
-      kind: "url",
-      format: "mmcif",
-      label: `RCSB PDB ${text.toUpperCase()}`,
-      url: `https://files.rcsb.org/download/${text.toUpperCase()}.cif`,
-    };
-  }
-
-  return null;
-}
-
-async function ensureMolstarViewer() {
-  if (!molstarMount) {
-    throw new Error("Mol* viewer mount not found.");
-  }
-  if (state.molstar.viewer) {
-    return state.molstar.viewer;
-  }
-  const viewerApi = window.molstar?.Viewer;
-  if (!viewerApi) {
-    throw new Error("Mol* runtime is unavailable.");
-  }
-
-  let viewer;
-  const options = {
-    layoutShowControls: false,
-    layoutShowLeftPanel: false,
-    layoutShowSequence: true,
-    layoutShowLog: false,
-    viewportShowExpand: false,
-    viewportShowAnimation: false,
-    viewportShowSelectionMode: false,
-  };
-  if (typeof viewerApi.create === "function") {
-    viewer = await viewerApi.create("molstarMount", options);
-  } else {
-    viewer = new viewerApi("molstarMount", options);
-  }
-  state.molstar.viewer = viewer;
-  return viewer;
-}
-
-async function clearMolstarViewer(viewer) {
-  if (!viewer) {
-    return;
-  }
-  try {
-    if (typeof viewer.clear === "function") {
-      await viewer.clear();
-      return;
-    }
-  } catch (_err) {
-    // Continue with plugin-level fallback.
-  }
-  try {
-    if (viewer.plugin?.clear) {
-      await viewer.plugin.clear();
-      return;
-    }
-  } catch (_err) {
-    // Ignore clear failures before loading new structure.
-  }
-  try {
-    const hierarchy = viewer.plugin?.managers?.structure?.hierarchy;
-    if (hierarchy && typeof hierarchy.removeAllStructures === "function") {
-      await hierarchy.removeAllStructures();
-    }
-  } catch (_err) {
-    // Non-fatal; Mol* can still try to load the next model.
-  }
-}
-
-async function loadMolstarFromSource(source) {
-  const viewer = await ensureMolstarViewer();
-  await clearMolstarViewer(viewer);
-
-  if (source.kind === "url") {
-    await viewer.loadStructureFromUrl(source.url, source.format, source.format === "bcif");
-    return;
-  }
-
-  let content = "";
-  let format = source.format;
-  if (source.kind === "inline") {
-    content = source.content;
-  } else if (source.kind === "file") {
-    const payload = await api(
-      `${STRUCTURE_FILE_API}?path=${encodeURIComponent(source.path)}`,
-      { method: "GET" }
-    );
-    format = payload.format || format || "mmcif";
-    if (payload.encoding === "base64") {
-      const decoded = atob(payload.content || "");
-      const bytes = new Uint8Array(decoded.length);
-      for (let idx = 0; idx < decoded.length; idx += 1) {
-        bytes[idx] = decoded.charCodeAt(idx);
-      }
-      const blobUrl = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
-      try {
-        await viewer.loadStructureFromUrl(blobUrl, format, true);
-      } finally {
-        URL.revokeObjectURL(blobUrl);
-      }
-      return;
-    }
-    content = payload.content || "";
-  } else {
-    throw new Error("Unsupported structure source.");
-  }
-
-  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const blobUrl = URL.createObjectURL(blob);
-  try {
-    await viewer.loadStructureFromUrl(blobUrl, format, false);
-  } finally {
-    URL.revokeObjectURL(blobUrl);
-  }
-}
-
-async function refreshMolstarForCandidate(candidate) {
-  if (!candidate) {
-    state.molstar.pendingCandidate = null;
-    setMolstarStatus("Select a candidate to load a complex structure.", "info");
-    if (state.molstar.viewer) {
-      void clearMolstarViewer(state.molstar.viewer);
-    }
-    return;
-  }
-
-  if (state.molstar.loading) {
-    state.molstar.pendingCandidate = candidate;
-    setMolstarStatus("Loading selected complex... latest selection queued.", "info");
-    return;
-  }
-
-  const source = detectMolstarSource(candidate);
-  if (!source) {
-    setMolstarStatus(
-      "No structure source found in this candidate output. Re-run with fold/affinity structure output enabled.",
-      "warn"
-    );
-    return;
-  }
-
-  state.molstar.loading = true;
-  setMolstarStatus(`Loading ${source.label}...`, "info");
-  try {
-    await loadMolstarFromSource(source);
-    const stillSelected =
-      !state.selectedCandidateId || candidate.candidate_id === state.selectedCandidateId;
-    if (stillSelected) {
-      setMolstarStatus(`Loaded ${source.label}`, "ok");
-    }
-  } catch (err) {
-    setMolstarStatus(`Could not load Mol*: ${err.message}`, "warn");
-  } finally {
-    state.molstar.loading = false;
-    const pending = state.molstar.pendingCandidate;
-    state.molstar.pendingCandidate = null;
-    if (pending && pending.candidate_id !== candidate.candidate_id) {
-      void refreshMolstarForCandidate(pending);
-    }
-  }
+  return Math.round(parsed);
 }
 
 function setSelectOptions(select, options, labelGetter) {
-  select.innerHTML = "";
+  clearNode(select);
   if (!Array.isArray(options) || options.length === 0) {
-    const option = document.createElement("option");
-    option.value = "";
-    option.textContent = "No templates available";
-    select.appendChild(option);
+    select.appendChild(new Option("No templates available", ""));
     return;
   }
-
   for (const item of options) {
-    const option = document.createElement("option");
-    option.value = item.id;
-    option.textContent = labelGetter(item);
-    select.appendChild(option);
+    select.appendChild(new Option(labelGetter(item), item.id));
   }
 }
 
 function selectedTemplate(select, list) {
-  const id = select.value;
-  return list.find((item) => item.id === id) || null;
+  return list.find((item) => item.id === select.value) || null;
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString();
+}
+
+function formatDuration(value) {
+  const total = Number(value);
+  if (!Number.isFinite(total) || total <= 0) {
+    return "-";
+  }
+  if (total < 1000) {
+    return `${total} ms`;
+  }
+  const seconds = Math.round(total / 1000);
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  const remaining = seconds % 60;
+  return `${minutes}m ${remaining}s`;
+}
+
+function formatJobProgress(job) {
+  if (!job || typeof job !== "object") {
+    return "-";
+  }
+  if (Number.isFinite(Number(job.progress_percent))) {
+    return `${Math.round(Number(job.progress_percent))}%`;
+  }
+  const completed = Number(job.completed_calls || 0);
+  const total = Number(job.total_calls || 0);
+  if (total > 0) {
+    return `${completed}/${total}`;
+  }
+  if (job.status === "completed") {
+    return "done";
+  }
+  return "-";
 }
 
 function renderWarnings(warnings) {
@@ -1057,86 +193,44 @@ function renderWarnings(warnings) {
   ecosystemWarnings.textContent = warnings.join("\n");
 }
 
-function renderProductGrid(products) {
-  productGrid.innerHTML = "";
-
-  if (!Array.isArray(products) || products.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "summary-item";
-    empty.textContent = "No agent metadata available.";
-    productGrid.appendChild(empty);
-    return;
-  }
-
-  const focused = FOCUSED_AGENT_IDS.map((id) => products.find((item) => item?.id === id)).filter(Boolean);
-  const visibleProducts = focused.length > 0 ? focused : products.slice(0, 5);
-
-  for (const product of visibleProducts) {
-    const card = document.createElement("article");
-    const health = String(product.health || "degraded");
-    card.className = `product-card product-card-${health}`;
-    card.dataset.testid = "agent-card";
-
-    let activity = "Ready";
-    if (product.id === "clawcures") {
-      activity =
-        state.telemetry.runningJobs > 0
-          ? `${state.telemetry.runningJobs} run${state.telemetry.runningJobs === 1 ? "" : "s"} active`
-          : "Ready to launch";
-    } else if (product.id === "refua_mcp") {
-      activity =
-        state.telemetry.toolsOnline > 0
-          ? `${state.telemetry.toolsOnline} tool${state.telemetry.toolsOnline === 1 ? "" : "s"} online`
-          : "Tool server not detected";
-    } else if (product.id === "refua_clinical") {
-      activity =
-        state.telemetry.trialCount > 0
-          ? `${state.telemetry.trialCount} managed trial${state.telemetry.trialCount === 1 ? "" : "s"}`
-          : "No managed trials yet";
-    } else if (product.id === "refua_preclinical") {
-      activity = "Ready for workups";
-    } else if (product.id === "refua_regulatory") {
-      activity = state.selectedJobId ? "Bundle ready from selected job" : "Waiting for completed job";
-    }
-
-    card.innerHTML = `
-      <div class="product-top">
-        <div>
-          <p class="agent-card-kicker">Agent</p>
-          <h4 class="product-name">${escapeHtml(product.name || product.id || "unknown")}</h4>
-        </div>
-        <span class="health-pill health-${escapeHtml(health)}">${escapeHtml(health)}</span>
-      </div>
-      <p class="product-role">${escapeHtml(product.role || "")}</p>
-      <p class="product-meta"><strong>Activity:</strong> ${escapeHtml(activity)}</p>
-      <p class="product-meta"><strong>Repo:</strong> ${escapeHtml(product.repo || "n/a")}</p>
-    `;
-    productGrid.appendChild(card);
-  }
+function statusBadge(status) {
+  const normalized = String(status || "unknown");
+  const badge = createElement("span", `status-pill is-${normalized}`, normalized);
+  return badge;
 }
 
-function renderHandoffCommands(handoffPayload) {
-  if (!handoffPayload || !Array.isArray(handoffPayload.commands)) {
-    clawcuresCommandOutput.textContent = "Generate a handoff to populate commands.";
+function renderProductGrid(products) {
+  clearNode(productGrid);
+
+  if (!Array.isArray(products) || products.length === 0) {
+    productGrid.appendChild(createElement("div", "empty-state", "No stack metadata available."));
     return;
   }
 
-  const lines = [];
-  if (handoffPayload.artifact_path) {
-    lines.push(`# Artifact: ${handoffPayload.artifact_path}`);
+  for (const product of products) {
+    const health = String(product.health || "unknown");
+    const card = createElement("article", `product-card is-${health}`);
+
+    const header = createElement("div", "product-card-header");
+    const titleBlock = createElement("div");
+    titleBlock.appendChild(createElement("p", "mini-label", "Service"));
+    titleBlock.appendChild(
+      createElement("h3", "product-name", product.name || product.id || "unknown")
+    );
+    header.appendChild(titleBlock);
+    header.appendChild(statusBadge(health));
+
+    card.appendChild(header);
+    card.appendChild(createElement("p", "product-role", product.role || "No role provided."));
+    card.appendChild(createElement("p", "product-meta", `ID: ${product.id || "n/a"}`));
+    card.appendChild(createElement("p", "product-meta", `Repo: ${product.repo || "n/a"}`));
+    productGrid.appendChild(card);
   }
-  for (const cmd of handoffPayload.commands) {
-    lines.push(`# ${cmd.label}`);
-    lines.push(cmd.command);
-    lines.push("");
-  }
-  clawcuresCommandOutput.textContent = lines.join("\n").trim();
 }
 
 function renderEcosystem(payload) {
   state.ecosystem = payload;
   renderWarnings(payload.warnings || []);
-
   renderProductGrid(payload.products || []);
 
   const clawcures = payload.clawcures || {};
@@ -1148,20 +242,10 @@ function renderEcosystem(payload) {
   }
 }
 
-async function refreshHealth() {
-  try {
-    const payload = await api("/api/health", { method: "GET" });
-    const running = payload.job_counts?.running || 0;
-    state.telemetry.runningJobs = Number(running) || 0;
-    state.telemetry.toolsOnline = Number(payload.tools_count) || 0;
-    updateTelemetryWidgets();
-    if (state.ecosystem?.products) {
-      renderProductGrid(state.ecosystem.products);
-    }
-    setConnection(true, `Online (${payload.tools_count} tools, ${running} running)`);
-  } catch (err) {
-    setConnection(false, `Offline (${err.message})`);
-  }
+async function refreshExamples() {
+  const payload = await api("/api/examples", { method: "GET" });
+  state.examples.objectives = payload.objectives || [];
+  setSelectOptions(objectiveTemplateSelect, state.examples.objectives, (item) => item.label);
 }
 
 async function refreshEcosystem() {
@@ -1169,1935 +253,103 @@ async function refreshEcosystem() {
   renderEcosystem(payload);
 }
 
-async function refreshTools() {
-  const [toolsPayload, configPayload] = await Promise.all([
-    api("/api/tools", { method: "GET" }),
-    api("/api/config", { method: "GET" }),
-  ]);
-  state.telemetry.toolsOnline = Array.isArray(toolsPayload.tools) ? toolsPayload.tools.length : 0;
-  updateTelemetryWidgets();
-  toolsOutput.textContent = pretty({
-    tools: toolsPayload.tools,
-    warnings: toolsPayload.warnings,
-    config: configPayload,
-  });
-}
-
-async function refreshExamples() {
-  const payload = await api("/api/examples", { method: "GET" });
-  state.examples = {
-    objectives: payload.objectives || [],
-    plan_templates: payload.plan_templates || [],
-    portfolio_templates: payload.portfolio_templates || [],
-  };
-
-  setSelectOptions(objectiveTemplateSelect, state.examples.objectives, (item) => item.label);
-  setSelectOptions(planTemplateSelect, state.examples.plan_templates, (item) => item.label);
-  setSelectOptions(portfolioTemplateSelect, state.examples.portfolio_templates, (item) => item.label);
-
-  if (Array.isArray(payload.warnings) && payload.warnings.length > 0) {
-    showOutput("Template Warnings", payload);
+async function refreshHealth() {
+  try {
+    const payload = await api("/api/health", { method: "GET" });
+    const running = Number(payload.job_counts?.running || 0);
+    const queued = Number(payload.job_counts?.queued || 0);
+    const tools = Number(payload.tools_count || 0);
+    setConnection(true, `Online · ${running} running · ${queued} queued · ${tools} tools`);
+    return payload;
+  } catch (err) {
+    setConnection(false, `Offline · ${err.message}`);
+    throw err;
   }
 }
 
 function renderJobCounts(counts) {
-  if (!counts || typeof counts !== "object") {
-    jobsCountSummary.textContent = "";
-    return;
-  }
-
   const keys = ["queued", "running", "completed", "failed", "cancelled"];
-  const parts = keys.map((key) => `${key}: ${counts[key] || 0}`);
-  jobsCountSummary.textContent = `Job counts | ${parts.join(" | ")}`;
-}
-
-function renderJobsTable(jobs) {
-  jobsBody.innerHTML = "";
-
-  if (!Array.isArray(jobs) || jobs.length === 0) {
-    const tr = document.createElement("tr");
-    tr.innerHTML = '<td colspan="5">No jobs found for current filter.</td>';
-    jobsBody.appendChild(tr);
-    return;
-  }
-
-  for (const job of jobs) {
-    const tr = document.createElement("tr");
-    if (job.job_id === state.selectedJobId) {
-      tr.classList.add("selected");
-    }
-
-    tr.innerHTML = `
-      <td title="${escapeHtml(job.job_id)}">${escapeHtml((job.job_id || "").slice(0, 8))}...</td>
-      <td>${escapeHtml(job.kind || "-")}</td>
-      <td>${statusPill(job.status)}</td>
-      <td>${escapeHtml(formatDate(job.updated_at))}</td>
-      <td>${escapeHtml(formatDuration(job.duration_ms))}</td>
-    `;
-
-    tr.addEventListener("click", async () => {
-      state.selectedJobId = job.job_id;
-      await loadJob(job.job_id);
-      if (state.ecosystem?.products) {
-        renderProductGrid(state.ecosystem.products);
-      }
-      renderJobsTable(jobs);
-    });
-
-    jobsBody.appendChild(tr);
-  }
-}
-
-async function refreshJobs() {
-  const statusFilter = jobStatusFilter.value;
-  const query = statusFilter ? `?limit=80&status=${encodeURIComponent(statusFilter)}` : "?limit=80";
-  const payload = await api(`/api/jobs${query}`, { method: "GET" });
-  const jobs = payload.jobs || [];
-
-  renderJobCounts(payload.counts || {});
-  renderJobsTable(jobs);
-  state.telemetry.runningJobs = Number(payload.counts?.running || 0);
-  updateTelemetryWidgets();
-  if (state.ecosystem?.products) {
-    renderProductGrid(state.ecosystem.products);
-  }
-
-  if (!state.selectedJobId && Array.isArray(jobs) && jobs.length > 0) {
-    state.selectedJobId = jobs[0].job_id;
-  }
-
-  if (state.selectedJobId) {
-    const selected = jobs.find((item) => item.job_id === state.selectedJobId);
-    if (selected) {
-      showOutput("Selected Job", selected);
-    }
-  }
+  const parts = keys.map((key) => `${key}: ${counts?.[key] || 0}`);
+  jobsCountSummary.textContent = parts.join(" | ");
 }
 
 async function loadJob(jobId) {
   const payload = await api(`/api/jobs/${jobId}`, { method: "GET" });
-  regulatoryJobIdInput.value = jobId;
   showOutput("Job Detail", payload);
 }
 
-function renderDrugSummary(summary, visibleCandidates) {
-  const avgScore = averageCandidateScore(visibleCandidates);
-  const entries = [
-    { label: "Total Found", value: summary.total_candidates ?? 0 },
-    { label: "Loaded", value: summary.returned_candidates ?? 0 },
-    { label: "Showing", value: Array.isArray(visibleCandidates) ? visibleCandidates.length : 0 },
-    { label: "Avg Score", value: avgScore === null ? "-" : metricText(avgScore, 1) },
-    { label: "Top Tool", value: dominantCandidateTool(visibleCandidates) },
-  ];
+function renderJobsTable(jobs) {
+  clearNode(jobsBody);
 
-  drugPortfolioSummary.innerHTML = entries
-    .map(
-      (entry) => `
-      <div class="summary-item">
-        <div class="summary-label">${escapeHtml(entry.label)}</div>
-        <div class="summary-value">${escapeHtml(entry.value)}</div>
-      </div>
-    `
-    )
-    .join("");
-}
-
-function renderDrugDetail(candidate) {
-  if (!candidate) {
-    cureDetailHeader.textContent = "Select a promising drug";
-    cureAssessment.textContent =
-      "Pick a card to inspect the report card, ADMET profile, and linked clinical drill-down.";
-    cureMetricPills.innerHTML = "";
-    cureOverviewGrid.innerHTML =
-      '<div class="admet-empty">Select a lead to populate the program snapshot.</div>';
-    cureFocusSummary.innerHTML =
-      '<div class="admet-empty">Select a lead to inspect the current recommendation and watch items.</div>';
-    cureReportCard.innerHTML = '<div class="admet-empty">Select a report card to inspect the grading breakdown.</div>';
-    admetKeyMetrics.innerHTML = '<div class="admet-empty">No ADMET metrics yet.</div>';
-    admetPropertiesGrid.innerHTML = '<div class="admet-empty">No ADMET properties yet.</div>';
-    cureEvidencePaths.innerHTML = '<div class="admet-empty">No provenance loaded yet.</div>';
-    drugPortfolioDetail.textContent = "Select a candidate to view full details.";
-    renderClinicalCandidateContext(null);
-    setMolstarStatus("Select a candidate to load a complex structure.", "info");
+  if (!Array.isArray(jobs) || jobs.length === 0) {
+    const row = createElement("tr");
+    const cell = createElement("td", null, "No jobs found for the current filter.");
+    cell.colSpan = 6;
+    row.appendChild(cell);
+    jobsBody.appendChild(row);
     return;
   }
 
-  const admet = normalizedAdmet(candidate);
-  const report = normalizedReportCard(candidate);
-  const source = candidateSource(candidate);
-  const metrics = candidate.metrics || {};
-  const score = valueText(candidate.score);
-  const cureName = candidateDisplayName(candidate);
-  const admetAssessment = candidate.assessment || admet.assessment || "No explicit assessment provided.";
-  const leadStrength = report.strengths[0] || "No lead signal has been summarized yet.";
-  const watchItem = report.concerns[0] || "No specific validation risk has been summarized yet.";
-  const overviewEntries = [
-    { label: "Target", value: candidate.target || "Unassigned target" },
-    { label: "Source tool", value: candidate.tool || "unknown_tool" },
-    { label: "Updated", value: formatDate(source.updated_at) },
-    { label: "Run objective", value: source.objective || "No run objective recorded." },
-  ];
-
-  cureDetailHeader.innerHTML = `
-    <div class="cure-report-hero">
-      <div>
-        <div class="cure-detail-title">${escapeHtml(shortText(cureName, 120))}</div>
-        <div class="cure-detail-meta">
-          <span>${escapeHtml(candidate.promising ? "Promising" : "Needs optimization")}</span>
-          <span>Score ${escapeHtml(score)}</span>
-          <span>${escapeHtml(candidate.tool || "unknown_tool")}</span>
-          <span>${escapeHtml(shortText(candidate.target, 36))}</span>
-        </div>
-      </div>
-      <div class="cure-grade-badge ${reportToneClass(report.readiness.tone)}" data-testid="detail-report-grade">
-        <div class="cure-grade-label">${escapeHtml(report.readiness.label)}</div>
-        <div class="cure-grade-value">${escapeHtml(report.overall_grade)}</div>
-      </div>
-    </div>
-  `;
-  cureAssessment.textContent =
-    report.decision === admetAssessment
-      ? report.decision
-      : `${report.decision} ADMET assessment: ${admetAssessment}`;
-
-  const metricEntries = [
-    ["Composite", candidate.score],
-    ["pBind", metrics.binding_probability],
-    ["ADMET", metrics.admet_score ?? admet.key_metrics?.admet_score],
-    ["Affinity", metrics.affinity],
-    ["IC50", metrics.ic50],
-    ["KD", metrics.kd],
-  ];
-  cureMetricPills.innerHTML = metricEntries
-    .map(
-      ([label, value]) =>
-        `<span class="metric-chip">${escapeHtml(label)} ${escapeHtml(valueText(value))}</span>`
-      )
-    .join("");
-
-  cureOverviewGrid.innerHTML = overviewEntries
-    .map(
-      (entry) => `
-      <div class="cure-overview-item">
-        <div class="cure-overview-label">${escapeHtml(entry.label)}</div>
-        <div class="cure-overview-value">${escapeHtml(shortText(entry.value, 110))}</div>
-      </div>
-    `
-    )
-    .join("");
-
-  cureFocusSummary.innerHTML = `
-    <article class="cure-focus-card is-primary">
-      <div class="report-note-kicker">What stands out</div>
-      <div class="cure-focus-title">${escapeHtml(report.readiness.label)}</div>
-      <p class="cure-focus-copy">${escapeHtml(leadStrength)}</p>
-    </article>
-    <article class="cure-focus-card is-secondary">
-      <div class="report-note-kicker">What to validate next</div>
-      <div class="cure-focus-title">Next check</div>
-      <p class="cure-focus-copy">${escapeHtml(watchItem)}</p>
-    </article>
-  `;
-
-  cureReportCard.innerHTML = `
-    <div class="cure-report-summary">
-      <div>
-        <div class="report-summary-label">Report Card</div>
-        <div class="report-summary-headline">${escapeHtml(report.headline)}</div>
-      </div>
-      <div class="report-summary-score">
-        <span>Composite</span>
-        <strong>${escapeHtml(metricText(report.overall_score ?? candidate.score, 1))}</strong>
-      </div>
-    </div>
-    <div class="cure-report-domains">
-      ${renderReportDomains(report.domains)}
-    </div>
-    <div class="cure-report-notes">
-      ${renderReportNotes(
-        "Strengths",
-        report.strengths,
-        "is-good",
-        "No major strengths have been called out in the current screen."
-      )}
-      ${renderReportNotes(
-        "Risks To Watch",
-        report.concerns,
-        "is-watch",
-        "No material concerns are flagged in the current screen."
-      )}
-    </div>
-  `;
-
-  const keyMetricEntries = Object.entries(admet.key_metrics || {});
-  if (keyMetricEntries.length === 0) {
-    admetKeyMetrics.innerHTML = '<div class="admet-empty">No key ADMET metrics available.</div>';
-  } else {
-    admetKeyMetrics.innerHTML = keyMetricEntries
-      .map(
-        ([key, value]) => `
-        <div class="admet-key-item">
-          <div class="admet-key-label">${escapeHtml(key)}</div>
-          <div class="admet-key-value">${escapeHtml(valueText(value))}</div>
-        </div>
-      `
-      )
-      .join("");
-  }
-
-  const propertyEntries = Object.entries(admet.properties || {}).sort((a, b) =>
-    String(a[0]).localeCompare(String(b[0]))
-  );
-  if (propertyEntries.length === 0) {
-    admetPropertiesGrid.innerHTML = '<div class="admet-empty">No ADMET property map available.</div>';
-  } else {
-    admetPropertiesGrid.innerHTML = propertyEntries
-      .map(
-        ([key, value]) => `
-        <div class="admet-prop">
-          <div class="admet-prop-key">${escapeHtml(String(key))}</div>
-          <div class="admet-prop-value">${escapeHtml(valueText(value))}</div>
-        </div>
-      `
-      )
-      .join("");
-  }
-
-  const evidenceEntries = [
-    { label: "Job ID", value: source.job_id || "-" },
-    { label: "Job kind", value: source.kind || "-" },
-    ...Object.entries(candidate.evidence_paths || {})
-      .filter(([, value]) => value !== null && value !== undefined && String(value).trim())
-      .map(([key, value]) => ({
-        label: key.replaceAll("_", " "),
-        value: String(value),
-      })),
-  ];
-  cureEvidencePaths.innerHTML = evidenceEntries.length
-    ? evidenceEntries
-        .map(
-          (entry) => `
-          <div class="evidence-path-item">
-            <div class="evidence-path-label">${escapeHtml(entry.label)}</div>
-            <div class="evidence-path-value">${escapeHtml(entry.value)}</div>
-          </div>
-        `
-        )
-        .join("")
-    : '<div class="admet-empty">No linked evidence paths available.</div>';
-
-  drugPortfolioDetail.textContent = pretty(candidate);
-  renderClinicalCandidateContext(candidate);
-  void refreshMolstarForCandidate(candidate);
-}
-
-function renderDrugCards(candidates) {
-  drugPortfolioCards.innerHTML = "";
-  const visibleCandidates = Array.isArray(candidates) ? candidates : [];
-
-  if (visibleCandidates.length === 0) {
-    const searchTerm = drugSearchInput?.value.trim() || "";
-    const empty = document.createElement("div");
-    empty.className = "drug-list-empty";
-    empty.innerHTML =
-      searchTerm
-        ? `<div class="summary-label">No matches</div><div class="summary-value">Nothing matched "${escapeHtml(searchTerm)}"</div>`
-        : '<div class="summary-label">Drugs</div><div class="summary-value">No promising drugs found yet</div>';
-    drugPortfolioCards.appendChild(empty);
-    return null;
-  }
-
-  if (
-    !state.selectedCandidateId ||
-    !visibleCandidates.some((item) => item.candidate_id === state.selectedCandidateId)
-  ) {
-    state.selectedCandidateId = visibleCandidates[0].candidate_id;
-  }
-
-  for (const candidate of visibleCandidates) {
-    const card = document.createElement("button");
-    card.className = "drug-card";
-    card.type = "button";
-    card.dataset.testid = "drug-report-card";
-    card.setAttribute("aria-pressed", candidate.candidate_id === state.selectedCandidateId ? "true" : "false");
-    if (candidate.candidate_id === state.selectedCandidateId) {
-      card.classList.add("selected");
+  for (const job of jobs) {
+    const row = createElement("tr");
+    if (job.job_id === state.selectedJobId) {
+      row.classList.add("is-selected");
     }
 
-    const report = normalizedReportCard(candidate);
-    const admet = normalizedAdmet(candidate);
-    const metrics = candidate.metrics || {};
-    const source = candidateSource(candidate);
-    const leadStrength =
-      report.strengths[0] || "No major strength called out in the current screen.";
-    const watchItem =
-      report.concerns[0] || "No material concern flagged in the current screen.";
-    const quickMetrics = [
-      ["Binding", metrics.binding_probability],
-      ["ADMET", metrics.admet_score ?? admet.key_metrics?.admet_score],
-      ["Affinity", metrics.affinity],
-    ];
-    card.innerHTML = `
-      <div class="drug-card-top">
-        <div>
-          <div class="drug-name">${escapeHtml(shortText(candidateDisplayName(candidate), 52))}</div>
-          <div class="drug-card-target">${escapeHtml(shortText(candidate.target || "Unassigned target", 40))}</div>
-          <div class="drug-meta">${escapeHtml(shortText(report.decision, 148))}</div>
-        </div>
-        <div class="drug-card-score-stack">
-          <div class="drug-card-grade ${reportToneClass(report.readiness.tone)}" data-testid="drug-report-grade">
-            <span class="drug-card-grade-label">${escapeHtml(report.readiness.label)}</span>
-            <span class="drug-card-grade-value">${escapeHtml(report.overall_grade)}</span>
-          </div>
-          <div class="drug-score">${escapeHtml(metricText(candidate.score, 1))}</div>
-        </div>
-      </div>
-      <div class="drug-quick-metrics">
-        ${quickMetrics
-          .map(
-            ([label, value]) => `
-            <div class="drug-quick-metric">
-              <span class="drug-quick-metric-label">${escapeHtml(label)}</span>
-              <strong class="drug-quick-metric-value">${escapeHtml(valueText(value))}</strong>
-            </div>
-          `
-          )
-          .join("")}
-      </div>
-      <div class="drug-card-signals">
-        <div class="drug-card-signal is-good">
-          <span class="report-note-kicker">Strength</span>
-          <span>${escapeHtml(shortText(leadStrength, 88))}</span>
-        </div>
-        <div class="drug-card-signal is-watch">
-          <span class="report-note-kicker">Watch</span>
-          <span>${escapeHtml(shortText(watchItem, 88))}</span>
-        </div>
-      </div>
-      <div class="drug-card-footer">
-        <span>${escapeHtml(candidate.promising ? "Promising lead" : "Needs optimization")}</span>
-        <span>${escapeHtml(shortText(candidate.tool || "unknown_tool", 22))}</span>
-        <span>${escapeHtml(shortText(formatDate(source.updated_at), 28))}</span>
-      </div>
-    `;
+    const jobIdCell = createElement(
+      "td",
+      "cell-mono",
+      job.job_id ? `${job.job_id.slice(0, 8)}...` : "-"
+    );
+    jobIdCell.title = job.job_id || "";
+    row.appendChild(jobIdCell);
+    row.appendChild(createElement("td", null, job.kind || "-"));
 
-    card.addEventListener("click", () => {
-      state.selectedCandidateId = candidate.candidate_id;
-      renderDrugPortfolioView();
+    const statusCell = createElement("td");
+    statusCell.appendChild(statusBadge(job.status || "unknown"));
+    row.appendChild(statusCell);
+
+    row.appendChild(createElement("td", null, formatJobProgress(job)));
+    row.appendChild(createElement("td", null, formatDate(job.updated_at)));
+    row.appendChild(createElement("td", null, formatDuration(job.duration_ms)));
+
+    row.addEventListener("click", async () => {
+      state.selectedJobId = job.job_id;
+      renderJobsTable(state.jobs);
+      await wrapAction(() => loadJob(job.job_id));
     });
 
-    drugPortfolioCards.appendChild(card);
+    jobsBody.appendChild(row);
   }
-  return (
-    visibleCandidates.find((item) => item.candidate_id === state.selectedCandidateId) ||
-    visibleCandidates[0] ||
-    null
-  );
 }
 
-function renderDrugPortfolioView() {
-  const visibleCandidates = visibleDrugCandidates(state.drugCandidates);
-  renderDrugSummary(state.drugSummary || {}, visibleCandidates);
-  renderDrugPortfolioMeta(visibleCandidates, Array.isArray(state.drugCandidates) ? state.drugCandidates.length : 0);
-  renderDrugSpotlight(visibleCandidates);
-  const selectedCandidate = renderDrugCards(visibleCandidates);
-  renderDrugDetail(selectedCandidate);
-}
-
-async function refreshDrugPortfolio() {
-  const minScore = Number(drugMinScoreInput.value || 50);
-  const query = `?limit=60&include_raw=true&min_score=${encodeURIComponent(minScore)}`;
-  const payload = await api(`/api/promising-cures${query}`, { method: "GET" });
-
-  state.drugCandidates = payload.candidates || [];
-  state.drugSummary = payload.summary || {};
-  state.telemetry.promisingLeads = Number(payload.summary?.promising_count || 0);
-  updateTelemetryWidgets();
-  renderDrugPortfolioView();
-}
-
-function resolveClinicalTrialId() {
-  const selected = state.selectedClinicalTrialId || clinicalTrialSelect.value;
-  if (selected) {
-    return selected;
-  }
-  const fromInput = clinicalTrialIdInput.value.trim();
-  return fromInput || null;
-}
-
-function selectedDrugCandidate() {
-  if (!Array.isArray(state.drugCandidates) || !state.selectedCandidateId) {
-    return null;
-  }
-  return state.drugCandidates.find((item) => item?.candidate_id === state.selectedCandidateId) || null;
-}
-
-function selectedClinicalTrial() {
-  const trialId = resolveClinicalTrialId();
-  if (!Array.isArray(state.clinicalTrials) || !trialId) {
-    return null;
-  }
-  return state.clinicalTrials.find((item) => item?.trial_id === trialId) || null;
-}
-
-function suggestedClinicalTrialId(candidate) {
-  const seed = candidate?.name || candidate?.candidate_id || candidate?.target || "lead";
-  return String(seed)
-    .toLowerCase()
-    .replaceAll(/[^a-z0-9]+/g, "-")
-    .replaceAll(/^-+|-+$/g, "")
-    .slice(0, 48)
-    .concat("-trial");
-}
-
-function renderClinicalCandidateContext(candidate) {
-  if (!candidateClinicalContext) {
-    return;
-  }
-  if (!candidate) {
-    candidateClinicalContext.textContent = "Select a promising drug to focus trial review.";
-    return;
-  }
-
-  const suggestedTrialId = suggestedClinicalTrialId(candidate);
-  const selectedTrial = selectedClinicalTrial();
-  if (
-    !clinicalTrialIdInput.value.trim() ||
-    clinicalTrialIdInput.value.trim() === state.lastSuggestedClinicalTrialId
-  ) {
-    clinicalTrialIdInput.value = suggestedTrialId;
-    state.lastSuggestedClinicalTrialId = suggestedTrialId;
-  }
-
-  const trialStatus = selectedTrial
-    ? `Loaded trial ${selectedTrial.trial_id} (${selectedTrial.status || "planned"})`
-    : `${state.clinicalTrials.length} managed trial${state.clinicalTrials.length === 1 ? "" : "s"} available`;
-
-  candidateClinicalContext.innerHTML = `
-    <div class="clinical-context-head">
-      <strong>${escapeHtml(candidate.name || candidate.candidate_id || "Selected lead")}</strong>
-      <span>${escapeHtml(trialStatus)}</span>
-    </div>
-    <div class="clinical-context-meta">
-      <span>Target ${escapeHtml(shortText(candidate.target, 36))}</span>
-      <span>Score ${escapeHtml(valueText(candidate.score))}</span>
-      <span>Suggested trial ID ${escapeHtml(suggestedTrialId)}</span>
-    </div>
-  `;
-}
-
-function renderClinicalTrialOptions(trials) {
-  clinicalTrialSelect.innerHTML = "";
-
-  if (!Array.isArray(trials) || trials.length === 0) {
-    const option = document.createElement("option");
-    option.value = "";
-    option.textContent = "No managed trials";
-    clinicalTrialSelect.appendChild(option);
-    clinicalTrialSummary.textContent = "No trial selected.";
-    renderClinicalCandidateContext(selectedDrugCandidate());
-    return;
-  }
-
-  for (const trial of trials) {
-    const option = document.createElement("option");
-    option.value = trial.trial_id;
-    const human = trial.patient_count_human ?? 0;
-    const sim = trial.patient_count_simulated ?? 0;
-    option.textContent = `${trial.trial_id} | ${trial.status || "draft"} | H:${human} S:${sim}`;
-    if (trial.trial_id === state.selectedClinicalTrialId) {
-      option.selected = true;
-    }
-    clinicalTrialSelect.appendChild(option);
-  }
-
-  if (!state.selectedClinicalTrialId && trials.length > 0) {
-    state.selectedClinicalTrialId = trials[0].trial_id;
-    clinicalTrialSelect.value = state.selectedClinicalTrialId;
-  }
-
-  let selected = trials.find((item) => item.trial_id === state.selectedClinicalTrialId) || null;
-  if (!selected && trials.length > 0) {
-    state.selectedClinicalTrialId = trials[0].trial_id;
-    clinicalTrialSelect.value = state.selectedClinicalTrialId;
-    selected = trials[0];
-  }
-  if (selected) {
-    clinicalTrialSummary.textContent = pretty(selected);
-  }
-  renderClinicalCandidateContext(selectedDrugCandidate());
-}
-
-async function refreshClinicalTrials() {
-  const payload = await api("/api/clinical/trials", { method: "GET" });
-  state.clinicalTrials = payload.trials || [];
-  const trials = Array.isArray(payload.trials) ? payload.trials : [];
-  state.telemetry.trialCount = trials.length;
-  state.telemetry.humanPatients = trials.reduce(
-    (sum, trial) => sum + Number(trial?.patient_count_human || 0),
-    0
-  );
-  updateTelemetryWidgets();
-  renderClinicalTrialOptions(state.clinicalTrials);
-}
-
-function renderCommandCenterProgram(payload) {
-  const program = payload?.program || null;
-  if (!program) {
-    state.commandCenter.selectedProgram = null;
-    programSummaryOutput.textContent = "Program not found.";
-    programEventTimeline.innerHTML = '<div class="timeline-empty">Load a program to inspect timeline events.</div>';
-    renderCommandCenterCapabilities(state.commandCenter.capabilities);
-    return;
-  }
-  state.commandCenter.selectedProgram = program;
-  programIdInput.value = program.program_id || "";
-  programNameInput.value = program.name || "";
-  programStageInput.value = program.stage || "";
-  programIndicationInput.value = program.indication || "";
-  programOwnerInput.value = program.owner || "";
-  programSummaryOutput.textContent = pretty(payload);
-  renderProgramTimeline(payload.events || [], payload.approvals || []);
-  renderCommandCenterCapabilities(state.commandCenter.capabilities);
-}
-
-function selectedGateTemplate() {
-  const templateId = gateTemplateSelect.value;
-  if (!templateId) {
-    return null;
-  }
-  for (const template of state.commandCenter.gateTemplates) {
-    if (String(template.id) === templateId) {
-      return template;
-    }
-  }
-  return null;
-}
-
-function gateMetricDefaultValue(minimum) {
-  const numeric = Number(minimum);
-  if (!Number.isFinite(numeric)) {
-    return null;
-  }
-  if (numeric < 1) {
-    return Number((numeric + 0.05).toFixed(3));
-  }
-  return Number((numeric * 1.05).toFixed(2));
-}
-
-function gateTemplateDefaultMetrics(template) {
-  if (!template || !Array.isArray(template.criteria)) {
-    return {};
-  }
-  const metrics = {};
-  for (const criterion of template.criteria) {
-    const metric = String(criterion.metric || "").trim();
-    if (!metric) {
-      continue;
-    }
-    metrics[metric] = gateMetricDefaultValue(criterion.minimum);
-  }
-  return metrics;
-}
-
-function parseGateMetricsForPreview() {
-  const raw = gateMetricsInput.value.trim();
-  if (!raw) {
-    return { metrics: null, error: null };
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return { metrics: null, error: "Metrics JSON must be an object." };
-    }
-    return { metrics: parsed, error: null };
-  } catch (_err) {
-    return { metrics: null, error: "Metrics JSON is invalid." };
-  }
-}
-
-function applyGateTemplateDefaults({ force } = { force: false }) {
-  const template = selectedGateTemplate();
-  if (!template) {
-    return;
-  }
-  const defaults = gateTemplateDefaultMetrics(template);
-  if (Object.keys(defaults).length === 0) {
-    return;
-  }
-
-  if (force) {
-    gateMetricsInput.value = pretty(defaults);
-    return;
-  }
-
-  const { metrics, error } = parseGateMetricsForPreview();
-  if (error) {
-    return;
-  }
-  if (!metrics) {
-    gateMetricsInput.value = pretty(defaults);
-    return;
-  }
-
-  const merged = { ...metrics };
-  let changed = false;
-  for (const [metric, value] of Object.entries(defaults)) {
-    if (!(metric in merged) || merged[metric] === null || merged[metric] === "") {
-      merged[metric] = value;
-      changed = true;
-    }
-  }
-  if (changed) {
-    gateMetricsInput.value = pretty(merged);
-  }
-}
-
-function timelineStatusClass(status) {
-  const normalized = String(status || "").toLowerCase();
-  if (["approved", "completed", "success", "passed"].includes(normalized)) {
-    return "timeline-status-pass";
-  }
-  if (["rejected", "failed", "cancelled", "error"].includes(normalized)) {
-    return "timeline-status-fail";
-  }
-  if (["running", "queued", "needs_changes", "warning"].includes(normalized)) {
-    return "timeline-status-warn";
-  }
-  return "timeline-status-neutral";
-}
-
-function renderGateTemplatePreview() {
-  const template = selectedGateTemplate();
-  if (!template) {
-    gateTemplateSummary.textContent = "No gate template selected.";
-    gateCriteriaChecklist.innerHTML =
-      '<div class="gate-criterion gate-criterion-empty">Choose a template to preview criteria.</div>';
-    return;
-  }
-
-  const { metrics, error } = parseGateMetricsForPreview();
-  if (error) {
-    gateTemplateSummary.textContent = `${template.label || template.id}: ${error}`;
-  } else {
-    gateTemplateSummary.textContent =
-      template.description || `${template.label || template.id} gate criteria`;
-  }
-
-  const criteria = Array.isArray(template.criteria) ? template.criteria : [];
-  if (criteria.length === 0) {
-    gateCriteriaChecklist.innerHTML =
-      '<div class="gate-criterion gate-criterion-empty">This template has no criteria.</div>';
-    return;
-  }
-
-  let passed = 0;
-  gateCriteriaChecklist.innerHTML = criteria
-    .map((criterion) => {
-      const metric = String(criterion.metric || "");
-      const label = String(criterion.label || metric);
-      const minimum = Number(criterion.minimum || 0);
-      const observedRaw = metrics ? metrics[metric] : null;
-      const observed = Number(observedRaw);
-      const hasObserved = observedRaw !== null && observedRaw !== undefined && Number.isFinite(observed);
-      const ok = hasObserved && observed >= minimum;
-      if (ok) {
-        passed += 1;
-      }
-      const statusClass = hasObserved ? (ok ? "gate-criterion-pass" : "gate-criterion-fail") : "gate-criterion-missing";
-      const statusText = hasObserved ? (ok ? "pass" : "below") : "missing";
-      const observedLabel = hasObserved ? String(observedRaw) : "n/a";
-      return `
-        <article class="gate-criterion ${statusClass}">
-          <div class="gate-criterion-top">
-            <span class="gate-criterion-label">${escapeHtml(label)}</span>
-            <span class="gate-criterion-status">${escapeHtml(statusText)}</span>
-          </div>
-          <div class="gate-criterion-meta">
-            <span>${escapeHtml(metric)}</span>
-            <span>min ${escapeHtml(minimum)}</span>
-            <span>observed ${escapeHtml(observedLabel)}</span>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
-
-  if (!error) {
-    gateTemplateSummary.textContent = `${template.label || template.id}: ${passed}/${criteria.length} checks passing`;
-  }
-}
-
-function renderCommandCenterCapabilities(payload) {
-  state.commandCenter.capabilities = payload || null;
-  const integrations = Array.isArray(payload?.integrations) ? payload.integrations : [];
-  const counts = state.commandCenter.programCounts || {};
-  const programCount = Number(counts.programs || 0);
-  const eventCount = Number(counts.events || 0);
-  const approvalCount = Number(counts.approvals || 0);
-  const online = integrations.filter((item) => item.available).length;
-  const readiness = online >= 3 ? "operational" : online >= 2 ? "degraded" : "critical";
-  const warnings = Array.isArray(payload?.warnings) ? payload.warnings : [];
-  const cards = [
-    {
-      label: "Integrations Online",
-      value: `${online}/${integrations.length || 0}`,
-      note: warnings.length ? `${warnings.length} warning(s)` : "All core packages visible",
-      tone: online >= 3 ? "good" : "warn",
-    },
-    {
-      label: "Programs Tracked",
-      value: String(programCount),
-      note: `${eventCount} timeline events`,
-      tone: programCount > 0 ? "neutral" : "warn",
-    },
-    {
-      label: "Active Stage",
-      value: state.commandCenter.selectedProgram?.stage || "unassigned",
-      note: `${approvalCount} approvals recorded`,
-      tone: state.commandCenter.selectedProgram?.stage ? "neutral" : "warn",
-    },
-    {
-      label: "Regulatory Readiness",
-      value: readiness,
-      note: payload?.generated_at ? `Updated ${formatDate(payload.generated_at)}` : "",
-      tone: readiness === "operational" ? "good" : readiness === "degraded" ? "warn" : "alert",
-    },
-  ];
-  commandCenterCapabilities.innerHTML = cards
-    .map(
-      (item) => `
-        <article class="command-cap command-cap-${escapeHtml(item.tone || "neutral")}">
-          <p class="command-cap-label">${escapeHtml(item.label)}</p>
-          <p class="command-cap-value">${escapeHtml(item.value)}</p>
-          ${item.note ? `<p class="command-note">${escapeHtml(item.note)}</p>` : ""}
-        </article>
-      `
-    )
-    .join("");
-}
-
-function renderProgramTimeline(events, approvals) {
-  const timeline = [];
-  for (const event of Array.isArray(events) ? events : []) {
-    timeline.push({
-      kind: "event",
-      title: event.title || event.event_type || "event",
-      status: event.status || "recorded",
-      at: event.created_at || "",
-      meta: event.source || "clawcures-ui",
-      runId: event.run_id || "",
-    });
-  }
-  for (const approval of Array.isArray(approvals) ? approvals : []) {
-    timeline.push({
-      kind: "approval",
-      title: `Gate ${approval.gate || "stage_gate"}`,
-      status: approval.decision || "recorded",
-      at: approval.created_at || "",
-      meta: approval.signer || "unknown",
-    });
-  }
-
-  timeline.sort((a, b) => String(b.at).localeCompare(String(a.at)));
-  if (timeline.length === 0) {
-    programEventTimeline.innerHTML = '<div class="timeline-empty">No timeline events yet.</div>';
-    return;
-  }
-
-  programEventTimeline.innerHTML = timeline
-    .slice(0, 40)
-    .map(
-      (item) => `
-        <article class="timeline-item">
-          <div class="timeline-top">
-            <div class="timeline-title">${escapeHtml(item.title)}</div>
-            <span class="timeline-status ${timelineStatusClass(item.status)}">${escapeHtml(item.status)}</span>
-          </div>
-          <div class="timeline-meta">${escapeHtml(formatDate(item.at))} · ${escapeHtml(item.meta)}${item.runId ? ` · ${escapeHtml(item.runId)}` : ""}</div>
-        </article>
-      `
-    )
-    .join("");
-}
-
-function wetlabProviderId() {
-  return wetlabProviderSelect.value || "opentrons";
-}
-
-function parseWetlabProtocol() {
-  const protocol = parseJsonText(wetlabProtocolInput.value, "WetLab protocol");
-  if (!protocol || typeof protocol !== "object" || Array.isArray(protocol)) {
-    throw new Error("WetLab protocol must be a JSON object");
-  }
-  return protocol;
-}
-
-async function refreshCommandCenter() {
-  try {
-    await api("/api/programs/sync-jobs", {
-      method: "POST",
-      body: JSON.stringify({ limit: 500 }),
-    });
-  } catch (_err) {
-    // Keep UI responsive if sync fails due to transient runtime issues.
-  }
-
-  const [capabilities, wetlabProviders, gateTemplates, programsPayload] = await Promise.all([
-    api("/api/command-center/capabilities", { method: "GET" }),
-    api("/api/wetlab/providers", { method: "GET" }),
-    api("/api/program-gates/templates", { method: "GET" }),
-    api("/api/programs?limit=1", { method: "GET" }),
-  ]);
-
-  state.commandCenter.wetlabProviders = wetlabProviders.providers || [];
-  state.commandCenter.gateTemplates = gateTemplates.templates || [];
-  state.commandCenter.programCounts = programsPayload.counts || {};
-  renderCommandCenterCapabilities(capabilities);
-
-  const selectedTemplate = gateTemplateSelect.value;
-  gateTemplateSelect.innerHTML = "";
-  for (const template of state.commandCenter.gateTemplates) {
-    const option = document.createElement("option");
-    option.value = template.id;
-    option.textContent = `${template.label} (${template.criteria?.length || 0} checks)`;
-    if (selectedTemplate && selectedTemplate === template.id) {
-      option.selected = true;
-    }
-    gateTemplateSelect.appendChild(option);
-  }
-  if (gateTemplateSelect.options.length === 0) {
-    const option = document.createElement("option");
-    option.value = "";
-    option.textContent = "No templates";
-    gateTemplateSelect.appendChild(option);
-  }
-  applyGateTemplateDefaults({ force: false });
-  renderGateTemplatePreview();
-
-  const selectedProvider = wetlabProviderSelect.value;
-  wetlabProviderSelect.innerHTML = "";
-  for (const provider of state.commandCenter.wetlabProviders) {
-    const option = document.createElement("option");
-    option.value = provider.provider_id;
-    option.textContent = `${provider.provider_id} (${provider.provider_name || "provider"})`;
-    if (selectedProvider && selectedProvider === provider.provider_id) {
-      option.selected = true;
-    }
-    wetlabProviderSelect.appendChild(option);
-  }
-  if (wetlabProviderSelect.options.length === 0) {
-    const option = document.createElement("option");
-    option.value = "opentrons";
-    option.textContent = "opentrons";
-    wetlabProviderSelect.appendChild(option);
-  }
-
-  const current = currentProgramId();
-  if (current) {
-    try {
-      const payload = await api(`/api/programs/${encodeURIComponent(current)}`, { method: "GET" });
-      renderCommandCenterProgram(payload);
-    } catch (_err) {
-      // Keep command center refresh resilient when program does not exist yet.
-      renderCommandCenterProgram(null);
-    }
-  }
-}
-
-function currentProgramId() {
-  return programIdInput.value.trim() || null;
-}
-
-async function doUpsertProgram() {
-  const payload = {
-    program_id: currentProgramId(),
-    name: programNameInput.value.trim() || null,
-    stage: programStageInput.value.trim() || null,
-    indication: programIndicationInput.value.trim() || null,
-    owner: programOwnerInput.value.trim() || null,
-    metadata: {
-      source: "clawcures-ui",
-    },
-  };
-  const result = await api("/api/programs/upsert", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-  renderCommandCenterProgram(result);
-  showOutput("Program Upserted", result);
-}
-
-async function doLoadProgram() {
-  const programId = currentProgramId();
-  if (!programId) {
-    throw new Error("Program ID is required");
-  }
-  const payload = await api(`/api/programs/${encodeURIComponent(programId)}`, { method: "GET" });
-  renderCommandCenterProgram(payload);
-  showOutput("Program Loaded", payload);
-}
-
-async function doApproveProgram() {
-  const programId = currentProgramId();
-  if (!programId) {
-    throw new Error("Program ID is required");
-  }
-  const payload = await api(`/api/programs/${encodeURIComponent(programId)}/approve`, {
-    method: "POST",
-    body: JSON.stringify({
-      gate: "stage_gate",
-      decision: "approved",
-      signer: programOwnerInput.value.trim() || "clawcures-ui",
-      signature: `studio:${new Date().toISOString()}`,
-      rationale: "Recorded from Studio command center",
-      metadata: {
-        stage: programStageInput.value.trim() || null,
-      },
-    }),
-  });
-  showOutput("Program Approval Recorded", payload);
-  await doLoadProgram();
-}
-
-function parseGateMetrics() {
-  const { metrics, error } = parseGateMetricsForPreview();
-  if (error || !metrics) {
-    throw new Error("Gate metrics must be a JSON object");
-  }
-  return metrics;
-}
-
-async function doEvaluateProgramGate() {
-  const programId = currentProgramId();
-  if (!programId) {
-    throw new Error("Program ID is required");
-  }
-  const templateId = gateTemplateSelect.value;
-  if (!templateId) {
-    throw new Error("Select a gate template");
-  }
-  const payload = await api(`/api/programs/${encodeURIComponent(programId)}/gate-evaluate`, {
-    method: "POST",
-    body: JSON.stringify({
-      template_id: templateId,
-      metrics: parseGateMetrics(),
-      auto_record: true,
-      signer: programOwnerInput.value.trim() || "clawcures-ui",
-    }),
-  });
-  showOutput("Stage Gate Evaluation", payload);
-  await doLoadProgram();
-}
-
-async function doSyncProgramJobs() {
-  const payload = await api("/api/programs/sync-jobs", {
-    method: "POST",
-    body: JSON.stringify({ limit: 500 }),
-  });
-  showOutput("Program Job Sync", payload);
-  if (currentProgramId()) {
-    await doLoadProgram();
-  }
-}
-
-async function doListDatasets() {
-  const payload = await api("/api/data/datasets?limit=60", { method: "GET" });
-  showOutput("Dataset Catalog", payload);
-}
-
-async function doMaterializeDataset() {
-  const datasetId = datasetIdInput.value.trim();
-  if (!datasetId) {
-    throw new Error("Dataset ID is required");
-  }
-  const payload = await api("/api/data/materialize", {
-    method: "POST",
-    body: JSON.stringify({
-      dataset_id: datasetId,
-      async_mode: asyncToggle.checked,
-    }),
-  });
-  showOutput("Dataset Materialize", payload);
-  if (asyncToggle.checked) {
-    await refreshJobs();
-  }
-}
-
-async function doRunBenchmarkGate() {
-  const suitePath = benchSuitePathInput.value.trim();
-  const baselinePath = benchBaselinePathInput.value.trim();
-  const predictionsPath = benchPredictionsPathInput.value.trim();
-  if (!suitePath || !baselinePath || !predictionsPath) {
-    throw new Error("Suite path, baseline path, and predictions path are required");
-  }
-  const payload = await api("/api/bench/gate", {
-    method: "POST",
-    body: JSON.stringify({
-      suite_path: suitePath,
-      baseline_run_path: baselinePath,
-      adapter_spec: "file",
-      adapter_config: {
-        predictions_path: predictionsPath,
-      },
-      async_mode: asyncToggle.checked,
-      model_name: "studio-gate",
-      model_version: new Date().toISOString(),
-    }),
-  });
-  showOutput("Benchmark Gate", payload);
-  if (asyncToggle.checked) {
-    await refreshJobs();
-  }
-}
-
-async function doValidateWetlabProtocol() {
-  const payload = await api("/api/wetlab/protocol/validate", {
-    method: "POST",
-    body: JSON.stringify({ protocol: parseWetlabProtocol() }),
-  });
-  showOutput("WetLab Protocol Validation", payload);
-}
-
-async function doRunWetlabProtocol() {
-  const payload = await api("/api/wetlab/run", {
-    method: "POST",
-    body: JSON.stringify({
-      provider: wetlabProviderId(),
-      protocol: parseWetlabProtocol(),
-      dry_run: true,
-      async_mode: asyncToggle.checked,
-      program_id: currentProgramId(),
-      metadata: {
-        objective: objectiveInput.value.trim() || null,
-      },
-    }),
-  });
-  showOutput("WetLab Run", payload);
-  if (asyncToggle.checked) {
-    await refreshJobs();
-  } else if (currentProgramId()) {
-    await doLoadProgram();
-  }
-}
-
-async function doBuildRegulatoryBundle() {
-  const jobId = regulatoryJobIdInput.value.trim() || state.selectedJobId || null;
-  const outputDir = regulatoryOutputDirInput.value.trim() || null;
-  const fallbackPlan = parseJsonText(planInput.value, "Plan");
-  const fallbackCampaignRun = {
-    objective: objectiveInput.value.trim() || null,
-    plan: fallbackPlan,
-    dry_run: dryRunToggle.checked,
-    source: "clawcures-ui",
-  };
-  const payload = await api("/api/regulatory/bundle/build", {
-    method: "POST",
-    body: JSON.stringify({
-      job_id: jobId,
-      campaign_run: jobId ? null : fallbackCampaignRun,
-      output_dir: outputDir,
-      async_mode: asyncToggle.checked,
-      overwrite: true,
-      program_id: currentProgramId(),
-    }),
-  });
-  showOutput("Regulatory Bundle Build", payload);
-  if (asyncToggle.checked) {
-    await refreshJobs();
-  } else {
-    const bundleDir = payload.result?.bundle_dir;
-    if (bundleDir) {
-      regulatoryOutputDirInput.value = bundleDir;
-    }
-    if (currentProgramId()) {
-      await doLoadProgram();
-    }
-  }
-}
-
-async function doVerifyRegulatoryBundle() {
-  const bundleDir = regulatoryOutputDirInput.value.trim();
-  if (!bundleDir) {
-    throw new Error("Bundle output directory is required");
-  }
-  const payload = await api("/api/regulatory/bundle/verify", {
-    method: "POST",
-    body: JSON.stringify({ bundle_dir: bundleDir }),
-  });
-  showOutput("Regulatory Bundle Verify", payload);
-}
-
-async function loadClinicalTrial() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-
-  const payload = await api(`/api/clinical/trials/${encodeURIComponent(trialId)}`, { method: "GET" });
-  const trial = payload.trial || {};
-  state.selectedClinicalTrialId = trial.trial_id || trialId;
-  clinicalTrialSelect.value = state.selectedClinicalTrialId;
-
-  clinicalTrialIdInput.value = state.selectedClinicalTrialId;
-  if (trial.status) {
-    clinicalTrialStatusInput.value = trial.status;
-  }
-  if (trial.config) {
-    clinicalTrialConfigInput.value = pretty(trial.config);
-  }
-
-  clinicalTrialSummary.textContent = pretty(trial);
-  showOutput("Clinical Trial Detail", payload);
-}
-
-async function doAddClinicalTrial() {
-  const trialId = clinicalTrialIdInput.value.trim() || null;
-  const configPatch = parseJsonText(clinicalTrialConfigInput.value, "Clinical config");
-  if (
-    configPatch !== null &&
-    (typeof configPatch !== "object" || Array.isArray(configPatch))
-  ) {
-    throw new Error("Clinical config patch must be a JSON object");
-  }
-
-  const payload = {
-    trial_id: trialId,
-    status: clinicalTrialStatusInput.value || "planned",
-    config: null,
-  };
-  const result = await api("/api/clinical/trials/add", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-
-  const resolvedTrialId = result.trial?.trial_id || trialId;
-  if (!resolvedTrialId) {
-    throw new Error("Could not resolve created trial id");
-  }
-
-  if (configPatch && Object.keys(configPatch).length > 0) {
-    await api("/api/clinical/trials/update", {
-      method: "POST",
-      body: JSON.stringify({
-        trial_id: resolvedTrialId,
-        updates: { config: configPatch },
-      }),
-    });
-  }
-
-  state.selectedClinicalTrialId = resolvedTrialId;
-  showOutput("Clinical Trial Added", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doUpdateClinicalTrial() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select or enter a trial id");
-  }
-  const config = parseJsonText(clinicalTrialConfigInput.value, "Clinical config");
-  if (config !== null && (typeof config !== "object" || Array.isArray(config))) {
-    throw new Error("Clinical config must be a JSON object");
-  }
-
-  const updates = {
-    status: clinicalTrialStatusInput.value || null,
-  };
-  if (config) {
-    updates.config = config;
-  }
-
-  const result = await api("/api/clinical/trials/update", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      updates,
-    }),
-  });
-  state.selectedClinicalTrialId = trialId;
-  showOutput("Clinical Trial Updated", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doRemoveClinicalTrial() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial to remove");
-  }
-
-  const result = await api("/api/clinical/trials/remove", {
-    method: "POST",
-    body: JSON.stringify({ trial_id: trialId }),
-  });
-  showOutput("Clinical Trial Removed", result);
-  state.selectedClinicalTrialId = null;
-  clinicalTrialSummary.textContent = "No trial selected.";
-  await refreshClinicalTrials();
-}
-
-async function doEnrollClinicalPatient() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const patient = parseJsonText(clinicalPatientInput.value, "Patient payload");
-  if (!patient || typeof patient !== "object") {
-    throw new Error("Patient payload must be a JSON object");
-  }
-
-  const result = await api("/api/clinical/trials/enroll", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      patient_id: patient.patient_id || null,
-      source: patient.source || "human",
-      arm_id: patient.arm_id || null,
-      site_id: patient.site_id || null,
-      demographics: patient.demographics || {},
-      baseline: patient.baseline || {},
-      metadata: patient.metadata || {},
-    }),
-  });
-  showOutput("Clinical Patient Enrolled", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doEnrollClinicalSimulated() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const count = Number(clinicalSimCountInput.value || 0);
-  if (!Number.isFinite(count) || count < 1) {
-    throw new Error("Simulated patient count must be >= 1");
-  }
-  const seedValue = clinicalSeedInput.value.trim();
-
-  const result = await api("/api/clinical/trials/enroll-simulated", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      count: Number(count),
-      seed: seedValue ? Number(seedValue) : null,
-    }),
-  });
-  showOutput("Simulated Patients Enrolled", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doAddClinicalResult() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const rawResult = parseJsonText(clinicalResultInput.value, "Result payload");
-  if (!rawResult || typeof rawResult !== "object") {
-    throw new Error("Result payload must be a JSON object");
-  }
-
-  const patientId = rawResult.patient_id;
-  if (!patientId || typeof patientId !== "string") {
-    throw new Error("Result payload must include patient_id");
-  }
-
-  let values = rawResult.values;
-  if (!values || typeof values !== "object") {
-    const clone = { ...rawResult };
-    delete clone.patient_id;
-    delete clone.result_type;
-    delete clone.visit;
-    delete clone.source;
-    values = clone;
-  }
-
-  const result = await api("/api/clinical/trials/result", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      patient_id: patientId,
-      result_type: rawResult.result_type || "endpoint",
-      visit: rawResult.visit || null,
-      source: rawResult.source || null,
-      site_id: rawResult.site_id || null,
-      values,
-    }),
-  });
-  showOutput("Clinical Result Added", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doSimulateClinicalTrial() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-
-  const replicates = Number(clinicalReplicatesInput.value || 0);
-  if (!Number.isFinite(replicates) || replicates < 1) {
-    throw new Error("Replicates must be >= 1");
-  }
-  const seedValue = clinicalSeedInput.value.trim();
-
-  const result = await api("/api/clinical/trials/simulate", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      replicates: Number(replicates),
-      seed: seedValue ? Number(seedValue) : null,
-      async_mode: asyncToggle.checked,
-    }),
-  });
-
-  showOutput("Clinical Simulation", result);
-  await refreshClinicalTrials();
-  if (asyncToggle.checked) {
-    await refreshJobs();
-  } else {
-    await loadClinicalTrial();
-  }
-}
-
-function parseClinicalOpsPayload() {
-  const raw = parseJsonText(clinicalOpsInput.value, "ClinOps payload");
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    throw new Error("ClinOps payload must be a JSON object");
-  }
-  return raw;
-}
-
-async function doUpsertClinicalSite() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const raw = parseClinicalOpsPayload();
-  if (!raw.site_id || typeof raw.site_id !== "string") {
-    throw new Error("ClinOps payload must include site_id");
-  }
-  const result = await api("/api/clinical/trials/site/upsert", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      site_id: raw.site_id,
-      name: raw.name || null,
-      country_id: raw.country_id || null,
-      status: raw.status || null,
-      principal_investigator: raw.principal_investigator || null,
-      target_enrollment:
-        raw.target_enrollment === undefined || raw.target_enrollment === null
-          ? null
-          : Number(raw.target_enrollment),
-      metadata: raw.metadata || {},
-    }),
-  });
-  showOutput("Clinical Site Upserted", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doScreenClinicalPatient() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const raw = parseClinicalOpsPayload();
-  if (!raw.site_id || typeof raw.site_id !== "string") {
-    throw new Error("ClinOps payload must include site_id");
-  }
-  const result = await api("/api/clinical/trials/screen", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      site_id: raw.site_id,
-      patient_id: raw.patient_id || null,
-      status: raw.status || null,
-      arm_id: raw.arm_id || null,
-      source: raw.source || null,
-      failure_reason: raw.failure_reason || null,
-      demographics: raw.demographics || {},
-      baseline: raw.baseline || {},
-      metadata: raw.metadata || {},
-      auto_enroll: Boolean(raw.auto_enroll),
-    }),
-  });
-  showOutput("Clinical Screening Added", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doRecordClinicalVisit() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const raw = parseClinicalOpsPayload();
-  if (!raw.site_id || typeof raw.site_id !== "string") {
-    throw new Error("ClinOps payload must include site_id");
-  }
-  const result = await api("/api/clinical/trials/monitoring/visit", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      site_id: raw.site_id,
-      visit_type: raw.visit_type || null,
-      findings: Array.isArray(raw.findings) ? raw.findings : [],
-      action_items: Array.isArray(raw.action_items) ? raw.action_items : [],
-      risk_score:
-        raw.risk_score === undefined || raw.risk_score === null ? null : Number(raw.risk_score),
-      outcome: raw.outcome || null,
-      metadata: raw.metadata || {},
-    }),
-  });
-  showOutput("Clinical Monitoring Visit Added", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doAddClinicalQuery() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const raw = parseClinicalOpsPayload();
-  if (!raw.description || typeof raw.description !== "string") {
-    throw new Error("ClinOps payload must include description for query");
-  }
-  const result = await api("/api/clinical/trials/query/add", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      patient_id: raw.patient_id || null,
-      site_id: raw.site_id || null,
-      field_name: raw.field_name || null,
-      description: raw.description,
-      status: raw.status || null,
-      severity: raw.severity || null,
-      assignee: raw.assignee || null,
-      due_at: raw.due_at || null,
-      metadata: raw.metadata || {},
-    }),
-  });
-  showOutput("Clinical Query Added", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doUpdateClinicalQuery() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const raw = parseClinicalOpsPayload();
-  if (!raw.query_id || typeof raw.query_id !== "string") {
-    throw new Error("ClinOps payload must include query_id");
-  }
-  const updates =
-    raw.updates && typeof raw.updates === "object" && !Array.isArray(raw.updates)
-      ? raw.updates
-      : {
-          status: raw.status || null,
-          assignee: raw.assignee || null,
-          resolution: raw.resolution || null,
-        };
-  const result = await api("/api/clinical/trials/query/update", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      query_id: raw.query_id,
-      updates,
-    }),
-  });
-  showOutput("Clinical Query Updated", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doAddClinicalDeviation() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const raw = parseClinicalOpsPayload();
-  if (!raw.description || typeof raw.description !== "string") {
-    throw new Error("ClinOps payload must include description for deviation");
-  }
-  const result = await api("/api/clinical/trials/deviation/add", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      description: raw.description,
-      site_id: raw.site_id || null,
-      patient_id: raw.patient_id || null,
-      category: raw.category || null,
-      severity: raw.severity || null,
-      status: raw.status || null,
-      corrective_action: raw.corrective_action || null,
-      preventive_action: raw.preventive_action || null,
-      metadata: raw.metadata || {},
-    }),
-  });
-  showOutput("Clinical Deviation Added", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doAddClinicalSafetyEvent() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const raw = parseClinicalOpsPayload();
-  if (!raw.patient_id || typeof raw.patient_id !== "string") {
-    throw new Error("ClinOps payload must include patient_id for safety event");
-  }
-  if (!raw.event_term || typeof raw.event_term !== "string") {
-    throw new Error("ClinOps payload must include event_term for safety event");
-  }
-  const result = await api("/api/clinical/trials/safety/add", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      patient_id: raw.patient_id,
-      event_term: raw.event_term,
-      site_id: raw.site_id || null,
-      seriousness: raw.seriousness || null,
-      expected:
-        raw.expected === undefined || raw.expected === null ? null : Boolean(raw.expected),
-      relatedness: raw.relatedness || null,
-      outcome: raw.outcome || null,
-      action_taken: raw.action_taken || null,
-      metadata: raw.metadata || {},
-    }),
-  });
-  showOutput("Clinical Safety Event Added", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doUpsertClinicalMilestone() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const raw = parseClinicalOpsPayload();
-  const result = await api("/api/clinical/trials/milestone/upsert", {
-    method: "POST",
-    body: JSON.stringify({
-      trial_id: trialId,
-      milestone_id: raw.milestone_id || null,
-      name: raw.name || null,
-      target_date: raw.target_date || null,
-      status: raw.status || null,
-      owner: raw.owner || null,
-      actual_date: raw.actual_date || null,
-      metadata: raw.metadata || {},
-    }),
-  });
-  showOutput("Clinical Milestone Upserted", result);
-  await refreshClinicalTrials();
-  await loadClinicalTrial();
-}
-
-async function doRefreshClinicalOps() {
-  const trialId = resolveClinicalTrialId();
-  if (!trialId) {
-    throw new Error("Select a trial first");
-  }
-  const [ops, sites] = await Promise.all([
-    api(`/api/clinical/trials/${encodeURIComponent(trialId)}/ops`, { method: "GET" }),
-    api(`/api/clinical/trials/${encodeURIComponent(trialId)}/sites`, { method: "GET" }),
-  ]);
-  const payload = {
-    trial_id: trialId,
-    ops,
-    sites,
-  };
-  clinicalTrialSummary.textContent = pretty(payload);
-  showOutput("Clinical Ops Snapshot", payload);
-}
-
-function parsePreclinicalStudy() {
-  const study = parseJsonText(preclinicalStudyInput.value, "Preclinical study");
-  if (!study || typeof study !== "object" || Array.isArray(study)) {
-    throw new Error("Preclinical study must be a JSON object");
-  }
-  return study;
-}
-
-function parsePreclinicalRows() {
-  const rows = parseJsonText(preclinicalRowsInput.value, "Preclinical rows");
-  if (!rows) {
-    preclinicalRowCountPreview.value = "0";
-    return [];
-  }
-  if (!Array.isArray(rows)) {
-    throw new Error("Preclinical rows must be a JSON array");
-  }
-  preclinicalRowCountPreview.value = String(rows.length);
-  return rows;
-}
-
-function parseOptionalPreclinicalCmcConfig() {
-  const payload = parseJsonText(preclinicalCmcInput.value, "Preclinical CMC config");
-  if (payload === null) {
-    return null;
-  }
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    throw new Error("Preclinical CMC config must be a JSON object");
-  }
-  return payload;
-}
-
-function parseOptionalPreclinicalBatchResults() {
-  const payload = parseJsonText(
-    preclinicalCmcBatchResultsInput.value,
-    "Preclinical CMC batch results"
-  );
-  if (payload === null) {
-    return null;
-  }
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-  if (payload && typeof payload === "object") {
-    return payload;
-  }
-  throw new Error("Preclinical CMC batch results must be an object or array");
-}
-
-function parseOptionalPreclinicalStabilityRows() {
-  const payload = parseJsonText(
-    preclinicalCmcStabilityResultsInput.value,
-    "Preclinical CMC stability rows"
-  );
-  if (payload === null) {
-    return null;
-  }
-  if (!Array.isArray(payload)) {
-    throw new Error("Preclinical CMC stability rows must be an array");
-  }
-  return payload;
-}
-
-function preclinicalPayload() {
-  const rows = parsePreclinicalRows();
-  return {
-    study: parsePreclinicalStudy(),
-    rows,
-    seed: Number(preclinicalSeedInput.value || 7),
-    lloq_ng_ml: Number(preclinicalLloqInput.value || 1.0),
-  };
-}
-
-function preclinicalWorkupPayload() {
-  const payload = preclinicalPayload();
-  return {
-    ...payload,
-    cmc_config: parseOptionalPreclinicalCmcConfig(),
-    batch_results: parseOptionalPreclinicalBatchResults(),
-    stability_results: parseOptionalPreclinicalStabilityRows(),
-    batch_id: (preclinicalCmcBatchIdInput.value || "BATCH-001").trim() || "BATCH-001",
-  };
-}
-
-function preclinicalCmcPayload() {
-  return {
-    cmc_config: parseOptionalPreclinicalCmcConfig(),
-    batch_results: parseOptionalPreclinicalBatchResults(),
-    stability_results: parseOptionalPreclinicalStabilityRows(),
-    batch_id: (preclinicalCmcBatchIdInput.value || "BATCH-001").trim() || "BATCH-001",
-    operator: (preclinicalCmcOperatorInput.value || "TBD").trim() || "TBD",
-    site: (preclinicalCmcSiteInput.value || "TBD").trim() || "TBD",
-  };
-}
-
-async function doLoadPreclinicalTemplates() {
-  const [payload, cmcPayload] = await Promise.all([
-    api("/api/preclinical/templates", { method: "GET" }),
-    api("/api/preclinical/cmc/templates", { method: "GET" }),
-  ]);
-  const templates = payload.templates || {};
-  const cmcTemplates = cmcPayload.templates || {};
-  const study = templates.study || null;
-  const rows = templates.bioanalysis_rows || null;
-  const cmc = templates.cmc || cmcTemplates.cmc || null;
-  const cmcBatchResults =
-    templates.cmc_batch_results || cmcTemplates.batch_results || null;
-  const cmcStabilityRows =
-    templates.cmc_stability_results_rows || cmcTemplates.stability_results_rows || null;
-  if (study) {
-    preclinicalStudyInput.value = pretty(study);
-  }
-  if (rows) {
-    preclinicalRowsInput.value = pretty(rows);
-    preclinicalRowCountPreview.value = String(Array.isArray(rows) ? rows.length : 0);
-  }
-  if (cmc) {
-    preclinicalCmcInput.value = pretty(cmc);
-  }
-  if (cmcBatchResults) {
-    preclinicalCmcBatchResultsInput.value = pretty(cmcBatchResults);
-  }
-  if (cmcStabilityRows) {
-    preclinicalCmcStabilityResultsInput.value = pretty(cmcStabilityRows);
-  }
-  showOutput("Preclinical Templates", {
-    preclinical: payload,
-    cmc: cmcPayload,
-  });
-}
-
-async function doPlanPreclinical() {
-  const payload = preclinicalPayload();
-  const result = await api("/api/preclinical/plan", {
-    method: "POST",
-    body: JSON.stringify({
-      study: payload.study,
-      seed: payload.seed,
-    }),
-  });
-  showOutput("Preclinical Plan", result);
-}
-
-async function doSchedulePreclinical() {
-  const payload = preclinicalPayload();
-  const result = await api("/api/preclinical/schedule", {
-    method: "POST",
-    body: JSON.stringify({
-      study: payload.study,
-    }),
-  });
-  showOutput("Preclinical Schedule", result);
-}
-
-async function doBioanalyzePreclinical() {
-  const payload = preclinicalPayload();
-  const result = await api("/api/preclinical/bioanalysis", {
-    method: "POST",
-    body: JSON.stringify({
-      study: payload.study,
-      rows: payload.rows,
-      lloq_ng_ml: payload.lloq_ng_ml,
-    }),
-  });
-  showOutput("Preclinical Bioanalysis", result);
-}
+async function refreshJobs() {
+  const status = jobStatusFilter.value;
+  const query = status ? `?limit=80&status=${encodeURIComponent(status)}` : "?limit=80";
+  const payload = await api(`/api/jobs${query}`, { method: "GET" });
+  const jobs = Array.isArray(payload.jobs) ? payload.jobs : [];
 
-async function doRunPreclinicalWorkup() {
-  const payload = preclinicalWorkupPayload();
-  const result = await api("/api/preclinical/workup", {
-    method: "POST",
-    body: JSON.stringify({
-      study: payload.study,
-      rows: payload.rows,
-      seed: payload.seed,
-      lloq_ng_ml: payload.lloq_ng_ml,
-      cmc_config: payload.cmc_config,
-      stability_results: payload.stability_results,
-      batch_results: payload.batch_results,
-      batch_id: payload.batch_id,
-    }),
-  });
-  showOutput("Preclinical Workup", result);
-}
-
-async function doPlanPreclinicalCmc() {
-  const payload = preclinicalCmcPayload();
-  const result = await api("/api/preclinical/cmc/plan", {
-    method: "POST",
-    body: JSON.stringify({
-      cmc_config: payload.cmc_config,
-    }),
-  });
-  showOutput("Preclinical CMC Plan", result);
-}
-
-async function doBatchRecordPreclinical() {
-  const payload = preclinicalCmcPayload();
-  const result = await api("/api/preclinical/cmc/batch-record", {
-    method: "POST",
-    body: JSON.stringify({
-      cmc_config: payload.cmc_config,
-      batch_id: payload.batch_id,
-      operator: payload.operator,
-      site: payload.site,
-    }),
-  });
-  showOutput("Preclinical Batch Record", result);
-}
-
-async function doStabilityPlanPreclinical() {
-  const payload = preclinicalCmcPayload();
-  const result = await api("/api/preclinical/cmc/stability-plan", {
-    method: "POST",
-    body: JSON.stringify({
-      cmc_config: payload.cmc_config,
-      batch_ids: [payload.batch_id],
-    }),
-  });
-  showOutput("Preclinical Stability Plan", result);
-}
-
-async function doStabilityAssessPreclinical() {
-  const payload = preclinicalCmcPayload();
-  if (!payload.stability_results) {
-    throw new Error("Provide CMC stability rows JSON before running stability assessment");
+  state.jobs = jobs;
+  if (state.selectedJobId && !jobs.some((job) => job.job_id === state.selectedJobId)) {
+    state.selectedJobId = null;
   }
-  const result = await api("/api/preclinical/cmc/stability-assess", {
-    method: "POST",
-    body: JSON.stringify({
-      cmc_config: payload.cmc_config,
-      rows: payload.stability_results,
-    }),
-  });
-  showOutput("Preclinical Stability Assessment", result);
-}
 
-async function doReleaseAssessPreclinical() {
-  const payload = preclinicalCmcPayload();
-  if (!payload.batch_results) {
-    throw new Error("Provide CMC batch results JSON before running release assessment");
-  }
-  const result = await api("/api/preclinical/cmc/release-assess", {
-    method: "POST",
-    body: JSON.stringify({
-      cmc_config: payload.cmc_config,
-      batch_results: payload.batch_results,
-      stability_results: payload.stability_results,
-    }),
-  });
-  showOutput("Preclinical Release Assessment", result);
+  renderJobCounts(payload.counts || {});
+  renderJobsTable(jobs);
 }
 
 function currentRunPayload() {
-  const plan = parseJsonText(planInput.value, "Plan");
-  const prompt = systemPromptInput.value.trim();
   return {
-    objective: objectiveInput.value,
-    system_prompt: prompt || null,
+    objective: requireObjective(),
+    system_prompt: systemPromptInput.value.trim() || null,
     dry_run: dryRunToggle.checked,
     async_mode: asyncToggle.checked,
     autonomous: false,
-    max_rounds: Number(maxRoundsInput.value || 3),
-    max_calls: Number(maxCallsInput.value || 10),
+    max_rounds: positiveInt(maxRoundsInput.value, 3),
+    max_calls: positiveInt(maxCallsInput.value, 10),
     allow_skip_validate_first: skipValidateFirstToggle.checked,
-    plan,
-    program_id: currentProgramId(),
+    plan: parseJsonText(planInput.value, "Plan"),
   };
-}
-
-function formatJsonTextarea(textarea, label) {
-  const parsed = parseJsonText(textarea.value, label);
-  if (!parsed) {
-    throw new Error(`${label} is empty`);
-  }
-  textarea.value = pretty(parsed);
 }
 
 function loadObjectiveTemplate() {
@@ -3105,42 +357,23 @@ function loadObjectiveTemplate() {
   if (!template) {
     throw new Error("No objective template selected");
   }
-  objectiveInput.value = template.objective;
+  objectiveInput.value = template.objective || "";
   showOutput("Objective Template Loaded", template);
-}
-
-function loadPlanTemplate() {
-  const template = selectedTemplate(planTemplateSelect, state.examples.plan_templates);
-  if (!template) {
-    throw new Error("No plan template selected");
-  }
-  planInput.value = pretty(template.plan);
-  showOutput("Plan Template Loaded", template);
-}
-
-function loadPortfolioTemplate() {
-  const template = selectedTemplate(portfolioTemplateSelect, state.examples.portfolio_templates);
-  if (!template) {
-    throw new Error("No portfolio template selected");
-  }
-  portfolioInput.value = pretty(template.programs);
-  showOutput("Portfolio Template Loaded", template);
 }
 
 function loadClawCuresObjective() {
   const objective = state.ecosystem?.clawcures?.default_objective;
   if (!objective) {
-    throw new Error("ClawCures objective is not available yet");
+    throw new Error("Default ClawCures objective is not available");
   }
   objectiveInput.value = objective;
-  showOutput("ClawCures Objective Loaded", { objective });
+  showOutput("Default Objective Loaded", { objective });
 }
 
 async function doPlan() {
-  const prompt = systemPromptInput.value.trim();
   const payload = {
-    objective: objectiveInput.value,
-    system_prompt: prompt || null,
+    objective: requireObjective(),
+    system_prompt: systemPromptInput.value.trim() || null,
   };
   const result = await api("/api/plan", {
     method: "POST",
@@ -3148,6 +381,7 @@ async function doPlan() {
   });
   if (result.plan) {
     planInput.value = pretty(result.plan);
+    advancedOptions.open = true;
   }
   showOutput("Planner Response", result);
 }
@@ -3160,9 +394,13 @@ async function doRun({ autonomous }) {
     method: "POST",
     body: JSON.stringify(payload),
   });
+
+  if (result.job_id) {
+    state.selectedJobId = result.job_id;
+  }
+
   showOutput(autonomous ? "Autonomous Run Submitted" : "Run Submitted", result);
   await refreshJobs();
-  await refreshDrugPortfolio();
 }
 
 async function doValidatePlan() {
@@ -3170,16 +408,15 @@ async function doValidatePlan() {
   if (!plan) {
     throw new Error("Plan must not be empty");
   }
-
-  const payload = {
-    plan,
-    max_calls: Number(maxCallsInput.value || 10),
-    allow_skip_validate_first: skipValidateFirstToggle.checked,
-  };
   const result = await api("/api/plan/validate", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      plan,
+      max_calls: positiveInt(maxCallsInput.value, 10),
+      allow_skip_validate_first: skipValidateFirstToggle.checked,
+    }),
   });
+  advancedOptions.open = true;
   showOutput("Plan Validation", result);
 }
 
@@ -3188,40 +425,24 @@ async function doExecutePlan() {
   if (!plan) {
     throw new Error("Plan must not be empty");
   }
-
-  const payload = {
-    plan,
-    async_mode: asyncToggle.checked,
-    program_id: currentProgramId(),
-  };
   const result = await api("/api/plan/execute", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      plan,
+      async_mode: asyncToggle.checked,
+    }),
   });
+  if (result.job_id) {
+    state.selectedJobId = result.job_id;
+  }
+  advancedOptions.open = true;
   showOutput("Plan Execution", result);
   await refreshJobs();
-  await refreshDrugPortfolio();
-}
-
-async function doRankPortfolio() {
-  const programs = parseJsonText(portfolioInput.value, "Portfolio");
-  if (!Array.isArray(programs)) {
-    throw new Error("Portfolio input must be a JSON array");
-  }
-
-  const payload = {
-    programs,
-  };
-  const result = await api("/api/portfolio/rank", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-  showOutput("Portfolio Ranking", result);
 }
 
 async function doCancelSelectedJob() {
   if (!state.selectedJobId) {
-    throw new Error("No job selected");
+    throw new Error("Select a job before cancelling");
   }
   const result = await api(`/api/jobs/${state.selectedJobId}/cancel`, {
     method: "POST",
@@ -3241,275 +462,6 @@ async function doClearFinishedJobs() {
   await refreshJobs();
 }
 
-async function doGenerateHandoff() {
-  const plan = parseJsonText(planInput.value, "Plan");
-  const payload = {
-    objective: objectiveInput.value,
-    system_prompt: systemPromptInput.value.trim() || null,
-    plan,
-    autonomous: false,
-    dry_run: dryRunToggle.checked,
-    max_calls: Number(maxCallsInput.value || 10),
-    allow_skip_validate_first: skipValidateFirstToggle.checked,
-    write_file: handoffWriteFileToggle.checked,
-    artifact_name: handoffArtifactNameInput.value.trim() || null,
-  };
-
-  const result = await api("/api/clawcures/handoff", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-
-  state.handoff = result;
-  renderHandoffCommands(result);
-  showOutput("ClawCures Handoff", result);
-}
-
-function bindKeyboardShortcuts() {
-  document.addEventListener("keydown", (event) => {
-    if (!event.metaKey && !event.ctrlKey) {
-      return;
-    }
-    if (event.key === "Enter" && event.shiftKey) {
-      event.preventDefault();
-      wrapAction(() => doRun({ autonomous: true }));
-      return;
-    }
-    if (event.key === "Enter") {
-      event.preventDefault();
-      wrapAction(() => doRun({ autonomous: false }));
-    }
-  });
-}
-
-function bindActions() {
-  document.getElementById("planButton").addEventListener("click", () => wrapAction(doPlan));
-  document.getElementById("runButton").addEventListener("click", () =>
-    wrapAction(() => doRun({ autonomous: false }))
-  );
-  document.getElementById("autonomousButton").addEventListener("click", () =>
-    wrapAction(() => doRun({ autonomous: true }))
-  );
-
-  document.getElementById("validatePlanButton").addEventListener("click", () =>
-    wrapAction(doValidatePlan)
-  );
-  document.getElementById("executePlanButton").addEventListener("click", () =>
-    wrapAction(doExecutePlan)
-  );
-  document.getElementById("rankPortfolioButton").addEventListener("click", () =>
-    wrapAction(doRankPortfolio)
-  );
-
-  document.getElementById("loadObjectiveTemplateButton").addEventListener("click", () =>
-    wrapAction(loadObjectiveTemplate)
-  );
-  document.getElementById("loadPlanTemplateButton").addEventListener("click", () =>
-    wrapAction(loadPlanTemplate)
-  );
-  document.getElementById("loadPortfolioTemplateButton").addEventListener("click", () =>
-    wrapAction(loadPortfolioTemplate)
-  );
-  document.getElementById("loadClawCuresObjectiveButton").addEventListener("click", () =>
-    wrapAction(loadClawCuresObjective)
-  );
-
-  document.getElementById("formatPlanButton").addEventListener("click", () =>
-    wrapAction(() => formatJsonTextarea(planInput, "Plan"))
-  );
-  document.getElementById("formatPortfolioButton").addEventListener("click", () =>
-    wrapAction(() => formatJsonTextarea(portfolioInput, "Portfolio"))
-  );
-
-  document.getElementById("refreshJobsButton").addEventListener("click", () => wrapAction(refreshJobs));
-  document.getElementById("cancelJobButton").addEventListener("click", () =>
-    wrapAction(doCancelSelectedJob)
-  );
-  document.getElementById("clearFinishedJobsButton").addEventListener("click", () =>
-    wrapAction(doClearFinishedJobs)
-  );
-  document.getElementById("jobStatusFilter").addEventListener("change", () => {
-    wrapAction(refreshJobs);
-  });
-
-  document.getElementById("refreshToolsButton").addEventListener("click", () =>
-    wrapAction(refreshTools)
-  );
-  document.getElementById("refreshDrugPortfolioButton").addEventListener("click", () =>
-    wrapAction(refreshDrugPortfolio)
-  );
-  drugMinScoreInput.addEventListener("change", () => {
-    wrapAction(refreshDrugPortfolio);
-  });
-  drugSearchInput.addEventListener("input", () => {
-    renderDrugPortfolioView();
-  });
-  drugSortSelect.addEventListener("change", () => {
-    renderDrugPortfolioView();
-  });
-  document.getElementById("refreshEcosystemButton").addEventListener("click", () =>
-    wrapAction(async () => {
-      await refreshEcosystem();
-      await refreshHealth();
-    })
-  );
-  document.getElementById("refreshCommandCenterButton").addEventListener("click", () =>
-    wrapAction(refreshCommandCenter)
-  );
-  document.getElementById("syncProgramJobsButton").addEventListener("click", () =>
-    wrapAction(doSyncProgramJobs)
-  );
-  document.getElementById("loadProgramButton").addEventListener("click", () =>
-    wrapAction(doLoadProgram)
-  );
-  document.getElementById("upsertProgramButton").addEventListener("click", () =>
-    wrapAction(doUpsertProgram)
-  );
-  document.getElementById("approveProgramButton").addEventListener("click", () =>
-    wrapAction(doApproveProgram)
-  );
-  document.getElementById("evaluateProgramGateButton").addEventListener("click", () =>
-    wrapAction(doEvaluateProgramGate)
-  );
-  gateTemplateSelect.addEventListener("change", () => {
-    applyGateTemplateDefaults({ force: false });
-    renderGateTemplatePreview();
-  });
-  gateMetricsInput.addEventListener("input", () => {
-    renderGateTemplatePreview();
-  });
-  document.getElementById("loadGateTemplateDefaultsButton").addEventListener("click", () => {
-    applyGateTemplateDefaults({ force: true });
-    renderGateTemplatePreview();
-  });
-  document.getElementById("listDatasetsButton").addEventListener("click", () =>
-    wrapAction(doListDatasets)
-  );
-  document.getElementById("materializeDatasetButton").addEventListener("click", () =>
-    wrapAction(doMaterializeDataset)
-  );
-  document.getElementById("runBenchmarkGateButton").addEventListener("click", () =>
-    wrapAction(doRunBenchmarkGate)
-  );
-  document.getElementById("validateWetlabProtocolButton").addEventListener("click", () =>
-    wrapAction(doValidateWetlabProtocol)
-  );
-  document.getElementById("runWetlabProtocolButton").addEventListener("click", () =>
-    wrapAction(doRunWetlabProtocol)
-  );
-  document.getElementById("buildRegulatoryBundleButton").addEventListener("click", () =>
-    wrapAction(doBuildRegulatoryBundle)
-  );
-  document.getElementById("verifyRegulatoryBundleButton").addEventListener("click", () =>
-    wrapAction(doVerifyRegulatoryBundle)
-  );
-  document.getElementById("generateHandoffButton").addEventListener("click", () =>
-    wrapAction(doGenerateHandoff)
-  );
-  document.getElementById("refreshClinicalTrialsButton").addEventListener("click", () =>
-    wrapAction(refreshClinicalTrials)
-  );
-  document.getElementById("loadClinicalTrialButton").addEventListener("click", () =>
-    wrapAction(loadClinicalTrial)
-  );
-  document.getElementById("addClinicalTrialButton").addEventListener("click", () =>
-    wrapAction(doAddClinicalTrial)
-  );
-  document.getElementById("updateClinicalTrialButton").addEventListener("click", () =>
-    wrapAction(doUpdateClinicalTrial)
-  );
-  document.getElementById("removeClinicalTrialButton").addEventListener("click", () =>
-    wrapAction(doRemoveClinicalTrial)
-  );
-  document.getElementById("enrollClinicalPatientButton").addEventListener("click", () =>
-    wrapAction(doEnrollClinicalPatient)
-  );
-  document.getElementById("enrollClinicalSimulatedButton").addEventListener("click", () =>
-    wrapAction(doEnrollClinicalSimulated)
-  );
-  document.getElementById("addClinicalResultButton").addEventListener("click", () =>
-    wrapAction(doAddClinicalResult)
-  );
-  document.getElementById("upsertClinicalSiteButton").addEventListener("click", () =>
-    wrapAction(doUpsertClinicalSite)
-  );
-  document.getElementById("screenClinicalPatientButton").addEventListener("click", () =>
-    wrapAction(doScreenClinicalPatient)
-  );
-  document.getElementById("recordClinicalVisitButton").addEventListener("click", () =>
-    wrapAction(doRecordClinicalVisit)
-  );
-  document.getElementById("addClinicalQueryButton").addEventListener("click", () =>
-    wrapAction(doAddClinicalQuery)
-  );
-  document.getElementById("updateClinicalQueryButton").addEventListener("click", () =>
-    wrapAction(doUpdateClinicalQuery)
-  );
-  document.getElementById("addClinicalDeviationButton").addEventListener("click", () =>
-    wrapAction(doAddClinicalDeviation)
-  );
-  document.getElementById("addClinicalSafetyEventButton").addEventListener("click", () =>
-    wrapAction(doAddClinicalSafetyEvent)
-  );
-  document.getElementById("upsertClinicalMilestoneButton").addEventListener("click", () =>
-    wrapAction(doUpsertClinicalMilestone)
-  );
-  document.getElementById("refreshClinicalOpsButton").addEventListener("click", () =>
-    wrapAction(doRefreshClinicalOps)
-  );
-  document.getElementById("loadPreclinicalTemplatesButton").addEventListener("click", () =>
-    wrapAction(doLoadPreclinicalTemplates)
-  );
-  document.getElementById("planPreclinicalButton").addEventListener("click", () =>
-    wrapAction(doPlanPreclinical)
-  );
-  document.getElementById("schedulePreclinicalButton").addEventListener("click", () =>
-    wrapAction(doSchedulePreclinical)
-  );
-  document.getElementById("bioanalyzePreclinicalButton").addEventListener("click", () =>
-    wrapAction(doBioanalyzePreclinical)
-  );
-  document.getElementById("runPreclinicalWorkupButton").addEventListener("click", () =>
-    wrapAction(doRunPreclinicalWorkup)
-  );
-  document.getElementById("planPreclinicalCmcButton").addEventListener("click", () =>
-    wrapAction(doPlanPreclinicalCmc)
-  );
-  document.getElementById("batchRecordPreclinicalButton").addEventListener("click", () =>
-    wrapAction(doBatchRecordPreclinical)
-  );
-  document.getElementById("stabilityPlanPreclinicalButton").addEventListener("click", () =>
-    wrapAction(doStabilityPlanPreclinical)
-  );
-  document.getElementById("stabilityAssessPreclinicalButton").addEventListener("click", () =>
-    wrapAction(doStabilityAssessPreclinical)
-  );
-  document.getElementById("releaseAssessPreclinicalButton").addEventListener("click", () =>
-    wrapAction(doReleaseAssessPreclinical)
-  );
-  document.getElementById("simulateClinicalTrialButton").addEventListener("click", () =>
-    wrapAction(doSimulateClinicalTrial)
-  );
-  clinicalTrialSelect.addEventListener("change", () => {
-    state.selectedClinicalTrialId = clinicalTrialSelect.value || null;
-    if (state.selectedClinicalTrialId) {
-      clinicalTrialIdInput.value = state.selectedClinicalTrialId;
-    }
-  });
-  preclinicalRowsInput.addEventListener("input", () => {
-    try {
-      const rows = parseJsonText(preclinicalRowsInput.value, "Preclinical rows");
-      preclinicalRowCountPreview.value = String(Array.isArray(rows) ? rows.length : 0);
-    } catch (_err) {
-      preclinicalRowCountPreview.value = "0";
-    }
-  });
-
-  document.getElementById("clearOutputButton").addEventListener("click", () => {
-    resultOutput.textContent = "";
-  });
-}
-
 async function wrapAction(fn) {
   try {
     await fn();
@@ -3518,381 +470,97 @@ async function wrapAction(fn) {
   }
 }
 
+function bindKeyboardShortcuts() {
+  document.addEventListener("keydown", (event) => {
+    if (!event.metaKey && !event.ctrlKey) {
+      return;
+    }
+    if (event.key !== "Enter") {
+      return;
+    }
+    event.preventDefault();
+    if (event.shiftKey) {
+      wrapAction(() => doRun({ autonomous: true }));
+      return;
+    }
+    wrapAction(() => doRun({ autonomous: false }));
+  });
+}
+
+function bindActions() {
+  document.getElementById("refreshEcosystemButton").addEventListener("click", () =>
+    wrapAction(async () => {
+      await refreshEcosystem();
+      await refreshHealth();
+    })
+  );
+  document.getElementById("loadObjectiveTemplateButton").addEventListener("click", () =>
+    wrapAction(loadObjectiveTemplate)
+  );
+  document.getElementById("loadClawCuresObjectiveButton").addEventListener("click", () =>
+    wrapAction(loadClawCuresObjective)
+  );
+  document.getElementById("planButton").addEventListener("click", () => wrapAction(doPlan));
+  document.getElementById("runButton").addEventListener("click", () =>
+    wrapAction(() => doRun({ autonomous: false }))
+  );
+  document.getElementById("autonomousButton").addEventListener("click", () =>
+    wrapAction(() => doRun({ autonomous: true }))
+  );
+  document.getElementById("validatePlanButton").addEventListener("click", () =>
+    wrapAction(doValidatePlan)
+  );
+  document.getElementById("executePlanButton").addEventListener("click", () =>
+    wrapAction(doExecutePlan)
+  );
+  document.getElementById("refreshJobsButton").addEventListener("click", () =>
+    wrapAction(refreshJobs)
+  );
+  document.getElementById("cancelJobButton").addEventListener("click", () =>
+    wrapAction(doCancelSelectedJob)
+  );
+  document.getElementById("clearFinishedJobsButton").addEventListener("click", () =>
+    wrapAction(doClearFinishedJobs)
+  );
+  document.getElementById("clearOutputButton").addEventListener("click", () => {
+    resultOutput.textContent = "No actions yet.";
+  });
+  jobStatusFilter.addEventListener("change", () => {
+    wrapAction(refreshJobs);
+  });
+}
+
 function seedFallbackDefaults() {
   if (!objectiveInput.value.trim()) {
     objectiveInput.value =
       "Design an initial campaign against KRAS G12D with ranked candidates and clear validation milestones.";
   }
-
   if (!systemPromptInput.value.trim()) {
     systemPromptInput.value = "";
   }
-
   if (!planInput.value.trim()) {
-    planInput.value = pretty({
-      calls: [
-        {
-          tool: "refua_validate_spec",
-          args: {
-            action: "fold",
-            name: "initial_kras_probe",
-            entities: [
-              {
-                type: "protein",
-                id: "A",
-                sequence: "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ",
-              },
-              {
-                type: "ligand",
-                id: "lig",
-                smiles: "CCO",
-              },
-            ],
-            affinity: {
-              binder: "lig",
-            },
-          },
-        },
-      ],
-    });
-  }
-
-  if (!portfolioInput.value.trim()) {
-    portfolioInput.value = pretty([
-      {
-        name: "Pancreatic cancer",
-        burden: 0.92,
-        tractability: 0.45,
-        unmet_need: 0.95,
-        translational_readiness: 0.62,
-        novelty: 0.7,
-      },
-      {
-        name: "Tuberculosis",
-        burden: 0.88,
-        tractability: 0.68,
-        unmet_need: 0.9,
-        translational_readiness: 0.58,
-        novelty: 0.66,
-      },
-    ]);
-  }
-
-  if (!clinicalTrialIdInput.value.trim()) {
-    clinicalTrialIdInput.value = "studio-clinical-demo";
-  }
-
-  if (!clinicalTrialConfigInput.value.trim()) {
-    clinicalTrialConfigInput.value = pretty({
-      replicates: 8,
-      enrollment: {
-        total_n: 80,
-      },
-      adaptive: {
-        burn_in_n: 20,
-        interim_every: 20,
-      },
-    });
-  }
-
-  if (!clinicalPatientInput.value.trim()) {
-    clinicalPatientInput.value = pretty({
-      patient_id: "human-001",
-      source: "human",
-      arm_id: "control",
-      site_id: "site-01",
-      demographics: {
-        age: 62,
-        weight: 76,
-      },
-      baseline: {
-        endpoint_value: 48.1,
-      },
-      metadata: {
-        site_id: "site-01",
-      },
-    });
-  }
-
-  if (!clinicalResultInput.value.trim()) {
-    clinicalResultInput.value = pretty({
-      patient_id: "human-001",
-      site_id: "site-01",
-      result_type: "endpoint",
-      visit: "week-12",
-      source: "human",
-      values: {
-        arm_id: "control",
-        change: 4.6,
-        responder: false,
-        safety_event: false,
-      },
-    });
-  }
-
-  if (!clinicalOpsInput.value.trim()) {
-    clinicalOpsInput.value = pretty({
-      site_id: "site-01",
-      name: "Boston General",
-      country_id: "US",
-      status: "active",
-      principal_investigator: "Dr. Rivera",
-      target_enrollment: 24,
-      patient_id: "human-001",
-      description: "Missing week-4 lab panel",
-      event_term: "grade_2_neutropenia",
-      seriousness: "non_serious",
-      expected: true,
-      visit_type: "interim",
-      findings: ["Source docs complete"],
-      action_items: ["Continue weekly QC checks"],
-      risk_score: 0.35,
-      milestone_id: "ms-lpi",
-      target_date: "2026-08-30T00:00:00+00:00",
-    });
-  }
-
-  if (!preclinicalStudyInput.value.trim()) {
-    preclinicalStudyInput.value = pretty({
-      study_id: "preclinical-demo-001",
-      title: "28-day rat repeat-dose tox + TK",
-      indication: "Oncology",
-      species: "Rat",
-      strain: "Sprague-Dawley",
-      modality: "small_molecule",
-      study_type: "repeat_dose_toxicology",
-      start_date: "2026-03-01",
-      duration_days: 28,
-      dosing_days: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-      arms: [
-        {
-          arm_id: "vehicle",
-          treatment: "vehicle_control",
-          dose_mg_per_kg: 0,
-          route: "PO",
-          frequency_per_day: 1,
-          n_animals: 10,
-          sex: "mixed",
-        },
-        {
-          arm_id: "high",
-          treatment: "rx-001",
-          dose_mg_per_kg: 100,
-          route: "PO",
-          frequency_per_day: 1,
-          n_animals: 10,
-          sex: "mixed",
-        },
-      ],
-      sampling: {
-        analyte: "parent",
-        matrix: "plasma",
-        timepoints_hr: [0.5, 1, 2, 4, 8, 24],
-        days: [1, 14],
-        stabilization_minutes: 30,
-      },
-      glp: {
-        statement_of_compliance: true,
-        quality_assurance_unit: true,
-        protocol_approved: true,
-        sop_index: true,
-        instrument_calibration_records: true,
-        computer_system_validation: true,
-        sample_chain_of_custody: true,
-        raw_data_archival_plan: true,
-      },
-    });
-  }
-
-  if (!preclinicalRowsInput.value.trim()) {
-    preclinicalRowsInput.value = pretty([
-      {
-        sample_id: "high-001-d1-0p5",
-        arm_id: "high",
-        animal_id: "high-001",
-        analyte: "parent",
-        matrix: "plasma",
-        day: 1,
-        time_hr: 0.5,
-        concentration_ng_ml: 24.2,
-      },
-      {
-        sample_id: "high-001-d1-1p0",
-        arm_id: "high",
-        animal_id: "high-001",
-        analyte: "parent",
-        matrix: "plasma",
-        day: 1,
-        time_hr: 1.0,
-        concentration_ng_ml: 35.1,
-      },
-      {
-        sample_id: "high-001-d1-2p0",
-        arm_id: "high",
-        animal_id: "high-001",
-        analyte: "parent",
-        matrix: "plasma",
-        day: 1,
-        time_hr: 2.0,
-        concentration_ng_ml: 29.3,
-      },
-    ]);
-  }
-  try {
-    const previewRows = parseJsonText(preclinicalRowsInput.value, "Preclinical rows");
-    preclinicalRowCountPreview.value = String(Array.isArray(previewRows) ? previewRows.length : 0);
-  } catch (_err) {
-    preclinicalRowCountPreview.value = "0";
-  }
-
-  if (!preclinicalCmcInput.value.trim()) {
-    preclinicalCmcInput.value = pretty({
-      product_name: "RX-001 immediate-release tablet",
-      dosage_form: "tablet",
-      strength_mg: 50.0,
-      target_batch_size_units: 100000,
-      release_criteria: {
-        assay_percent: { min: 95.0, max: 105.0, unit: "% label claim" },
-        content_uniformity_av: { max: 15.0, unit: "AV" },
-        dissolution_q30_percent: { min: 80.0, unit: "%" },
-        total_impurities_percent: { max: 2.0, unit: "%" },
-      },
-    });
-  }
-  if (!preclinicalCmcBatchResultsInput.value.trim()) {
-    preclinicalCmcBatchResultsInput.value = pretty({
-      assay_percent: 99.1,
-      content_uniformity_av: 8.6,
-      dissolution_q30_percent: 92.4,
-      total_impurities_percent: 0.6,
-      water_content_percent: 1.4,
-      appearance_score: 5.0,
-    });
-  }
-  if (!preclinicalCmcStabilityResultsInput.value.trim()) {
-    preclinicalCmcStabilityResultsInput.value = pretty([
-      {
-        batch_id: "BATCH-001",
-        condition_id: "long_term_25c_60rh",
-        timepoint_month: 0,
-        test: "assay_percent",
-        value: 100.1,
-        unit: "% label claim",
-      },
-      {
-        batch_id: "BATCH-001",
-        condition_id: "long_term_25c_60rh",
-        timepoint_month: 6,
-        test: "assay_percent",
-        value: 98.9,
-        unit: "% label claim",
-      },
-    ]);
-  }
-  if (!preclinicalCmcBatchIdInput.value.trim()) {
-    preclinicalCmcBatchIdInput.value = "BATCH-001";
-  }
-  if (!preclinicalCmcOperatorInput.value.trim()) {
-    preclinicalCmcOperatorInput.value = "TBD";
-  }
-  if (!preclinicalCmcSiteInput.value.trim()) {
-    preclinicalCmcSiteInput.value = "TBD";
-  }
-
-  if (!programIdInput.value.trim()) {
-    programIdInput.value = "kras-g12d-program";
-  }
-  if (!programNameInput.value.trim()) {
-    programNameInput.value = "KRAS G12D Lead Program";
-  }
-  if (!programStageInput.value.trim()) {
-    programStageInput.value = "lead_optimization";
-  }
-  if (!programIndicationInput.value.trim()) {
-    programIndicationInput.value = "Pancreatic cancer";
-  }
-  if (!programOwnerInput.value.trim()) {
-    programOwnerInput.value = "oncology-team";
-  }
-  if (!datasetIdInput.value.trim()) {
-    datasetIdInput.value = "chembl_activity_ki_human";
-  }
-  if (!benchSuitePathInput.value.trim()) {
-    benchSuitePathInput.value = "refua-bench/benchmarks/sample_suite.yaml";
-  }
-  if (!benchBaselinePathInput.value.trim()) {
-    benchBaselinePathInput.value = "refua-bench/benchmarks/sample_baseline_run.json";
-  }
-  if (!benchPredictionsPathInput.value.trim()) {
-    benchPredictionsPathInput.value = "refua-bench/benchmarks/sample_predictions_candidate.json";
-  }
-  if (!wetlabProtocolInput.value.trim()) {
-    wetlabProtocolInput.value = pretty({
-      name: "serial-dilution-screen",
-      steps: [
-        {
-          type: "transfer",
-          source: "plate:A1",
-          destination: "plate:B1",
-          volume_ul: 50,
-        },
-        {
-          type: "mix",
-          well: "plate:B1",
-          volume_ul: 40,
-          cycles: 5,
-        },
-        {
-          type: "incubate",
-          duration_s: 300,
-          temperature_c: 37,
-        },
-        {
-          type: "read_absorbance",
-          plate: "plate",
-          wavelength_nm: 450,
-        },
-      ],
-    });
-  }
-  if (!regulatoryOutputDirInput.value.trim()) {
-    regulatoryOutputDirInput.value = ".clawcures-ui/regulatory/bundle_studio";
-  }
-  if (!gateMetricsInput.value.trim()) {
-    gateMetricsInput.value = pretty({});
-  }
-  if (!programEventTimeline.innerHTML.trim()) {
-    programEventTimeline.innerHTML = '<div class="timeline-empty">Load a program to inspect timeline events.</div>';
+    planInput.value = "";
   }
 }
 
 async function init() {
-  initThemeToggle();
-  initTabs();
   seedFallbackDefaults();
-  bootstrapWidgetSparks();
-  updateTelemetryWidgets();
   bindActions();
   bindKeyboardShortcuts();
 
-  await wrapAction(refreshExamples);
-  await wrapAction(refreshEcosystem);
-  await wrapAction(refreshHealth);
-  await wrapAction(refreshTools);
-  await wrapAction(refreshJobs);
-  await wrapAction(refreshDrugPortfolio);
-  await wrapAction(refreshClinicalTrials);
-  await wrapAction(refreshCommandCenter);
+  await Promise.allSettled([
+    refreshExamples(),
+    refreshEcosystem(),
+    refreshHealth(),
+    refreshJobs(),
+  ]);
 
   if (state.pollTimer) {
     clearInterval(state.pollTimer);
   }
   state.pollTimer = setInterval(() => {
-    wrapAction(refreshHealth);
-    wrapAction(refreshJobs);
-    wrapAction(refreshDrugPortfolio);
-    wrapAction(refreshClinicalTrials);
-    wrapAction(refreshCommandCenter);
+    refreshHealth().catch(() => {});
+    refreshJobs().catch(() => {});
   }, 5000);
 }
 

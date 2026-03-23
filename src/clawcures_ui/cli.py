@@ -39,6 +39,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Max background workers for jobs",
     )
     parser.add_argument(
+        "--no-autostart-agent",
+        action="store_true",
+        help=(
+            "Disable the default continuous discovery agent that starts with the UI. "
+            "Can also be controlled with CLAWCURES_UI_AUTOSTART_AGENT "
+            "or REFUA_STUDIO_AUTOSTART_AGENT."
+        ),
+    )
+    parser.add_argument(
         "--open-browser",
         action="store_true",
         help="Open browser automatically after startup",
@@ -99,6 +108,17 @@ def main(argv: list[str] | None = None) -> int:
         data_dir=args.data_dir,
         workspace_root=args.workspace_root,
         max_workers=max(1, int(args.max_workers)),
+        autostart_agent=(
+            False
+            if bool(args.no_autostart_agent)
+            else _resolve_bool_setting(
+                env_names=(
+                    "CLAWCURES_UI_AUTOSTART_AGENT",
+                    "REFUA_STUDIO_AUTOSTART_AGENT",
+                ),
+                default=True,
+            )
+        ),
         auth_tokens=auth_tokens,
         operator_tokens=operator_tokens,
         admin_tokens=admin_tokens,
@@ -159,6 +179,25 @@ def _parse_csv_tokens(raw: str) -> list[str]:
         if normalized:
             tokens.append(normalized)
     return tokens
+
+
+def _resolve_bool_setting(
+    *,
+    env_names: tuple[str, ...],
+    default: bool,
+) -> bool:
+    for env_name in env_names:
+        raw = os.environ.get(env_name, "").strip().lower()
+        if not raw:
+            continue
+        if raw in {"1", "true", "yes", "on"}:
+            return True
+        if raw in {"0", "false", "no", "off"}:
+            return False
+        raise ValueError(
+            f"{env_name} must be one of: 1, 0, true, false, yes, no, on, off."
+        )
+    return bool(default)
 
 
 if __name__ == "__main__":

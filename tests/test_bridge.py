@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import os
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -22,13 +20,33 @@ class CampaignBridgeTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.bridge.shutdown()
 
+    def test_default_objective_is_non_empty(self) -> None:
+        self.assertTrue(self.bridge.default_objective().strip())
+
     def test_available_tools_has_known_entries(self) -> None:
         tools, _warnings = self.bridge.available_tools()
         self.assertIn("refua_validate_spec", tools)
         self.assertIn("refua_protein_properties", tools)
         self.assertIn("refua_data_list", tools)
 
-    def test_validate_plan(self) -> None:
+    def test_examples_payload(self) -> None:
+        payload = self.bridge.examples()
+        self.assertIn("objectives", payload)
+        self.assertGreaterEqual(len(payload["objectives"]), 1)
+        first = payload["objectives"][0]
+        self.assertIn("label", first)
+        self.assertIn("objective", first)
+
+    def test_ecosystem_payload(self) -> None:
+        payload = self.bridge.ecosystem()
+        self.assertIn("products", payload)
+        self.assertIn("clawcures", payload)
+        self.assertIsInstance(payload["products"], list)
+        self.assertGreaterEqual(len(payload["products"]), 1)
+        self.assertIn("default_objective", payload["clawcures"])
+        self.assertIn("tool_allowlist", payload["clawcures"])
+
+    def test_validate_plan_accepts_simple_valid_plan(self) -> None:
         payload = self.bridge.validate_plan(
             plan={
                 "calls": [
@@ -40,330 +58,21 @@ class CampaignBridgeTest(unittest.TestCase):
         )
         self.assertTrue(payload["approved"])
         self.assertEqual(payload["errors"], [])
+        self.assertIn("refua_validate_spec", payload["allowed_tools"])
 
-    def test_rank_portfolio(self) -> None:
-        payload = self.bridge.rank_portfolio(
-            programs=[
-                {"name": "A", "burden": 0.9, "tractability": 0.2, "unmet_need": 0.9},
-                {"name": "B", "burden": 0.7, "tractability": 0.9, "unmet_need": 0.7},
-            ],
-            weights=None,
+    def test_validate_plan_rejects_invalid_plan(self) -> None:
+        payload = self.bridge.validate_plan(
+            plan={
+                "calls": [
+                    {"tool": "refua_affinity", "args": {}},
+                    {"tool": "not_a_real_tool", "args": {}},
+                ]
+            },
+            max_calls=1,
+            allow_skip_validate_first=False,
         )
-        self.assertIn("ranked", payload)
-        self.assertEqual(len(payload["ranked"]), 2)
-
-    def test_examples_payload(self) -> None:
-        payload = self.bridge.examples()
-        self.assertIn("objectives", payload)
-        self.assertIn("plan_templates", payload)
-        self.assertGreaterEqual(len(payload["objectives"]), 1)
-
-    def test_ecosystem_payload(self) -> None:
-        payload = self.bridge.ecosystem()
-        self.assertIn("products", payload)
-        self.assertIn("clawcures", payload)
-        self.assertIsInstance(payload["products"], list)
-        self.assertGreaterEqual(len(payload["products"]), 1)
-        self.assertIn("default_objective", payload["clawcures"])
-        names = {item.get("name") for item in payload["products"]}
-        self.assertIn("clawcures-ui", names)
-
-    def test_command_center_capabilities(self) -> None:
-        payload = self.bridge.command_center_capabilities()
-        self.assertIn("integrations", payload)
-        self.assertGreaterEqual(len(payload["integrations"]), 1)
-
-    def test_wetlab_protocol_validation(self) -> None:
-        payload = self.bridge.wetlab_validate_protocol(
-            protocol={
-                "name": "bridge-wetlab",
-                "steps": [
-                    {
-                        "type": "transfer",
-                        "source": "plate:A1",
-                        "destination": "plate:B1",
-                        "volume_ul": 20,
-                    }
-                ],
-            }
-        )
-        self.assertTrue(payload["valid"])
-
-    def test_wetlab_lms_routes(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            db_path = Path(tmp) / "wetlab.sqlite3"
-            created = self.bridge.wetlab_lms_post(
-                path="/api/lms/projects",
-                payload={"name": "Bridge LMS"},
-                database_path=db_path,
-                max_workers=1,
-            )
-            project = created["project"]
-            self.assertIn("project_id", project)
-
-            summary = self.bridge.wetlab_lms_get(
-                path="/api/lms/summary",
-                query={},
-                database_path=db_path,
-                max_workers=1,
-            )
-            self.assertGreaterEqual(summary["counts"]["projects"]["total"], 1)
-
-    def test_build_clawcures_handoff(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            payload = self.bridge.build_clawcures_handoff(
-                objective="Bridge handoff test",
-                plan={"calls": [{"tool": "refua_validate_spec", "args": {}}]},
-                system_prompt=None,
-                autonomous=False,
-                dry_run=True,
-                max_calls=10,
-                allow_skip_validate_first=False,
-                write_file=True,
-                artifact_dir=Path(tmp),
-                artifact_name="bridge_test_handoff.json",
-            )
-            self.assertIn("artifact", payload)
-            self.assertIn("commands", payload)
-            self.assertIsNotNone(payload["artifact_path"])
-            assert payload["artifact_path"] is not None
-            self.assertTrue(Path(payload["artifact_path"]).exists())
-
-    def test_clinical_trial_bridge_flow(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            previous = os.environ.get("REFUA_CLINICAL_TRIAL_STORE")
-            os.environ["REFUA_CLINICAL_TRIAL_STORE"] = str(
-                Path(tmp) / "clinical_trials.json"
-            )
-            try:
-                created = self.bridge.add_clinical_trial(
-                    trial_id="bridge-clinical",
-                    config=None,
-                    indication="Oncology",
-                    phase="Phase II",
-                    objective="Bridge clinical flow",
-                    status="planned",
-                    metadata=None,
-                )
-                self.assertEqual(created["trial"]["trial_id"], "bridge-clinical")
-
-                listing = self.bridge.list_clinical_trials()
-                self.assertGreaterEqual(listing["count"], 1)
-
-                site = self.bridge.upsert_clinical_site(
-                    trial_id="bridge-clinical",
-                    site_id="site-001",
-                    name="Boston General",
-                    country_id="US",
-                    status="active",
-                    principal_investigator="Dr. Rivera",
-                    target_enrollment=20,
-                    metadata={},
-                )
-                self.assertEqual(site["site"]["site_id"], "site-001")
-
-                enrolled = self.bridge.enroll_clinical_patient(
-                    trial_id="bridge-clinical",
-                    patient_id="human-001",
-                    source="human",
-                    arm_id="control",
-                    site_id="site-001",
-                    demographics={"age": 60},
-                    baseline={"endpoint_value": 50.0},
-                    metadata={},
-                )
-                self.assertEqual(enrolled["patient"]["patient_id"], "human-001")
-
-                result = self.bridge.add_clinical_result(
-                    trial_id="bridge-clinical",
-                    patient_id="human-001",
-                    values={
-                        "arm_id": "control",
-                        "change": 4.2,
-                        "responder": False,
-                        "safety_event": False,
-                    },
-                    result_type="endpoint",
-                    visit="week-12",
-                    source="human",
-                    site_id="site-001",
-                )
-                self.assertIn("result", result)
-
-                _ = self.bridge.record_clinical_screening(
-                    trial_id="bridge-clinical",
-                    site_id="site-001",
-                    patient_id="screen-001",
-                    status="screen_failed",
-                    arm_id=None,
-                    source="human",
-                    failure_reason="criteria",
-                    demographics=None,
-                    baseline=None,
-                    metadata=None,
-                    auto_enroll=False,
-                )
-                _ = self.bridge.record_clinical_monitoring_visit(
-                    trial_id="bridge-clinical",
-                    site_id="site-001",
-                    visit_type="interim",
-                    findings=["missing source signatures"],
-                    action_items=["retrain coordinator"],
-                    risk_score=0.8,
-                    outcome=None,
-                    metadata=None,
-                )
-                query = self.bridge.add_clinical_query(
-                    trial_id="bridge-clinical",
-                    patient_id="human-001",
-                    site_id="site-001",
-                    field_name="ecg_date",
-                    description="Missing baseline ECG",
-                    status="open",
-                    severity="major",
-                    assignee=None,
-                    due_at="2000-01-01T00:00:00+00:00",
-                    metadata=None,
-                )
-                self.assertIn("query", query)
-                query_id = query["query"]["query_id"]
-                _ = self.bridge.update_clinical_query(
-                    trial_id="bridge-clinical",
-                    query_id=query_id,
-                    updates={"status": "resolved", "resolution": "ECG uploaded"},
-                )
-                _ = self.bridge.add_clinical_deviation(
-                    trial_id="bridge-clinical",
-                    description="Visit window deviation",
-                    site_id="site-001",
-                    patient_id="human-001",
-                    category="protocol",
-                    severity="major",
-                    status="open",
-                    corrective_action=None,
-                    preventive_action=None,
-                    metadata=None,
-                )
-                _ = self.bridge.add_clinical_safety_event(
-                    trial_id="bridge-clinical",
-                    patient_id="human-001",
-                    event_term="grade_3_neutropenia",
-                    site_id="site-001",
-                    seriousness="serious",
-                    expected=False,
-                    relatedness="possible",
-                    outcome="recovering",
-                    action_taken="dose_hold",
-                    metadata=None,
-                )
-                _ = self.bridge.upsert_clinical_milestone(
-                    trial_id="bridge-clinical",
-                    milestone_id="ms-lpi",
-                    name="Last Patient In",
-                    target_date="2000-01-01T00:00:00+00:00",
-                    status="at_risk",
-                    owner=None,
-                    actual_date=None,
-                    metadata=None,
-                )
-                sites = self.bridge.list_clinical_sites(trial_id="bridge-clinical")
-                self.assertGreaterEqual(sites["count"], 1)
-                ops = self.bridge.clinical_ops_snapshot(trial_id="bridge-clinical")
-                self.assertGreaterEqual(ops["clinops"]["site_count"], 1)
-
-                simulated = self.bridge.simulate_clinical_trial(
-                    trial_id="bridge-clinical",
-                    replicates=3,
-                    seed=7,
-                )
-                self.assertIn("simulation", simulated)
-            finally:
-                if previous is None:
-                    os.environ.pop("REFUA_CLINICAL_TRIAL_STORE", None)
-                else:
-                    os.environ["REFUA_CLINICAL_TRIAL_STORE"] = previous
-
-    def test_preclinical_bridge_flow(self) -> None:
-        templates = self.bridge.preclinical_templates()
-        self.assertIn("templates", templates)
-        self.assertIn("study", templates["templates"])
-        self.assertIn("cmc_references", templates)
-        study = templates["templates"]["study"]
-        rows = templates["templates"]["bioanalysis_rows"]
-        cmc = templates["templates"]["cmc"]
-        batch_results = templates["templates"]["cmc_batch_results"]
-        stability_rows = templates["templates"]["cmc_stability_results_rows"]
-
-        plan = self.bridge.preclinical_plan(study=study, seed=5)
-        self.assertIn("plan", plan)
-        self.assertEqual(plan["plan"]["study_id"], study["study_id"])
-
-        schedule = self.bridge.preclinical_schedule(study=study)
-        self.assertIn("schedule", schedule)
-        self.assertGreater(schedule["schedule"]["event_count"], 0)
-
-        bio = self.bridge.preclinical_bioanalysis(
-            study=study, rows=rows, lloq_ng_ml=1.0
-        )
-        self.assertIn("bioanalysis", bio)
-        self.assertGreaterEqual(bio["bioanalysis"]["parsed_rows"], 1)
-
-        workup = self.bridge.preclinical_workup(
-            study=study,
-            rows=rows,
-            seed=7,
-            lloq_ng_ml=1.0,
-            cmc_config=cmc,
-            stability_results=stability_rows,
-            batch_results=batch_results,
-            batch_id="BATCH-STUDIO-001",
-        )
-        self.assertIn("workup", workup)
-        self.assertIn("cmc", workup["workup"])
-        self.assertEqual(
-            workup["workup"]["cmc"]["batch_record"]["batch_id"],
-            "BATCH-STUDIO-001",
-        )
-
-        cmc_templates = self.bridge.preclinical_cmc_templates()
-        self.assertIn("templates", cmc_templates)
-        self.assertIn("cmc", cmc_templates["templates"])
-
-        cmc_plan = self.bridge.preclinical_cmc_plan(cmc_config=cmc)
-        self.assertIn("cmc_plan", cmc_plan)
-        self.assertIn("quality_by_design", cmc_plan["cmc_plan"])
-
-        batch_record = self.bridge.preclinical_batch_record(
-            cmc_config=cmc,
-            batch_id="BATCH-STUDIO-001",
-            operator="qa-user",
-            site="pilot-site",
-            manufacture_date=None,
-        )
-        self.assertIn("batch_record", batch_record)
-        self.assertEqual(batch_record["batch_record"]["batch_id"], "BATCH-STUDIO-001")
-
-        stability_plan = self.bridge.preclinical_stability_plan(
-            cmc_config=cmc,
-            batch_ids=["BATCH-STUDIO-001"],
-        )
-        self.assertIn("stability_plan", stability_plan)
-        self.assertGreater(stability_plan["stability_plan"]["sample_count"], 0)
-
-        stability_assessment = self.bridge.preclinical_stability_assess(
-            cmc_config=cmc,
-            rows=stability_rows,
-        )
-        self.assertIn("stability_assessment", stability_assessment)
-        self.assertEqual(stability_assessment["stability_assessment"]["oos_count"], 0)
-
-        release_assessment = self.bridge.preclinical_release_assess(
-            cmc_config=cmc,
-            batch_results=batch_results,
-            stability_results=stability_rows,
-        )
-        self.assertIn("release_assessment", release_assessment)
-        self.assertTrue(release_assessment["release_assessment"]["passed"])
+        self.assertFalse(payload["approved"])
+        self.assertGreaterEqual(len(payload["errors"]), 1)
 
 
 if __name__ == "__main__":

@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 import tempfile
 import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 from urllib.error import HTTPError
-from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,16 +23,13 @@ from clawcures_ui.config import StudioConfig
 class StudioApiTest(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
-        self._prev_trial_store = os.environ.get("REFUA_CLINICAL_TRIAL_STORE")
-        os.environ["REFUA_CLINICAL_TRIAL_STORE"] = str(
-            Path(self._tmp.name) / "data" / "clinical_trials.json"
-        )
         config = StudioConfig(
             host="127.0.0.1",
             port=0,
             data_dir=Path(self._tmp.name) / "data",
             workspace_root=Path(__file__).resolve().parents[2],
             max_workers=1,
+            autostart_agent=False,
         )
         self.server, self.app = create_server(config)
         self.host, self.port = self.server.server_address
@@ -45,10 +41,6 @@ class StudioApiTest(unittest.TestCase):
         self.server.server_close()
         self.app.shutdown()
         self._thread.join(timeout=2)
-        if self._prev_trial_store is None:
-            os.environ.pop("REFUA_CLINICAL_TRIAL_STORE", None)
-        else:
-            os.environ["REFUA_CLINICAL_TRIAL_STORE"] = self._prev_trial_store
         self._tmp.cleanup()
 
     def _request(
@@ -81,729 +73,75 @@ class StudioApiTest(unittest.TestCase):
                 return {"status_code": exc.code, "body": parsed}
             raise AssertionError(f"HTTP {exc.code} for {path}: {body}") from exc
 
-    def test_health_and_tools(self) -> None:
+    def _request_text(self, path: str) -> tuple[int, str, str]:
+        url = f"http://{self.host}:{self.port}{path}"
+        request = Request(url, method="GET")
+        with urlopen(request, timeout=5) as response:
+            return (
+                response.status,
+                response.headers.get_content_type(),
+                response.read().decode("utf-8"),
+            )
+
+    def test_health_examples_and_ecosystem_endpoints(self) -> None:
         health = self._request("GET", "/api/health")
         self.assertTrue(health["ok"])
+        self.assertIn("tools_count", health)
+        self.assertIn("job_counts", health)
 
-        tools = self._request("GET", "/api/tools")
-        self.assertIn("tools", tools)
-        self.assertIn("refua_validate_spec", tools["tools"])
-        self.assertIn("refua_protein_properties", tools["tools"])
-        self.assertIn("refua_data_list", tools["tools"])
+        examples = self._request("GET", "/api/examples")
+        self.assertIn("objectives", examples)
+        self.assertGreaterEqual(len(examples["objectives"]), 1)
 
-    def test_examples_endpoint(self) -> None:
-        payload = self._request("GET", "/api/examples")
-        self.assertIn("objectives", payload)
-        self.assertIn("plan_templates", payload)
+        ecosystem = self._request("GET", "/api/ecosystem")
+        self.assertIn("products", ecosystem)
+        self.assertIn("clawcures", ecosystem)
+        self.assertIn("default_objective", ecosystem["clawcures"])
 
-    def test_ecosystem_endpoint(self) -> None:
-        payload = self._request("GET", "/api/ecosystem")
-        self.assertIn("products", payload)
-        self.assertIn("clawcures", payload)
-        self.assertIsInstance(payload["products"], list)
-        self.assertGreaterEqual(len(payload["products"]), 1)
-        self.assertIn("default_objective", payload["clawcures"])
-        names = {item.get("name") for item in payload["products"]}
-        self.assertIn("clawcures-ui", names)
+    def test_removed_ui_endpoints_return_404(self) -> None:
+        removed_gets = [
+            "/api/tools",
+            "/api/config",
+            "/api/command-center/capabilities",
+            "/api/drug-portfolio",
+            "/api/clinical/trials",
+            "/api/preclinical/templates",
+        ]
+        for path in removed_gets:
+            payload = self._request("GET", path, allow_error=True)
+            self.assertEqual(payload["status_code"], 404, path)
 
-    def test_command_center_capabilities_endpoint(self) -> None:
-        payload = self._request("GET", "/api/command-center/capabilities")
-        self.assertIn("integrations", payload)
-        self.assertGreaterEqual(len(payload["integrations"]), 1)
-
-    def test_clawcures_handoff_endpoint(self) -> None:
-        payload = self._request(
-            "POST",
+        removed_posts = [
             "/api/clawcures/handoff",
-            {
-                "objective": "Offline handoff generation",
-                "plan": {
-                    "calls": [
-                        {"tool": "refua_validate_spec", "args": {}},
-                    ]
-                },
-                "write_file": False,
-            },
-        )
-        self.assertIn("artifact", payload)
-        self.assertIn("commands", payload)
-        self.assertIsNone(payload["artifact_path"])
-        self.assertGreaterEqual(len(payload["commands"]), 1)
-
-    def test_drug_portfolio_endpoint(self) -> None:
-        job = self.app.store.create_job(
-            kind="candidate-run", request={"objective": "find drugs"}
-        )
-        self.app.store.set_running(job["job_id"])
-        self.app.store.set_completed(
-            job["job_id"],
-            {
-                "promising_cures": [
-                    {
-                        "cure_id": "refua_fold:candidate_x",
-                        "name": "candidate_x",
-                        "smiles": "CCN",
-                        "target": "EGFR",
-                        "tool": "refua_fold",
-                        "score": 84.0,
-                        "promising": True,
-                        "assessment": "promising profile",
-                        "metrics": {
-                            "binding_probability": 0.9,
-                            "admet_score": 0.8,
-                        },
-                        "admet": {
-                            "status": "success",
-                            "key_metrics": {"admet_score": 0.8},
-                            "properties": {"results[0].predictions.hERG": 0.12},
-                        },
-                    }
-                ],
-                "results": [
-                    {
-                        "tool": "refua_fold",
-                        "args": {"name": "candidate_x", "smiles": "CCN"},
-                        "output": {
-                            "target": "EGFR",
-                            "binding_probability": 0.9,
-                            "admet_score": 0.8,
-                            "assessment": "promising",
-                        },
-                    }
-                ],
-            },
-        )
-
-        payload = self._request("GET", "/api/drug-portfolio?min_score=0&limit=20")
-        self.assertIn("summary", payload)
-        self.assertIn("candidates", payload)
-        self.assertGreaterEqual(payload["summary"]["returned_candidates"], 1)
-        self.assertGreaterEqual(payload["summary"]["with_admet_properties"], 1)
-        self.assertIn("admet", payload["candidates"][0])
-        self.assertIn("report_card", payload["candidates"][0])
-        self.assertEqual(
-            payload["candidates"][0]["report_card"]["readiness"]["label"], "Advance"
-        )
-
-        alias_payload = self._request(
-            "GET", "/api/promising-cures?min_score=0&limit=20"
-        )
-        self.assertIn("summary", alias_payload)
-        self.assertIn("candidates", alias_payload)
-
-    def test_structure_file_endpoint_reads_file_within_allowed_roots(self) -> None:
-        structure_path = Path(self._tmp.name) / "data" / "structures" / "candidate.cif"
-        structure_path.parent.mkdir(parents=True, exist_ok=True)
-        structure_path.write_text(
-            "data_candidate\nloop_\n_atom_site.group_PDB\nATOM\n",
-            encoding="utf-8",
-        )
-
-        encoded = quote(str(structure_path))
-        payload = self._request("GET", f"/api/structure-file?path={encoded}")
-        self.assertEqual(payload["format"], "mmcif")
-        self.assertEqual(payload["encoding"], "utf-8")
-        self.assertTrue(Path(payload["path"]).samefile(structure_path))
-        self.assertIn("data_candidate", payload["content"])
-
-    def test_structure_file_endpoint_rejects_path_outside_allowed_roots(self) -> None:
-        outside_dir = Path(tempfile.mkdtemp())
-        outside_path = outside_dir / "outside.pdb"
-        outside_path.write_text(
-            "HEADER    OUTSIDE\nATOM      1  N   ALA A   1\n",
-            encoding="utf-8",
-        )
-        try:
-            encoded = quote(str(outside_path))
-            payload = self._request(
-                "GET",
-                f"/api/structure-file?path={encoded}",
-                allow_error=True,
-            )
-            self.assertEqual(payload["status_code"], 400)
-            self.assertIn("workspace root", payload["body"]["error"])
-        finally:
-            outside_path.unlink(missing_ok=True)
-            outside_dir.rmdir()
-
-    def test_program_graph_endpoints(self) -> None:
-        upserted = self._request(
-            "POST",
+            "/api/portfolio/rank",
             "/api/programs/upsert",
-            {
-                "program_id": "kras-program",
-                "name": "KRAS Program",
-                "stage": "hit_to_lead",
-                "owner": "team-a",
-            },
-        )
-        self.assertEqual(upserted["program"]["program_id"], "kras-program")
-
-        _ = self._request(
-            "POST",
-            "/api/programs/kras-program/events/add",
-            {
-                "event_type": "campaign_run",
-                "title": "Run submitted",
-                "status": "queued",
-                "payload": {"objective": "test"},
-            },
-        )
-        approval = self._request(
-            "POST",
-            "/api/programs/kras-program/approve",
-            {
-                "gate": "stage_gate",
-                "decision": "approved",
-                "signer": "user-1",
-                "signature": "sig-1",
-            },
-        )
-        self.assertEqual(approval["approval"]["decision"], "approved")
-
-        detail = self._request("GET", "/api/programs/kras-program")
-        self.assertEqual(detail["program"]["program_id"], "kras-program")
-        self.assertGreaterEqual(len(detail["events"]), 1)
-        self.assertGreaterEqual(len(detail["approvals"]), 1)
-
-    def test_stage_gate_and_job_sync_endpoints(self) -> None:
-        _ = self._request(
-            "POST",
-            "/api/programs/upsert",
-            {
-                "program_id": "sync-program",
-                "name": "Sync Program",
-                "owner": "team-sync",
-            },
-        )
-
-        templates = self._request("GET", "/api/program-gates/templates")
-        self.assertGreaterEqual(templates["count"], 1)
-
-        gate = self._request(
-            "POST",
-            "/api/programs/sync-program/gate-evaluate",
-            {
-                "template_id": "hit_to_lead",
-                "metrics": {
-                    "promising_leads": 4,
-                    "mean_admet_score": 0.7,
-                    "mean_binding_probability": 0.81,
-                },
-                "auto_record": True,
-            },
-        )
-        self.assertIn("evaluation", gate)
-        self.assertTrue(gate["evaluation"]["passed"])
-
-        run_payload = self._request(
-            "POST",
-            "/api/run",
-            {
-                "objective": "Sync jobs test",
-                "dry_run": True,
-                "async_mode": True,
-                "program_id": "sync-program",
-                "plan": {
-                    "calls": [
-                        {"tool": "refua_validate_spec", "args": {}},
-                    ]
-                },
-            },
-        )
-        self.assertIn("job", run_payload)
-        job_id = run_payload["job"]["job_id"]
-
-        deadline = time.time() + 5
-        while time.time() < deadline:
-            current = self._request("GET", f"/api/jobs/{job_id}")
-            if current["status"] in {"completed", "failed", "cancelled"}:
-                break
-            time.sleep(0.1)
-
-        synced = self._request(
-            "POST",
-            "/api/programs/sync-jobs",
-            {"limit": 100},
-        )
-        self.assertIn("linked_events", synced)
-
-        detail = self._request("GET", "/api/programs/sync-program")
-        self.assertGreaterEqual(len(detail["events"]), 1)
-
-    def test_data_wetlab_and_benchmark_endpoints(self) -> None:
-        data_payload = self._request("GET", "/api/data/datasets?limit=5")
-        self.assertGreaterEqual(data_payload["count"], 1)
-
-        wetlab_validate = self._request(
-            "POST",
-            "/api/wetlab/protocol/validate",
-            {
-                "protocol": {
-                    "name": "api-test",
-                    "steps": [
-                        {
-                            "type": "transfer",
-                            "source": "plate:A1",
-                            "destination": "plate:B1",
-                            "volume_ul": 20,
-                        }
-                    ],
-                }
-            },
-        )
-        self.assertTrue(wetlab_validate["valid"])
-
-        benchmark = self._request(
-            "POST",
-            "/api/bench/gate",
-            {
-                "suite_path": "refua-bench/benchmarks/sample_suite.yaml",
-                "baseline_run_path": "refua-bench/benchmarks/sample_baseline_run.json",
-                "adapter_spec": "file",
-                "adapter_config": {
-                    "predictions_path": "refua-bench/benchmarks/sample_predictions_candidate.json",
-                },
-                "async_mode": False,
-            },
-        )
-        self.assertIn("result", benchmark)
-        self.assertIn("comparison", benchmark["result"])
-
-    def test_wetlab_lms_endpoints(self) -> None:
-        project = self._request(
-            "POST",
-            "/api/wetlab/lms/projects",
-            {"name": "Studio LMS", "owner": "studio"},
-        )["project"]
-        project_id = project["project_id"]
-
-        sample = self._request(
-            "POST",
-            "/api/wetlab/lms/samples",
-            {
-                "project_id": project_id,
-                "name": "studio-sample-001",
-                "sample_type": "cell_lysate",
-                "volume_ul": 100,
-            },
-        )["sample"]
-        sample_id = sample["sample_id"]
-
-        experiment = self._request(
-            "POST",
-            "/api/wetlab/lms/experiments",
-            {
-                "project_id": project_id,
-                "name": "Studio LMS run",
-                "provider": "opentrons",
-                "sample_ids": [sample_id],
-                "protocol": {
-                    "name": "studio-lms-protocol",
-                    "steps": [
-                        {
-                            "type": "transfer",
-                            "source": "plate:A1",
-                            "destination": "plate:B1",
-                            "volume_ul": 15,
-                        }
-                    ],
-                },
-            },
-        )["experiment"]
-        experiment_id = experiment["experiment_id"]
-
-        scheduled = self._request(
-            "POST",
-            f"/api/wetlab/lms/experiments/{experiment_id}/schedule-run",
-            {"async_mode": False, "dry_run": True},
-        )
-        self.assertEqual(scheduled["run"]["status"], "completed")
-        self.assertEqual(scheduled["experiment"]["status"], "completed")
-
-        summary = self._request("GET", "/api/wetlab/lms/summary")
-        self.assertGreaterEqual(summary["counts"]["projects"]["total"], 1)
-
-    def test_regulatory_bundle_endpoints(self) -> None:
-        payload = self._request(
-            "POST",
             "/api/regulatory/bundle/build",
-            {
-                "campaign_run": {
-                    "objective": "regulatory test",
-                    "plan": {
-                        "calls": [
-                            {"tool": "refua_validate_spec", "args": {}},
-                        ]
-                    },
-                    "results": [
-                        {
-                            "tool": "refua_validate_spec",
-                            "args": {},
-                            "output": {"valid": True},
-                        }
-                    ],
-                },
-                "async_mode": False,
-                "overwrite": True,
-            },
-        )
-        self.assertIn("result", payload)
-        bundle_dir = payload["result"]["bundle_dir"]
-        verify = self._request(
-            "POST",
-            "/api/regulatory/bundle/verify",
-            {"bundle_dir": bundle_dir},
-        )
-        self.assertIn("result", verify)
-        self.assertIn("verification", verify["result"])
+        ]
+        for path in removed_posts:
+            payload = self._request("POST", path, {}, allow_error=True)
+            self.assertEqual(payload["status_code"], 404, path)
+
+    def test_static_ui_routes(self) -> None:
+        status, content_type, body = self._request_text("/")
+        self.assertEqual(status, 200)
+        self.assertEqual(content_type, "text/html")
+        self.assertIn("ClawCures UI", body)
+
+        status, content_type, body = self._request_text("/assets/app.js")
+        self.assertEqual(status, 200)
+        self.assertEqual(content_type, "application/javascript")
+        self.assertIn("refreshJobs", body)
 
     def test_validate_plan_endpoint(self) -> None:
         payload = self._request(
             "POST",
             "/api/plan/validate",
             {
-                "plan": {
-                    "calls": [
-                        {"tool": "refua_validate_spec", "args": {}},
-                    ]
-                },
+                "plan": {"calls": [{"tool": "refua_validate_spec", "args": {}}]},
                 "max_calls": 5,
             },
         )
         self.assertTrue(payload["approved"])
-
-    def test_portfolio_rank_endpoint(self) -> None:
-        payload = self._request(
-            "POST",
-            "/api/portfolio/rank",
-            {
-                "programs": [
-                    {
-                        "name": "Pancreatic cancer",
-                        "burden": 0.92,
-                        "tractability": 0.45,
-                        "unmet_need": 0.95,
-                    },
-                    {
-                        "name": "Tuberculosis",
-                        "burden": 0.88,
-                        "tractability": 0.68,
-                        "unmet_need": 0.90,
-                    },
-                ]
-            },
-        )
-        self.assertEqual(len(payload["ranked"]), 2)
-
-    def test_clinical_trial_management_endpoints(self) -> None:
-        created = self._request(
-            "POST",
-            "/api/clinical/trials/add",
-            {
-                "trial_id": "studio-clinical",
-                "indication": "Oncology",
-                "phase": "Phase II",
-                "objective": "Manage adaptive trial operations",
-                "status": "planned",
-            },
-        )
-        self.assertIn("trial", created)
-        self.assertEqual(created["trial"]["trial_id"], "studio-clinical")
-
-        listing = self._request("GET", "/api/clinical/trials")
-        self.assertGreaterEqual(listing["count"], 1)
-        trial_ids = [item["trial_id"] for item in listing["trials"]]
-        self.assertIn("studio-clinical", trial_ids)
-
-        detail = self._request("GET", "/api/clinical/trials/studio-clinical")
-        self.assertIn("trial", detail)
-        self.assertEqual(detail["trial"]["trial_id"], "studio-clinical")
-
-        site = self._request(
-            "POST",
-            "/api/clinical/trials/site/upsert",
-            {
-                "trial_id": "studio-clinical",
-                "site_id": "site-001",
-                "name": "Boston General",
-                "country_id": "US",
-                "status": "active",
-                "target_enrollment": 30,
-            },
-        )
-        self.assertIn("site", site)
-        self.assertEqual(site["site"]["site_id"], "site-001")
-
-        screening = self._request(
-            "POST",
-            "/api/clinical/trials/screen",
-            {
-                "trial_id": "studio-clinical",
-                "site_id": "site-001",
-                "patient_id": "screen-001",
-                "status": "screen_failed",
-                "failure_reason": "inclusion_criteria_not_met",
-            },
-        )
-        self.assertIn("screening", screening)
-
-        _ = self._request(
-            "POST",
-            "/api/clinical/trials/update",
-            {
-                "trial_id": "studio-clinical",
-                "updates": {
-                    "status": "active",
-                    "config": {
-                        "replicates": 6,
-                        "enrollment": {"total_n": 60},
-                        "adaptive": {"burn_in_n": 20, "interim_every": 20},
-                    },
-                },
-            },
-        )
-
-        enrolled = self._request(
-            "POST",
-            "/api/clinical/trials/enroll",
-            {
-                "trial_id": "studio-clinical",
-                "patient_id": "human-001",
-                "source": "human",
-                "arm_id": "control",
-                "site_id": "site-001",
-                "demographics": {"age": 62},
-            },
-        )
-        self.assertIn("patient", enrolled)
-        self.assertEqual(enrolled["patient"]["patient_id"], "human-001")
-
-        _ = self._request(
-            "POST",
-            "/api/clinical/trials/result",
-            {
-                "trial_id": "studio-clinical",
-                "patient_id": "human-001",
-                "site_id": "site-001",
-                "values": {
-                    "arm_id": "control",
-                    "change": 4.4,
-                    "responder": False,
-                    "safety_event": False,
-                },
-            },
-        )
-
-        monitoring = self._request(
-            "POST",
-            "/api/clinical/trials/monitoring/visit",
-            {
-                "trial_id": "studio-clinical",
-                "site_id": "site-001",
-                "visit_type": "interim",
-                "findings": ["missing source signatures"],
-                "action_items": ["retrain study coordinator"],
-                "risk_score": 0.8,
-            },
-        )
-        self.assertIn("monitoring_visit", monitoring)
-
-        query_added = self._request(
-            "POST",
-            "/api/clinical/trials/query/add",
-            {
-                "trial_id": "studio-clinical",
-                "site_id": "site-001",
-                "patient_id": "human-001",
-                "description": "Missing baseline ECG",
-                "status": "open",
-                "due_at": "2000-01-01T00:00:00+00:00",
-            },
-        )
-        self.assertIn("query", query_added)
-        query_id = query_added["query"]["query_id"]
-
-        query_updated = self._request(
-            "POST",
-            "/api/clinical/trials/query/update",
-            {
-                "trial_id": "studio-clinical",
-                "query_id": query_id,
-                "updates": {"status": "resolved", "resolution": "uploaded ECG source"},
-            },
-        )
-        self.assertEqual(query_updated["query"]["status"], "resolved")
-
-        deviation = self._request(
-            "POST",
-            "/api/clinical/trials/deviation/add",
-            {
-                "trial_id": "studio-clinical",
-                "site_id": "site-001",
-                "patient_id": "human-001",
-                "description": "Visit outside protocol window",
-                "severity": "major",
-            },
-        )
-        self.assertIn("deviation", deviation)
-
-        safety = self._request(
-            "POST",
-            "/api/clinical/trials/safety/add",
-            {
-                "trial_id": "studio-clinical",
-                "site_id": "site-001",
-                "patient_id": "human-001",
-                "event_term": "grade_3_neutropenia",
-                "seriousness": "serious",
-                "expected": False,
-            },
-        )
-        self.assertIn("safety_event", safety)
-
-        milestone = self._request(
-            "POST",
-            "/api/clinical/trials/milestone/upsert",
-            {
-                "trial_id": "studio-clinical",
-                "milestone_id": "ms-lpi",
-                "name": "Last Patient In",
-                "target_date": "2000-01-01T00:00:00+00:00",
-                "status": "at_risk",
-            },
-        )
-        self.assertIn("milestone", milestone)
-
-        sites = self._request("GET", "/api/clinical/trials/studio-clinical/sites")
-        self.assertGreaterEqual(sites["count"], 1)
-        self.assertEqual(sites["sites"][0]["site_id"], "site-001")
-
-        ops = self._request("GET", "/api/clinical/trials/studio-clinical/ops")
-        self.assertIn("clinops", ops)
-        self.assertGreaterEqual(ops["clinops"]["site_count"], 1)
-
-        simulated = self._request(
-            "POST",
-            "/api/clinical/trials/simulate",
-            {
-                "trial_id": "studio-clinical",
-                "replicates": 3,
-                "seed": 7,
-                "async_mode": False,
-            },
-        )
-        self.assertIn("result", simulated)
-        summary = simulated["result"]["simulation"]["summary"]
-        self.assertIn("blended_effect_estimate", summary)
-
-    def test_preclinical_endpoints(self) -> None:
-        templates = self._request("GET", "/api/preclinical/templates")
-        self.assertIn("templates", templates)
-        self.assertIn("study", templates["templates"])
-        self.assertIn("references", templates)
-        self.assertIn("cmc_references", templates)
-        self.assertGreaterEqual(len(templates["references"]), 1)
-
-        study = templates["templates"]["study"]
-        rows = templates["templates"]["bioanalysis_rows"]
-        cmc = templates["templates"]["cmc"]
-        batch_results = templates["templates"]["cmc_batch_results"]
-        stability_rows = templates["templates"]["cmc_stability_results_rows"]
-
-        plan = self._request(
-            "POST",
-            "/api/preclinical/plan",
-            {"study": study, "seed": 11},
-        )
-        self.assertIn("plan", plan)
-        self.assertEqual(plan["plan"]["study_id"], study["study_id"])
-
-        schedule = self._request(
-            "POST",
-            "/api/preclinical/schedule",
-            {"study": study},
-        )
-        self.assertIn("schedule", schedule)
-        self.assertGreater(schedule["schedule"]["event_count"], 0)
-
-        bio = self._request(
-            "POST",
-            "/api/preclinical/bioanalysis",
-            {"study": study, "rows": rows, "lloq_ng_ml": 1.0},
-        )
-        self.assertIn("bioanalysis", bio)
-        self.assertGreaterEqual(bio["bioanalysis"]["parsed_rows"], 1)
-
-        workup = self._request(
-            "POST",
-            "/api/preclinical/workup",
-            {
-                "study": study,
-                "rows": rows,
-                "seed": 7,
-                "lloq_ng_ml": 1.0,
-                "cmc_config": cmc,
-                "batch_results": batch_results,
-                "stability_results": stability_rows,
-                "batch_id": "BATCH-API-001",
-            },
-        )
-        self.assertIn("workup", workup)
-        self.assertIn("plan", workup["workup"])
-        self.assertIn("cmc", workup["workup"])
-
-        cmc_templates = self._request("GET", "/api/preclinical/cmc/templates")
-        self.assertIn("templates", cmc_templates)
-        self.assertIn("cmc", cmc_templates["templates"])
-
-        cmc_plan = self._request(
-            "POST",
-            "/api/preclinical/cmc/plan",
-            {"cmc_config": cmc},
-        )
-        self.assertIn("cmc_plan", cmc_plan)
-        self.assertIn("quality_by_design", cmc_plan["cmc_plan"])
-
-        batch_record = self._request(
-            "POST",
-            "/api/preclinical/cmc/batch-record",
-            {
-                "cmc_config": cmc,
-                "batch_id": "BATCH-API-001",
-                "operator": "qa-user",
-                "site": "pilot-site",
-            },
-        )
-        self.assertIn("batch_record", batch_record)
-        self.assertEqual(batch_record["batch_record"]["batch_id"], "BATCH-API-001")
-
-        stability_plan = self._request(
-            "POST",
-            "/api/preclinical/cmc/stability-plan",
-            {"cmc_config": cmc, "batch_ids": ["BATCH-API-001"]},
-        )
-        self.assertIn("stability_plan", stability_plan)
-        self.assertGreater(stability_plan["stability_plan"]["sample_count"], 0)
-
-        stability_assessment = self._request(
-            "POST",
-            "/api/preclinical/cmc/stability-assess",
-            {"cmc_config": cmc, "rows": stability_rows},
-        )
-        self.assertIn("stability_assessment", stability_assessment)
-
-        release_assessment = self._request(
-            "POST",
-            "/api/preclinical/cmc/release-assess",
-            {
-                "cmc_config": cmc,
-                "batch_results": batch_results,
-                "stability_results": stability_rows,
-            },
-        )
-        self.assertIn("release_assessment", release_assessment)
-        self.assertTrue(release_assessment["release_assessment"]["passed"])
 
     def test_async_run_job(self) -> None:
         run_payload = self._request(
@@ -813,11 +151,30 @@ class StudioApiTest(unittest.TestCase):
                 "objective": "Offline dry-run validation",
                 "dry_run": True,
                 "async_mode": True,
-                "plan": {
-                    "calls": [
-                        {"tool": "refua_validate_spec", "args": {}},
-                    ]
-                },
+                "plan": {"calls": [{"tool": "refua_validate_spec", "args": {}}]},
+            },
+        )
+        self.assertIn("job", run_payload)
+        job_id = run_payload["job"]["job_id"]
+
+        deadline = time.time() + 5
+        last_status = "queued"
+        while time.time() < deadline:
+            job = self._request("GET", f"/api/jobs/{job_id}")
+            last_status = job["status"]
+            if last_status in {"completed", "failed"}:
+                break
+            time.sleep(0.1)
+
+        self.assertIn(last_status, {"completed", "failed"})
+
+    def test_execute_plan_job(self) -> None:
+        run_payload = self._request(
+            "POST",
+            "/api/plan/execute",
+            {
+                "async_mode": True,
+                "plan": {"calls": [{"tool": "refua_validate_spec", "args": {}}]},
             },
         )
         self.assertIn("job", run_payload)
@@ -889,6 +246,35 @@ class StudioApiTest(unittest.TestCase):
         jobs_payload = self._request("GET", "/api/jobs?status=completed,failed")
         self.assertEqual(jobs_payload["jobs"], [])
 
+    def test_jobs_endpoint_includes_live_progress_payload(self) -> None:
+        job = self.app.store.create_job(kind="continuous_discovery_cycle", request={"id": 7})
+        self.app.store.set_running(job["job_id"])
+        self.app.store.update_progress(
+            job["job_id"],
+            {
+                "phase": "planning",
+                "summary": "Cycle 7: planning the next discovery run.",
+                "cycle_index": 7,
+                "phase_elapsed_seconds": 4.2,
+                "heartbeat_count": 3,
+                "last_heartbeat_at": "2026-03-17T18:00:00+00:00",
+            },
+        )
+
+        payload = self._request("GET", "/api/jobs?status=running")
+        matching = next(
+            item for item in payload["jobs"] if item["job_id"] == job["job_id"]
+        )
+        self.assertEqual(matching["progress"]["phase"], "planning")
+        self.assertEqual(matching["progress"]["cycle_index"], 7)
+        self.assertEqual(matching["progress"]["heartbeat_count"], 3)
+
+        detail = self._request("GET", f"/api/jobs/{job['job_id']}")
+        self.assertEqual(
+            detail["progress"]["summary"],
+            "Cycle 7: planning the next discovery run.",
+        )
+
     def test_unknown_job_returns_404(self) -> None:
         url = f"http://{self.host}:{self.port}/api/jobs/not-a-real-job"
         request = Request(url, method="GET")
@@ -900,19 +286,63 @@ class StudioApiTest(unittest.TestCase):
         error.close()
 
 
+class StudioAutostartAgentTest(unittest.TestCase):
+    @mock.patch("clawcures_ui.app.ContinuousDiscoveryService")
+    def test_create_server_starts_continuous_agent_by_default(
+        self,
+        service_cls: mock.Mock,
+    ) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        config = StudioConfig(
+            host="127.0.0.1",
+            port=0,
+            data_dir=Path(tmp.name) / "data",
+            workspace_root=Path(__file__).resolve().parents[2],
+            max_workers=1,
+            autostart_agent=True,
+        )
+        server, app = create_server(config)
+        try:
+            service_cls.assert_called_once()
+            service_cls.return_value.start.assert_called_once_with()
+        finally:
+            server.server_close()
+            app.shutdown()
+            tmp.cleanup()
+
+    @mock.patch("clawcures_ui.app.ContinuousDiscoveryService")
+    def test_create_server_skips_continuous_agent_when_disabled(
+        self,
+        service_cls: mock.Mock,
+    ) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        config = StudioConfig(
+            host="127.0.0.1",
+            port=0,
+            data_dir=Path(tmp.name) / "data",
+            workspace_root=Path(__file__).resolve().parents[2],
+            max_workers=1,
+            autostart_agent=False,
+        )
+        server, app = create_server(config)
+        try:
+            service_cls.assert_not_called()
+        finally:
+            server.server_close()
+            app.shutdown()
+            tmp.cleanup()
+
+
 class StudioApiAuthTest(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
-        self._prev_trial_store = os.environ.get("REFUA_CLINICAL_TRIAL_STORE")
-        os.environ["REFUA_CLINICAL_TRIAL_STORE"] = str(
-            Path(self._tmp.name) / "data" / "clinical_trials.json"
-        )
         config = StudioConfig(
             host="127.0.0.1",
             port=0,
             data_dir=Path(self._tmp.name) / "data",
             workspace_root=Path(__file__).resolve().parents[2],
             max_workers=1,
+            autostart_agent=False,
             auth_tokens=("viewer-token",),
             operator_tokens=("operator-token",),
             admin_tokens=("admin-token",),
@@ -927,10 +357,6 @@ class StudioApiAuthTest(unittest.TestCase):
         self.server.server_close()
         self.app.shutdown()
         self._thread.join(timeout=2)
-        if self._prev_trial_store is None:
-            os.environ.pop("REFUA_CLINICAL_TRIAL_STORE", None)
-        else:
-            os.environ["REFUA_CLINICAL_TRIAL_STORE"] = self._prev_trial_store
         self._tmp.cleanup()
 
     def _request(

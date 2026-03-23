@@ -27,6 +27,7 @@ class StudioConfig:
     data_dir: Path = field(default_factory=default_data_dir)
     max_workers: int = 2
     workspace_root: Path | None = None
+    autostart_agent: bool = True
     auth_tokens: tuple[str, ...] = ()
     operator_tokens: tuple[str, ...] = ()
     admin_tokens: tuple[str, ...] = ()
@@ -38,10 +39,6 @@ class StudioConfig:
     @property
     def database_path(self) -> Path:
         return self.data_dir / "studio.db"
-
-    @property
-    def wetlab_database_path(self) -> Path:
-        return self.data_dir / "wetlab.sqlite3"
 
     @property
     def resolved_workspace_root(self) -> Path:
