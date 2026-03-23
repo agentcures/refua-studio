@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import time
 import traceback
+from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -24,9 +26,16 @@ _ALLOWED_STRUCTURE_SUFFIXES: frozenset[str] = frozenset(
 _ROLE_VIEWER = "viewer"
 _ROLE_OPERATOR = "operator"
 _ROLE_ADMIN = "admin"
+_JOBS_STREAM_POLL_SECONDS = 1.0
+_SSE_KEEPALIVE_SECONDS = 15.0
+_SSE_RETRY_MILLISECONDS = 3000
 _JOB_RECOVERY_REASON = (
     "Studio restarted; previous in-memory job execution was interrupted."
 )
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(UTC).isoformat()
 
 
 class ApiError(Exception):
@@ -99,9 +108,24 @@ class StudioApp:
             "counts": self.store.status_counts(),
         }
 
+    def jobs_stream_payload(self, *, query: dict[str, list[str]]) -> dict[str, Any]:
+        payload = self.list_jobs(query=query)
+        jobs = payload.get("jobs")
+        job_ids = [
+            str(item.get("job_id"))
+            for item in jobs
+            if isinstance(item, dict) and str(item.get("job_id") or "").strip()
+        ] if isinstance(jobs, list) else []
+        payload["events"] = self.store.list_events(job_ids=job_ids, limit=120)
+        payload["generated_at"] = _utc_now_iso()
+        return payload
+
     def list_promising_drugs(self, *, query: dict[str, list[str]]) -> dict[str, Any]:
         limit = _parse_limit_query(query, default=300)
         return self.store.list_promising_drugs(limit=limit)
+
+    def job_event_callback(self, job_id: str) -> Any:
+        return self.store.job_event_callback(job_id)
 
     def read_structure_file(self, *, path_value: str) -> tuple[bytes, str]:
         raw_path = path_value.strip()
@@ -137,6 +161,7 @@ class StudioApp:
         job = self.store.get_job(job_id)
         if job is None:
             raise NotFoundError(f"Unknown job_id: {job_id}")
+        job["events"] = self.store.list_events(job_id=job_id, limit=80)
         return job
 
     def cancel_job(self, job_id: str) -> dict[str, Any]:
@@ -215,10 +240,16 @@ class StudioApp:
         bridge_request = dict(request_payload)
 
         if async_mode:
+            def _run_job(*, job_id: str) -> dict[str, Any]:
+                return self.bridge.run(
+                    **bridge_request,
+                    event_callback=self.job_event_callback(job_id),
+                )
+
             job = self.runner.submit(
                 kind="campaign_run",
                 request=request_payload,
-                fn=lambda: self.bridge.run(**bridge_request),
+                fn=_run_job,
             )
             return {"job": job}
 
@@ -232,10 +263,16 @@ class StudioApp:
         async_mode = bool(payload.get("async_mode", True))
 
         if async_mode:
+            def _execute_plan_job(*, job_id: str) -> dict[str, Any]:
+                return self.bridge.execute_plan(
+                    plan=plan,
+                    event_callback=self.job_event_callback(job_id),
+                )
+
             job = self.runner.submit(
                 kind="plan_execute",
                 request={"plan": plan},
-                fn=lambda: self.bridge.execute_plan(plan=plan),
+                fn=_execute_plan_job,
             )
             return {"job": job}
 
@@ -355,6 +392,131 @@ def _text_response(
     handler.send_header("Cache-Control", "no-store")
     handler.end_headers()
     handler.wfile.write(data)
+
+
+def _open_sse_response(handler: BaseHTTPRequestHandler) -> None:
+    handler.send_response(HTTPStatus.OK)
+    handler.send_header("Content-Type", "text/event-stream; charset=utf-8")
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Connection", "keep-alive")
+    handler.send_header("X-Accel-Buffering", "no")
+    handler.end_headers()
+
+
+def _write_sse_event(
+    handler: BaseHTTPRequestHandler,
+    *,
+    data: dict[str, Any],
+    event: str = "jobs",
+    event_id: str | None = None,
+    retry_ms: int | None = None,
+) -> None:
+    lines: list[str] = []
+    if retry_ms is not None:
+        lines.append(f"retry: {int(retry_ms)}")
+    if event_id:
+        lines.append(f"id: {event_id}")
+    if event:
+        lines.append(f"event: {event}")
+    payload = json.dumps(data, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    lines.append(f"data: {payload}")
+    body = ("\n".join(lines) + "\n\n").encode("utf-8")
+    handler.wfile.write(body)
+    handler.wfile.flush()
+
+
+def _write_sse_comment(handler: BaseHTTPRequestHandler, text: str) -> None:
+    body = f": {text}\n\n".encode("utf-8")
+    handler.wfile.write(body)
+    handler.wfile.flush()
+
+
+def _stream_job_snapshots(
+    handler: BaseHTTPRequestHandler,
+    app: StudioApp,
+    *,
+    query: dict[str, list[str]],
+) -> None:
+    payload = app.jobs_stream_payload(query=query)
+    serialized_payload = _jobs_stream_signature(payload)
+    _open_sse_response(handler)
+    _write_sse_event(
+        handler,
+        data=payload,
+        event="jobs",
+        event_id=str(payload.get("generated_at") or ""),
+        retry_ms=_SSE_RETRY_MILLISECONDS,
+    )
+
+    last_payload = serialized_payload
+    last_keepalive = time.monotonic()
+    while True:
+        time.sleep(_JOBS_STREAM_POLL_SECONDS)
+        next_payload = app.jobs_stream_payload(query=query)
+        next_serialized = _jobs_stream_signature(next_payload)
+        if next_serialized != last_payload:
+            _write_sse_event(
+                handler,
+                data=next_payload,
+                event="jobs",
+                event_id=str(next_payload.get("generated_at") or ""),
+                retry_ms=_SSE_RETRY_MILLISECONDS,
+            )
+            last_payload = next_serialized
+            last_keepalive = time.monotonic()
+            continue
+
+        if time.monotonic() - last_keepalive >= _SSE_KEEPALIVE_SECONDS:
+            _write_sse_comment(handler, "keepalive")
+            last_keepalive = time.monotonic()
+
+
+def _jobs_stream_signature(payload: dict[str, Any]) -> str:
+    jobs = payload.get("jobs")
+    events = payload.get("events")
+    normalized_jobs: list[dict[str, Any]] = []
+    if isinstance(jobs, list):
+        for job in jobs:
+            if not isinstance(job, dict):
+                continue
+            progress = job.get("progress")
+            normalized_progress = progress if isinstance(progress, dict) else {}
+            normalized_jobs.append(
+                {
+                    "job_id": job.get("job_id"),
+                    "kind": job.get("kind"),
+                    "status": job.get("status"),
+                    "cancel_requested": job.get("cancel_requested"),
+                    "progress": {
+                        "phase": normalized_progress.get("phase"),
+                        "summary": normalized_progress.get("summary"),
+                        "cycle_index": normalized_progress.get("cycle_index"),
+                        "plan_calls": normalized_progress.get("plan_calls"),
+                        "result_count": normalized_progress.get("result_count"),
+                        "promising_count": normalized_progress.get("promising_count"),
+                    },
+                    "error": job.get("error"),
+                }
+            )
+    normalized_events: list[int] = []
+    if isinstance(events, list):
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            event_id = event.get("event_id")
+            if isinstance(event_id, int):
+                normalized_events.append(event_id)
+    normalized_payload = {
+        "counts": payload.get("counts"),
+        "jobs": normalized_jobs,
+        "events": normalized_events,
+    }
+    return json.dumps(
+        normalized_payload,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
 
 
 def _read_json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
@@ -513,6 +675,19 @@ def create_handler(app: StudioApp):
                 if path == "/api/jobs":
                     query = parse_qs(parsed.query, keep_blank_values=False)
                     _json_response(self, HTTPStatus.OK, app.list_jobs(query=query))
+                    return
+                if path == "/api/jobs/stream":
+                    query = parse_qs(parsed.query, keep_blank_values=False)
+                    try:
+                        _stream_job_snapshots(self, app, query=query)
+                    except (
+                        BrokenPipeError,
+                        ConnectionResetError,
+                        ConnectionAbortedError,
+                        TimeoutError,
+                        OSError,
+                    ):
+                        return
                     return
                 if path == "/api/promising-drugs":
                     query = parse_qs(parsed.query, keep_blank_values=False)

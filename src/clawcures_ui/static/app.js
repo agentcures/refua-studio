@@ -2,6 +2,9 @@ const connectionChip = document.getElementById("connectionChip");
 const resultOutput = document.getElementById("resultOutput");
 const jobsBody = document.getElementById("jobsBody");
 const jobsCountSummary = document.getElementById("jobsCountSummary");
+const jobsStreamStatus = document.getElementById("jobsStreamStatus");
+const selectedJobLiveDetail = document.getElementById("selectedJobLiveDetail");
+const liveFeedList = document.getElementById("liveFeedList");
 
 const objectiveInput = document.getElementById("objectiveInput");
 const systemPromptInput = document.getElementById("systemPromptInput");
@@ -71,6 +74,12 @@ const state = {
     targets: [],
     tools: [],
   },
+  jobsStream: null,
+  jobsStreamConnected: false,
+  jobsStreamPrimed: false,
+  liveFeedEntries: [],
+  seenEventIds: new Set(),
+  latestEventsByJobId: {},
   pollTimer: null,
 };
 
@@ -82,6 +91,11 @@ function clearNode(node) {
   while (node.firstChild) {
     node.removeChild(node.firstChild);
   }
+}
+
+function shortJobId(jobId) {
+  const value = String(jobId || "").trim();
+  return value ? `${value.slice(0, 8)}...` : "-";
 }
 
 function createElement(tagName, className, text) {
@@ -133,6 +147,10 @@ function asObject(value) {
 function asText(value) {
   const normalized = typeof value === "string" ? value.trim() : "";
   return normalized || null;
+}
+
+function asJobProgress(job) {
+  return asObject(job?.progress);
 }
 
 function collectChainIds(value) {
@@ -592,6 +610,15 @@ function formatJobProgress(job) {
   if (!job || typeof job !== "object") {
     return "-";
   }
+  const progress = asJobProgress(job);
+  const summary = asText(progress.summary);
+  if (summary) {
+    return truncate(summary, 88);
+  }
+  const phase = asText(progress.phase);
+  if (phase) {
+    return phase.replaceAll("_", " ");
+  }
   if (Number.isFinite(Number(job.progress_percent))) {
     return `${Math.round(Number(job.progress_percent))}%`;
   }
@@ -652,6 +679,295 @@ function statusBadge(status) {
 
 function metricChip(text, className = "") {
   return createElement("span", `metric-chip ${className}`.trim(), text);
+}
+
+function setJobsStreamState(mode, text) {
+  jobsStreamStatus.className = `live-indicator is-${mode}`;
+  jobsStreamStatus.textContent = text;
+}
+
+function eventStatus(event) {
+  const type = String(event?.event_type || "");
+  const level = String(event?.level || "");
+  if (level === "error" || type.endsWith("failed")) {
+    return "failed";
+  }
+  if (type.endsWith("completed")) {
+    return "completed";
+  }
+  if (type.endsWith("started")) {
+    return "running";
+  }
+  return "running";
+}
+
+function eventTone(event) {
+  const status = eventStatus(event);
+  if (status === "failed") {
+    return "danger";
+  }
+  if (status === "completed") {
+    return "success";
+  }
+  return "accent";
+}
+
+function eventPhase(event) {
+  const detail = asObject(event?.detail);
+  const tool = asText(detail.tool);
+  if (tool) {
+    return tool;
+  }
+  return asText(String(event?.event_type || "").replaceAll("_", " "));
+}
+
+function applyLiveEvents(events) {
+  if (!Array.isArray(events) || events.length === 0) {
+    return;
+  }
+
+  const ordered = [...events]
+    .filter((event) => event && Number.isFinite(Number(event.event_id)))
+    .sort((left, right) => Number(left.event_id) - Number(right.event_id));
+
+  for (const event of ordered) {
+    const eventId = Number(event.event_id);
+    if (state.seenEventIds.has(eventId)) {
+      continue;
+    }
+    state.seenEventIds.add(eventId);
+    if (event.job_id) {
+      state.latestEventsByJobId[event.job_id] = event;
+    }
+    pushLiveFeedEntry({
+      label: `${shortJobId(event.job_id)} · ${eventPhase(event) || "event"}`,
+      status: eventStatus(event),
+      phase: eventPhase(event),
+      message: truncate(event.summary || "Job event", 280),
+      timestamp: event.created_at || new Date().toISOString(),
+      tone: eventTone(event),
+    });
+  }
+}
+
+function jobSnapshot(job) {
+  const progress = asJobProgress(job);
+  return {
+    status: String(job?.status || "unknown"),
+    phase: asText(progress.phase),
+    summary: asText(progress.summary),
+    error: asText(job?.error),
+    cancelRequested: Boolean(job?.cancel_requested),
+  };
+}
+
+function jobTone(job) {
+  const status = String(job?.status || "unknown");
+  if (status === "completed") {
+    return "success";
+  }
+  if (status === "failed") {
+    return "danger";
+  }
+  if (status === "queued" || status === "cancelled") {
+    return "warning";
+  }
+  return "accent";
+}
+
+function jobFeedLabel(job) {
+  return `${job?.kind || "job"} · ${shortJobId(job?.job_id)}`;
+}
+
+function jobFeedMessage(previousJob, job) {
+  const previous = previousJob ? jobSnapshot(previousJob) : null;
+  const current = jobSnapshot(job);
+  const summary = current.summary;
+  const error = current.error;
+
+  if (!previous) {
+    return summary || `Entered the queue as ${current.status}.`;
+  }
+  if (previous.status !== current.status) {
+    if (current.status === "completed") {
+      return summary || "Completed successfully.";
+    }
+    if (current.status === "failed") {
+      return error || summary || "Failed.";
+    }
+    if (current.status === "cancelled") {
+      return error || summary || "Cancelled.";
+    }
+    return summary || `Status changed to ${current.status}.`;
+  }
+  if (!previous.cancelRequested && current.cancelRequested) {
+    return "Cancellation requested.";
+  }
+  if (previous.summary !== current.summary && summary) {
+    return summary;
+  }
+  if (previous.error !== current.error && error) {
+    return error;
+  }
+  if (previous.phase !== current.phase && current.phase) {
+    return `Phase changed to ${current.phase.replaceAll("_", " ")}.`;
+  }
+  return null;
+}
+
+function pushLiveFeedEntry(entry) {
+  state.liveFeedEntries = [entry, ...state.liveFeedEntries].slice(0, 40);
+  renderLiveFeed();
+}
+
+function renderLiveFeed() {
+  clearNode(liveFeedList);
+  if (!Array.isArray(state.liveFeedEntries) || state.liveFeedEntries.length === 0) {
+    const empty = createElement("li", "live-feed-empty", "Waiting for live job events.");
+    liveFeedList.appendChild(empty);
+    return;
+  }
+
+  for (const entry of state.liveFeedEntries) {
+    const item = createElement("li", `live-feed-item is-${entry.tone || "accent"}`);
+
+    const head = createElement("div", "live-feed-head");
+    const label = createElement("div", "live-feed-job cell-mono", entry.label || "job");
+    const time = createElement("div", "live-feed-time", formatDate(entry.timestamp));
+    head.appendChild(label);
+    head.appendChild(time);
+    item.appendChild(head);
+
+    const chips = createElement("div", "chip-row");
+    chips.appendChild(statusBadge(entry.status || "unknown"));
+    if (entry.phase) {
+      chips.appendChild(metricChip(entry.phase.replaceAll("_", " "), "is-accent"));
+    }
+    item.appendChild(chips);
+
+    item.appendChild(createElement("p", "live-feed-message", entry.message || "-"));
+    liveFeedList.appendChild(item);
+  }
+}
+
+function renderSelectedJobLiveDetail() {
+  clearNode(selectedJobLiveDetail);
+  const job = state.jobs.find((item) => item.job_id === state.selectedJobId) || null;
+  if (!job) {
+    selectedJobLiveDetail.className = "live-detail-empty";
+    selectedJobLiveDetail.textContent =
+      "Select a job to keep its latest phase, summary, and errors visible here.";
+    return;
+  }
+
+  selectedJobLiveDetail.className = "live-detail-card";
+  const progress = asJobProgress(job);
+  const phase = asText(progress.phase);
+  const summary = asText(progress.summary);
+  const error = asText(job.error);
+  const objective = asText(asObject(job.request).objective);
+  const latestEvent = state.latestEventsByJobId[job.job_id] || null;
+
+  const top = createElement("div", "live-detail-top");
+  const copy = createElement("div", "live-detail-copy");
+  copy.appendChild(createElement("p", "eyebrow", "Pinned Job"));
+  copy.appendChild(createElement("h3", "live-detail-title", jobFeedLabel(job)));
+  if (job.job_id) {
+    copy.appendChild(createElement("p", "meta-text", job.job_id));
+  }
+  top.appendChild(copy);
+
+  const chips = createElement("div", "chip-row");
+  chips.appendChild(statusBadge(job.status || "unknown"));
+  if (phase) {
+    chips.appendChild(metricChip(phase.replaceAll("_", " "), "is-accent"));
+  }
+  if (job.updated_at) {
+    chips.appendChild(metricChip(`Updated ${formatDate(job.updated_at)}`));
+  }
+  if (job.duration_ms) {
+    chips.appendChild(metricChip(`Duration ${formatDuration(job.duration_ms)}`));
+  }
+  top.appendChild(chips);
+  selectedJobLiveDetail.appendChild(top);
+
+  selectedJobLiveDetail.appendChild(
+    createElement(
+      "p",
+      "live-detail-summary",
+      summary || error || "No live summary has been published for this job yet."
+    )
+  );
+
+  if (objective) {
+    selectedJobLiveDetail.appendChild(
+      createElement("p", "meta-text", `Objective: ${truncate(objective, 220)}`)
+    );
+  }
+
+  if (latestEvent?.summary) {
+    selectedJobLiveDetail.appendChild(
+      createElement(
+        "p",
+        "meta-text",
+        `Latest event: ${truncate(String(latestEvent.summary), 220)}`
+      )
+    );
+  }
+
+  if (error) {
+    selectedJobLiveDetail.appendChild(createElement("pre", "live-detail-error", error));
+  }
+}
+
+function applyJobsPayload(payload, { fromStream = false } = {}) {
+  const jobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+  const events = Array.isArray(payload.events) ? payload.events : [];
+  const previousJobsById = new Map(
+    state.jobs
+      .filter((job) => job && job.job_id)
+      .map((job) => [job.job_id, job])
+  );
+
+  if (fromStream) {
+    if (!state.jobsStreamPrimed) {
+      state.jobsStreamPrimed = true;
+      pushLiveFeedEntry({
+        label: "jobs stream",
+        status: "running",
+        phase: "connected",
+        message: "Live agent feed connected.",
+        timestamp: payload.generated_at || new Date().toISOString(),
+        tone: "accent",
+      });
+    }
+    applyLiveEvents(events);
+    for (const job of jobs) {
+      const previousJob = previousJobsById.get(job.job_id) || null;
+      const message = jobFeedMessage(previousJob, job);
+      if (!message) {
+        continue;
+      }
+      const snapshot = jobSnapshot(job);
+      pushLiveFeedEntry({
+        label: jobFeedLabel(job),
+        status: snapshot.status,
+        phase: snapshot.phase,
+        message: truncate(message, 280),
+        timestamp: job.updated_at || payload.generated_at || new Date().toISOString(),
+        tone: jobTone(job),
+      });
+    }
+  }
+
+  state.jobs = jobs;
+  if (state.selectedJobId && !jobs.some((job) => job.job_id === state.selectedJobId)) {
+    state.selectedJobId = null;
+  }
+
+  renderJobCounts(payload.counts || {});
+  renderJobsTable(jobs);
+  renderSelectedJobLiveDetail();
 }
 
 function renderEcosystem(payload) {
@@ -730,13 +1046,14 @@ function renderJobsTable(jobs) {
     statusCell.appendChild(statusBadge(job.status || "unknown"));
     row.appendChild(statusCell);
 
-    row.appendChild(createElement("td", null, formatJobProgress(job)));
+    row.appendChild(createElement("td", "cell-progress", formatJobProgress(job)));
     row.appendChild(createElement("td", null, formatDate(job.updated_at)));
     row.appendChild(createElement("td", null, formatDuration(job.duration_ms)));
 
     row.addEventListener("click", async () => {
       state.selectedJobId = job.job_id;
       renderJobsTable(state.jobs);
+      renderSelectedJobLiveDetail();
       await wrapAction(() => loadJob(job.job_id));
     });
 
@@ -748,15 +1065,49 @@ async function refreshJobs() {
   const status = jobStatusFilter.value;
   const query = status ? `?limit=80&status=${encodeURIComponent(status)}` : "?limit=80";
   const payload = await api(`/api/jobs${query}`, { method: "GET" });
-  const jobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+  applyJobsPayload(payload);
+}
 
-  state.jobs = jobs;
-  if (state.selectedJobId && !jobs.some((job) => job.job_id === state.selectedJobId)) {
-    state.selectedJobId = null;
+function jobsStreamPath() {
+  const status = jobStatusFilter.value;
+  return status
+    ? `/api/jobs/stream?limit=80&status=${encodeURIComponent(status)}`
+    : "/api/jobs/stream?limit=80";
+}
+
+function startJobsStream() {
+  if (state.jobsStream) {
+    state.jobsStream.close();
   }
 
-  renderJobCounts(payload.counts || {});
-  renderJobsTable(jobs);
+  state.jobsStream = null;
+  state.jobsStreamConnected = false;
+  state.jobsStreamPrimed = false;
+  setJobsStreamState("connecting", "Live feed connecting...");
+
+  const stream = new EventSource(jobsStreamPath());
+  state.jobsStream = stream;
+
+  stream.onopen = () => {
+    state.jobsStreamConnected = true;
+    setJobsStreamState("connecting", "Live feed online. Waiting for updates...");
+  };
+
+  stream.addEventListener("jobs", (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      applyJobsPayload(payload, { fromStream: true });
+      state.jobsStreamConnected = true;
+      setJobsStreamState("live", "Live feed connected");
+    } catch (err) {
+      setJobsStreamState("warning", `Live feed parse error: ${err.message}`);
+    }
+  });
+
+  stream.onerror = () => {
+    state.jobsStreamConnected = false;
+    setJobsStreamState("warning", "Live feed reconnecting...");
+  };
 }
 
 function currentRunPayload() {
@@ -1934,6 +2285,10 @@ function bindActions() {
   document.getElementById("clearOutputButton").addEventListener("click", () => {
     resultOutput.textContent = "No actions yet.";
   });
+  document.getElementById("clearLiveFeedButton").addEventListener("click", () => {
+    state.liveFeedEntries = [];
+    renderLiveFeed();
+  });
   document.getElementById("refreshPromisingDrugsButton").addEventListener("click", () =>
     wrapAction(refreshPromisingDrugs)
   );
@@ -1956,7 +2311,10 @@ function bindActions() {
   }
 
   jobStatusFilter.addEventListener("change", () => {
-    wrapAction(refreshJobs);
+    wrapAction(async () => {
+      await refreshJobs();
+      startJobsStream();
+    });
   });
 
   drugSearchInput.addEventListener("input", renderPromisingDrugs);
@@ -1982,7 +2340,15 @@ async function init() {
   bindActions();
   bindKeyboardShortcuts();
   openTopDrugReportButton.disabled = true;
+  renderLiveFeed();
+  renderSelectedJobLiveDetail();
+  setJobsStreamState("connecting", "Live feed connecting...");
   window.addEventListener("hashchange", syncRouteWithLocation);
+  window.addEventListener("beforeunload", () => {
+    if (state.jobsStream) {
+      state.jobsStream.close();
+    }
+  });
   syncRouteWithLocation();
 
   await Promise.allSettled([
@@ -1992,13 +2358,16 @@ async function init() {
     refreshJobs(),
     refreshPromisingDrugs(),
   ]);
+  startJobsStream();
 
   if (state.pollTimer) {
     clearInterval(state.pollTimer);
   }
   state.pollTimer = setInterval(() => {
     refreshHealth().catch(() => {});
-    refreshJobs().catch(() => {});
+    if (!state.jobsStreamConnected) {
+      refreshJobs().catch(() => {});
+    }
     refreshPromisingDrugs().catch(() => {});
   }, 5000);
 }

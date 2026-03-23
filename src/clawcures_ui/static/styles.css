@@ -509,6 +509,53 @@ summary:focus-visible {
   background: var(--panel-strong);
 }
 
+.jobs-live-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.jobs-live-meta .meta-text {
+  margin-bottom: 0;
+}
+
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(23, 35, 58, 0.08);
+  border-radius: 999px;
+  background: rgba(23, 35, 58, 0.04);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.live-indicator.is-live {
+  border-color: rgba(20, 122, 76, 0.18);
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.live-indicator.is-warning,
+.live-indicator.is-connecting {
+  border-color: rgba(166, 92, 0, 0.18);
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.live-indicator.is-offline {
+  border-color: rgba(178, 48, 48, 0.18);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 table {
   width: 100%;
   min-width: 760px;
@@ -542,6 +589,10 @@ tbody tr.is-selected {
 .cell-mono {
   font-family: var(--font-mono);
   font-size: 0.85rem;
+}
+
+.cell-progress {
+  max-width: 360px;
 }
 
 .status-pill {
@@ -581,6 +632,127 @@ tbody tr.is-selected {
 .status-pill.is-offline {
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+.live-feed-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.live-panel {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 252, 248, 0.96));
+}
+
+.section-head.section-head-compact {
+  margin-bottom: 14px;
+}
+
+.live-detail-empty,
+.live-feed-empty {
+  padding: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.live-detail-card {
+  display: grid;
+  gap: 14px;
+}
+
+.live-detail-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.live-detail-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.live-detail-title {
+  font-size: 1.02rem;
+}
+
+.live-detail-summary,
+.live-feed-message,
+.live-detail-error {
+  line-height: 1.55;
+}
+
+.live-detail-summary {
+  color: var(--ink);
+}
+
+.live-detail-error {
+  padding: 12px 14px;
+  border: 1px solid rgba(178, 48, 48, 0.18);
+  border-radius: 14px;
+  background: var(--danger-soft);
+  color: #7d2121;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.live-feed-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.live-feed-item {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-strong);
+}
+
+.live-feed-item.is-success {
+  border-color: rgba(20, 122, 76, 0.18);
+}
+
+.live-feed-item.is-warning {
+  border-color: rgba(166, 92, 0, 0.18);
+}
+
+.live-feed-item.is-danger {
+  border-color: rgba(178, 48, 48, 0.18);
+}
+
+.live-feed-item.is-accent {
+  border-color: rgba(14, 116, 144, 0.18);
+}
+
+.live-feed-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.live-feed-job {
+  font-size: 0.84rem;
+  letter-spacing: 0.04em;
+}
+
+.live-feed-time {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
 }
 
 .drug-cards {
@@ -1096,7 +1268,8 @@ tbody tr.is-selected {
   .report-facts-grid,
   .report-entity-grid,
   .detail-grid,
-  .metric-grid {
+  .metric-grid,
+  .live-feed-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1130,7 +1303,8 @@ tbody tr.is-selected {
   .report-facts-grid,
   .report-entity-grid,
   .detail-grid,
-  .metric-grid {
+  .metric-grid,
+  .live-feed-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1153,7 +1327,9 @@ tbody tr.is-selected {
   .drug-card-top,
   .report-topbar,
   .detail-hero,
-  .source-item-head {
+  .source-item-head,
+  .live-detail-top,
+  .live-feed-head {
     flex-direction: column;
   }
 }

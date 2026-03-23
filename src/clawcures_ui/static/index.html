@@ -142,6 +142,12 @@
               </div>
 
               <div id="jobsCountSummary" class="meta-text"></div>
+              <div class="jobs-live-meta">
+                <span id="jobsStreamStatus" class="live-indicator is-connecting">
+                  Live feed connecting...
+                </span>
+                <span class="meta-text">Select a job row to pin its live detail.</span>
+              </div>
 
               <div class="table-wrap">
                 <table>
@@ -157,6 +163,33 @@
                   </thead>
                   <tbody id="jobsBody"></tbody>
                 </table>
+              </div>
+
+              <div class="live-feed-grid">
+                <section class="live-panel">
+                  <div class="section-head section-head-compact">
+                    <div>
+                      <p class="eyebrow">Pinned Run</p>
+                      <h3>Selected Job Live Detail</h3>
+                    </div>
+                  </div>
+                  <div id="selectedJobLiveDetail" class="live-detail-empty">
+                    Select a job to keep its latest phase, summary, and errors visible here.
+                  </div>
+                </section>
+
+                <section class="live-panel">
+                  <div class="section-head section-head-compact">
+                    <div>
+                      <p class="eyebrow">Live Feed</p>
+                      <h3>Agent Activity</h3>
+                    </div>
+                    <button id="clearLiveFeedButton" class="btn btn-secondary">Clear Feed</button>
+                  </div>
+                  <ul id="liveFeedList" class="live-feed-list">
+                    <li class="live-feed-empty">Waiting for live job events.</li>
+                  </ul>
+                </section>
               </div>
             </section>
 

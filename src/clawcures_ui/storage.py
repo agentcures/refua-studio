@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 def _utc_now_iso() -> str:
@@ -334,8 +334,25 @@ class JobStore:
                     error_text TEXT
                 )
                 """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS job_events (
+                    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    job_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    level TEXT NOT NULL,
+                    summary TEXT NOT NULL,
+                    detail_json TEXT
+                )
+                """)
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_jobs_updated ON jobs(updated_at DESC)"
+            )
+            conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_job_events_job_created
+                ON job_events(job_id, created_at DESC, event_id DESC)
+                """
             )
             columns = {
                 str(row["name"])
@@ -533,6 +550,117 @@ class JobStore:
             return None
         return self._row_to_job(row)
 
+    def record_event(
+        self,
+        job_id: str,
+        *,
+        event_type: str,
+        summary: str,
+        level: str = "info",
+        detail: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        normalized_job_id = str(job_id).strip()
+        normalized_type = _clean_text(event_type) or "job_event"
+        normalized_summary = _clean_text(summary) or normalized_type
+        normalized_level = _clean_text(level) or "info"
+        detail_json = (
+            json.dumps(detail, ensure_ascii=True) if isinstance(detail, Mapping) else None
+        )
+        now = _utc_now_iso()
+        with self._lock, closing(self._connect()) as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO job_events(
+                    job_id, created_at, event_type, level, summary, detail_json
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    normalized_job_id,
+                    now,
+                    normalized_type,
+                    normalized_level,
+                    normalized_summary,
+                    detail_json,
+                ),
+            )
+            conn.commit()
+            event_id = int(cursor.lastrowid)
+        return {
+            "event_id": event_id,
+            "job_id": normalized_job_id,
+            "created_at": now,
+            "event_type": normalized_type,
+            "level": normalized_level,
+            "summary": normalized_summary,
+            "detail": _clean_mapping(detail),
+        }
+
+    def job_event_callback(self, job_id: str) -> Callable[[dict[str, Any]], None]:
+        normalized_job_id = str(job_id).strip()
+
+        def _callback(event: dict[str, Any]) -> None:
+            if not isinstance(event, Mapping):
+                return
+            detail = event.get("detail")
+            self.record_event(
+                normalized_job_id,
+                event_type=str(event.get("event_type") or "job_event"),
+                summary=str(event.get("summary") or "job event"),
+                level=str(event.get("level") or "info"),
+                detail=_clean_mapping(detail),
+            )
+
+        return _callback
+
+    def list_events(
+        self,
+        *,
+        limit: int = 100,
+        job_id: str | None = None,
+        job_ids: list[str] | tuple[str, ...] | None = None,
+    ) -> list[dict[str, Any]]:
+        safe_limit = min(max(int(limit), 1), 500)
+        with self._lock, closing(self._connect()) as conn:
+            if job_id is not None:
+                rows = conn.execute(
+                    """
+                    SELECT event_id, job_id, created_at, event_type, level, summary, detail_json
+                    FROM job_events
+                    WHERE job_id = ?
+                    ORDER BY event_id DESC
+                    LIMIT ?
+                    """,
+                    (job_id, safe_limit),
+                ).fetchall()
+            elif job_ids:
+                normalized_ids = [
+                    str(item).strip() for item in job_ids if str(item).strip()
+                ]
+                if not normalized_ids:
+                    return []
+                placeholders = ",".join("?" for _ in normalized_ids)
+                rows = conn.execute(
+                    f"""
+                    SELECT event_id, job_id, created_at, event_type, level, summary, detail_json
+                    FROM job_events
+                    WHERE job_id IN ({placeholders})
+                    ORDER BY event_id DESC
+                    LIMIT ?
+                    """,
+                    (*normalized_ids, safe_limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT event_id, job_id, created_at, event_type, level, summary, detail_json
+                    FROM job_events
+                    ORDER BY event_id DESC
+                    LIMIT ?
+                    """,
+                    (safe_limit,),
+                ).fetchall()
+        return [self._row_to_event(row) for row in rows]
+
     def list_jobs(
         self,
         *,
@@ -572,6 +700,17 @@ class JobStore:
             raise ValueError("statuses must not be empty")
         with self._lock, closing(self._connect()) as conn:
             placeholders = ",".join("?" for _ in statuses)
+            job_rows = conn.execute(
+                f"SELECT job_id FROM jobs WHERE status IN ({placeholders})",
+                tuple(statuses),
+            ).fetchall()
+            job_ids = [str(row["job_id"]) for row in job_rows]
+            if job_ids:
+                event_placeholders = ",".join("?" for _ in job_ids)
+                conn.execute(
+                    f"DELETE FROM job_events WHERE job_id IN ({event_placeholders})",
+                    tuple(job_ids),
+                )
             cursor = conn.execute(
                 f"DELETE FROM jobs WHERE status IN ({placeholders})",
                 tuple(statuses),
@@ -663,4 +802,18 @@ class JobStore:
             "progress": progress,
             "result": result,
             "error": row["error_text"],
+        }
+
+    @staticmethod
+    def _row_to_event(row: sqlite3.Row) -> dict[str, Any]:
+        detail_json = row["detail_json"]
+        detail = json.loads(detail_json) if isinstance(detail_json, str) else {}
+        return {
+            "event_id": int(row["event_id"]),
+            "job_id": str(row["job_id"]),
+            "created_at": str(row["created_at"]),
+            "event_type": str(row["event_type"]),
+            "level": str(row["level"]),
+            "summary": str(row["summary"]),
+            "detail": _clean_mapping(detail),
         }

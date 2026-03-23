@@ -209,6 +209,81 @@ class CampaignBridge:
             )
         return payload
 
+    def _summarize_event_value(self, value: Any, *, limit: int = 140) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, (int, float)):
+            return str(value)
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized:
+                return None
+            return normalized if len(normalized) <= limit else f"{normalized[: limit - 1].rstrip()}..."
+        if isinstance(value, list):
+            if not value:
+                return "0 items"
+            return f"{len(value)} items"
+        if isinstance(value, dict):
+            return f"{len(value)} fields"
+        return self._summarize_event_value(str(value), limit=limit)
+
+    def _summarize_tool_output(self, tool: str, output: Any) -> str:
+        if isinstance(output, dict):
+            results = output.get("results")
+            if isinstance(results, list):
+                count = output.get("count")
+                normalized_count = (
+                    int(count) if isinstance(count, (int, float)) else len(results)
+                )
+                return f"{normalized_count} results"
+            text = output.get("text")
+            if isinstance(text, str):
+                char_count = output.get("char_count")
+                if isinstance(char_count, (int, float)):
+                    return f"{int(char_count)} chars fetched"
+                return self._summarize_event_value(text, limit=100) or "text fetched"
+            if "status" in output:
+                return (
+                    self._summarize_event_value(output.get("status"), limit=80)
+                    or f"{tool} completed"
+                )
+            warning = self._summarize_event_value(output.get("warning"), limit=100)
+            if warning is not None:
+                return warning
+            output_error = self._summarize_event_value(output.get("error"), limit=100)
+            if output_error is not None:
+                return output_error
+        summary = self._summarize_event_value(output, limit=100)
+        return summary or f"{tool} completed"
+
+    def _summarize_tool_args(self, args: dict[str, Any]) -> dict[str, Any]:
+        summary: dict[str, Any] = {}
+        for key, value in args.items():
+            if isinstance(value, str):
+                normalized = value.strip()
+                if not normalized:
+                    continue
+                summary[key] = normalized if len(normalized) <= 240 else f"{normalized[:239].rstrip()}..."
+                continue
+            if isinstance(value, (int, float, bool)) or value is None:
+                summary[key] = value
+                continue
+            if isinstance(value, list):
+                summary[key] = f"{len(value)} items"
+                continue
+            if isinstance(value, dict):
+                summary[key] = f"{len(value)} fields"
+                continue
+            summary[key] = str(value)
+        return summary
+
+    def _emit_event(self, event_callback: Any, payload: dict[str, Any]) -> None:
+        if event_callback is None:
+            return
+        event_callback(payload)
+
     def _extract_promising_cures_from_results(
         self,
         serialized_results: list[dict[str, Any]],
@@ -355,7 +430,12 @@ class CampaignBridge:
             payload["warnings"] = [adapter_error]
         return payload
 
-    def execute_plan(self, *, plan: dict[str, Any]) -> dict[str, Any]:
+    def execute_plan(
+        self,
+        *,
+        plan: dict[str, Any],
+        event_callback: Any = None,
+    ) -> dict[str, Any]:
         if not isinstance(plan, dict):
             raise ValueError("plan must be a JSON object")
 
@@ -363,7 +443,103 @@ class CampaignBridge:
         if adapter_error is not None:
             raise StudioBridgeError(adapter_error)
 
-        results = self._serialize_results(adapter.execute_plan(plan))
+        calls = plan.get("calls")
+        call_count = len(calls) if isinstance(calls, list) else 0
+        self._emit_event(
+            event_callback,
+            {
+                "event_type": "plan_execution_started",
+                "level": "info",
+                "summary": f"Executing {call_count} planned calls.",
+                "detail": {
+                    "call_count": call_count,
+                },
+            },
+        )
+
+        def _adapter_event(payload: dict[str, Any]) -> None:
+            event_type = str(payload.get("event_type") or "tool_event")
+            tool = str(payload.get("tool") or "tool").strip() or "tool"
+            call_index = payload.get("call_index")
+            total_calls = payload.get("total_calls")
+            index_prefix = ""
+            if isinstance(call_index, int) and isinstance(total_calls, int) and total_calls > 0:
+                index_prefix = f"Call {call_index}/{total_calls} "
+
+            detail: dict[str, Any] = {
+                "tool": tool,
+                "call_index": call_index,
+                "total_calls": total_calls,
+                "args": self._summarize_tool_args(
+                    payload.get("args") if isinstance(payload.get("args"), dict) else {}
+                ),
+            }
+
+            if event_type == "tool_started":
+                summary = f"{index_prefix}{tool} started."
+                if detail["args"]:
+                    primary_value = next(iter(detail["args"].values()))
+                    preview = self._summarize_event_value(primary_value, limit=90)
+                    if preview:
+                        summary = f"{summary[:-1]}: {preview}."
+                self._emit_event(
+                    event_callback,
+                    {
+                        "event_type": event_type,
+                        "level": "info",
+                        "summary": summary,
+                        "detail": detail,
+                    },
+                )
+                return
+
+            if event_type == "tool_completed":
+                output = payload.get("output")
+                output_summary = self._summarize_tool_output(tool, output)
+                detail["output_summary"] = output_summary
+                self._emit_event(
+                    event_callback,
+                    {
+                        "event_type": event_type,
+                        "level": "info",
+                        "summary": f"{index_prefix}{tool} completed: {output_summary}.",
+                        "detail": detail,
+                    },
+                )
+                return
+
+            error_text = self._summarize_event_value(payload.get("error"), limit=220)
+            if error_text is not None:
+                detail["error"] = error_text
+            self._emit_event(
+                event_callback,
+                {
+                    "event_type": event_type,
+                    "level": "error",
+                    "summary": f"{index_prefix}{tool} failed: {error_text or 'unknown error'}.",
+                    "detail": detail,
+                },
+            )
+
+        try:
+            results = self._serialize_results(
+                adapter.execute_plan(plan, event_callback=_adapter_event)
+            )
+        except Exception as exc:
+            self._emit_event(
+                event_callback,
+                {
+                    "event_type": "plan_execution_failed",
+                    "level": "error",
+                    "summary": f"Plan execution failed: {exc}",
+                    "detail": {
+                        "call_count": call_count,
+                        "error": str(exc),
+                    },
+                },
+            )
+            raise
+
         cures, cures_summary, cures_error = self._extract_promising_cures_from_results(
             results
         )
@@ -379,6 +555,26 @@ class CampaignBridge:
                 "Could not extract promising cures from execution results: "
                 f"{cures_error}"
             )
+        self._emit_event(
+            event_callback,
+            {
+                "event_type": "plan_execution_completed",
+                "level": "info",
+                "summary": (
+                    f"Plan execution completed with {len(results)} result"
+                    f"{'' if len(results) == 1 else 's'}."
+                ),
+                "detail": {
+                    "call_count": call_count,
+                    "result_count": len(results),
+                    "promising_count": (
+                        cures_summary.get("promising_count")
+                        if isinstance(cures_summary, dict)
+                        else len(cures)
+                    ),
+                },
+            },
+        )
         return payload
 
     def run(
@@ -392,6 +588,7 @@ class CampaignBridge:
         max_rounds: int = 3,
         max_calls: int = 10,
         allow_skip_validate_first: bool = False,
+        event_callback: Any = None,
     ) -> dict[str, Any]:
         if autonomous:
             return self._run_autonomous(
@@ -402,12 +599,14 @@ class CampaignBridge:
                 max_rounds=max_rounds,
                 max_calls=max_calls,
                 allow_skip_validate_first=allow_skip_validate_first,
+                event_callback=event_callback,
             )
         return self._run_once(
             objective=objective,
             system_prompt=system_prompt,
             dry_run=dry_run,
             plan=plan,
+            event_callback=event_callback,
         )
 
     def _run_once(
@@ -417,6 +616,7 @@ class CampaignBridge:
         system_prompt: str | None,
         dry_run: bool,
         plan: dict[str, Any] | None,
+        event_callback: Any = None,
     ) -> dict[str, Any]:
         objective_text = objective.strip()
         if not objective_text:
@@ -451,7 +651,10 @@ class CampaignBridge:
         if dry_run:
             return payload
 
-        execution_payload = self.execute_plan(plan=resolved_plan)
+        execution_payload = self.execute_plan(
+            plan=resolved_plan,
+            event_callback=event_callback,
+        )
         payload["results"] = execution_payload["results"]
         payload["promising_cures"] = execution_payload["promising_cures"]
         if "promising_cures_summary" in execution_payload:
@@ -472,6 +675,7 @@ class CampaignBridge:
         max_rounds: int,
         max_calls: int,
         allow_skip_validate_first: bool,
+        event_callback: Any = None,
     ) -> dict[str, Any]:
         objective_text = objective.strip()
         if not objective_text:
@@ -542,7 +746,10 @@ class CampaignBridge:
                 "Autonomous planner did not produce a valid final_plan."
             )
 
-        execution_payload = self.execute_plan(plan=final_plan)
+        execution_payload = self.execute_plan(
+            plan=final_plan,
+            event_callback=event_callback,
+        )
         payload["results"] = execution_payload["results"]
         payload["promising_cures"] = execution_payload["promising_cures"]
         if "promising_cures_summary" in execution_payload:

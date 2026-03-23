@@ -182,7 +182,10 @@ class ContinuousDiscoveryService:
                         cycle_index=cycle_index,
                         plan_calls=plan_calls,
                     ):
-                        execution_payload = self._bridge.execute_plan(plan=plan)
+                        execution_payload = self._bridge.execute_plan(
+                            plan=plan,
+                            event_callback=self._store.job_event_callback(cycle_job_id),
+                        )
 
                     result = _merge_cycle_payload(
                         cycle_index=cycle_index,

@@ -43,7 +43,7 @@ class BackgroundRunner:
                 self._store.set_cancelled(job_id, "Cancelled by user before execution.")
                 return
             try:
-                result = _invoke_job_fn(fn, cancel_event=cancel_event)
+                result = _invoke_job_fn(fn, cancel_event=cancel_event, job_id=job_id)
             except JobCancelledError as exc:
                 self._store.set_cancelled(job_id, str(exc))
                 return
@@ -131,8 +131,12 @@ def _invoke_job_fn(
     fn: Callable[..., dict[str, Any]],
     *,
     cancel_event: threading.Event,
+    job_id: str,
 ) -> dict[str, Any]:
     signature = inspect.signature(fn)
+    kwargs: dict[str, Any] = {}
     if "cancel_event" in signature.parameters:
-        return fn(cancel_event=cancel_event)
-    return fn()
+        kwargs["cancel_event"] = cancel_event
+    if "job_id" in signature.parameters:
+        kwargs["job_id"] = job_id
+    return fn(**kwargs)
