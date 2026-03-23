@@ -5,7 +5,13 @@ import { bootStudio, expectResultOutputContains } from "./helpers";
 test("validates plan and submits run job", async ({ page }) => {
   await bootStudio(page);
 
-  await page.locator("#advancedOptions > summary").click();
+  await page.click("#planButton");
+  await expectResultOutputContains(page, "Planner Response");
+
+  await page.locator("#advancedOptions").evaluate((node) => {
+    const details = node as HTMLDetailsElement;
+    details.open = true;
+  });
   await page.locator("#dryRunToggle").check();
   await page.click("#validatePlanButton");
   await expectResultOutputContains(page, "Plan Validation");

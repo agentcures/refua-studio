@@ -24,131 +24,233 @@
         </div>
       </header>
 
-      <main class="layout">
-        <section class="card card-main">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Core Run Flow</p>
-              <h2>Campaign</h2>
-            </div>
-          </div>
+      <nav class="view-switcher" aria-label="Workspace views">
+        <button
+          id="campaignViewButton"
+          class="view-tab is-active"
+          type="button"
+          data-view-target="campaign"
+        >
+          Campaign
+        </button>
+        <button
+          id="promisingDrugsViewButton"
+          class="view-tab"
+          type="button"
+          data-view-target="promising-drugs"
+        >
+          Promising Drugs
+        </button>
+      </nav>
 
-          <div class="field-row">
-            <label class="field field-grow" for="objectiveTemplateSelect">
-              <span>Objective Template</span>
-              <select id="objectiveTemplateSelect"></select>
-            </label>
-            <div class="button-group">
-              <button id="loadObjectiveTemplateButton" class="btn btn-secondary">Load Template</button>
-              <button id="loadClawCuresObjectiveButton" class="btn btn-secondary">Use Default</button>
-            </div>
-          </div>
-
-          <label class="field" for="objectiveInput">
-            <span>Objective</span>
-            <textarea id="objectiveInput" rows="7" spellcheck="false"></textarea>
-          </label>
-
-          <details id="advancedOptions" class="advanced-panel">
-            <summary>Advanced run options</summary>
-            <div class="advanced-content">
-              <label class="field" for="systemPromptInput">
-                <span>System Prompt Override</span>
-                <textarea id="systemPromptInput" rows="5" spellcheck="false"></textarea>
-              </label>
-
-              <div class="options-grid">
-                <label class="toggle-field">
-                  <input type="checkbox" id="dryRunToggle" />
-                  <span>Dry Run</span>
-                </label>
-                <label class="toggle-field">
-                  <input type="checkbox" id="asyncToggle" checked />
-                  <span>Async Job</span>
-                </label>
-                <label class="field" for="maxRoundsInput">
-                  <span>Max Rounds</span>
-                  <input type="number" id="maxRoundsInput" min="1" value="3" />
-                </label>
-                <label class="field" for="maxCallsInput">
-                  <span>Max Calls</span>
-                  <input type="number" id="maxCallsInput" min="1" value="10" />
-                </label>
-                <label class="toggle-field toggle-wide">
-                  <input type="checkbox" id="skipValidateFirstToggle" />
-                  <span>Skip Validate-First</span>
-                </label>
+      <main>
+        <section id="campaignView" class="view-panel is-active" data-view-panel="campaign">
+          <div class="layout">
+            <section class="card card-main">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Core Run Flow</p>
+                  <h2>Campaign</h2>
+                </div>
               </div>
 
-              <label class="field" for="planInput">
-                <span>Plan Editor (JSON)</span>
-                <textarea id="planInput" rows="11" spellcheck="false"></textarea>
+              <div class="field-row">
+                <label class="field field-grow" for="objectiveTemplateSelect">
+                  <span>Objective Template</span>
+                  <select id="objectiveTemplateSelect"></select>
+                </label>
+                <div class="button-group">
+                  <button id="loadObjectiveTemplateButton" class="btn btn-secondary">Load Template</button>
+                  <button id="loadClawCuresObjectiveButton" class="btn btn-secondary">Use Default</button>
+                </div>
+              </div>
+
+              <label class="field" for="objectiveInput">
+                <span>Objective</span>
+                <textarea id="objectiveInput" rows="7" spellcheck="false"></textarea>
               </label>
+
+              <details id="advancedOptions" class="advanced-panel">
+                <summary>Advanced run options</summary>
+                <div class="advanced-content">
+                  <label class="field" for="systemPromptInput">
+                    <span>System Prompt Override</span>
+                    <textarea id="systemPromptInput" rows="5" spellcheck="false"></textarea>
+                  </label>
+
+                  <div class="options-grid">
+                    <label class="toggle-field">
+                      <input type="checkbox" id="dryRunToggle" />
+                      <span>Dry Run</span>
+                    </label>
+                    <label class="toggle-field">
+                      <input type="checkbox" id="asyncToggle" checked />
+                      <span>Async Job</span>
+                    </label>
+                    <label class="field" for="maxRoundsInput">
+                      <span>Max Rounds</span>
+                      <input type="number" id="maxRoundsInput" min="1" value="3" />
+                    </label>
+                    <label class="field" for="maxCallsInput">
+                      <span>Max Calls</span>
+                      <input type="number" id="maxCallsInput" min="1" value="10" />
+                    </label>
+                    <label class="toggle-field toggle-wide">
+                      <input type="checkbox" id="skipValidateFirstToggle" />
+                      <span>Skip Validate-First</span>
+                    </label>
+                  </div>
+
+                  <label class="field" for="planInput">
+                    <span>Plan Editor (JSON)</span>
+                    <textarea id="planInput" rows="11" spellcheck="false"></textarea>
+                  </label>
+
+                  <div class="button-group">
+                    <button id="validatePlanButton" class="btn btn-secondary">Validate Plan</button>
+                    <button id="executePlanButton" class="btn btn-secondary">Execute Plan</button>
+                  </div>
+                </div>
+              </details>
 
               <div class="button-group">
-                <button id="validatePlanButton" class="btn btn-secondary">Validate Plan</button>
-                <button id="executePlanButton" class="btn btn-secondary">Execute Plan</button>
+                <button id="planButton" class="btn btn-secondary">Plan</button>
+                <button id="runButton" class="btn btn-primary">Run</button>
+                <button id="autonomousButton" class="btn btn-secondary">Run Autonomous</button>
               </div>
-            </div>
-          </details>
+            </section>
 
-          <div class="button-group">
-            <button id="planButton" class="btn btn-secondary">Plan</button>
-            <button id="runButton" class="btn btn-primary">Run</button>
-            <button id="autonomousButton" class="btn btn-secondary">Run Autonomous</button>
+            <section class="card jobs-card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Monitoring</p>
+                  <h2>Jobs</h2>
+                </div>
+                <div class="toolbar">
+                  <select id="jobStatusFilter" aria-label="Filter jobs by status">
+                    <option value="">All</option>
+                    <option value="queued">Queued</option>
+                    <option value="running">Running</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                  <button id="refreshJobsButton" class="btn btn-secondary">Refresh</button>
+                  <button id="cancelJobButton" class="btn btn-secondary">Cancel Selected</button>
+                  <button id="clearFinishedJobsButton" class="btn btn-secondary">Clear Finished</button>
+                </div>
+              </div>
+
+              <div id="jobsCountSummary" class="meta-text"></div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Job ID</th>
+                      <th>Kind</th>
+                      <th>Status</th>
+                      <th>Progress</th>
+                      <th>Updated</th>
+                      <th>Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody id="jobsBody"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="card output-card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Output</p>
+                  <h2>Responses</h2>
+                </div>
+                <button id="clearOutputButton" class="btn btn-secondary">Clear</button>
+              </div>
+
+              <pre id="resultOutput">No actions yet.</pre>
+            </section>
           </div>
         </section>
 
-        <section class="card jobs-card">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Monitoring</p>
-              <h2>Jobs</h2>
-            </div>
-            <div class="toolbar">
-              <select id="jobStatusFilter" aria-label="Filter jobs by status">
-                <option value="">All</option>
-                <option value="queued">Queued</option>
-                <option value="running">Running</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              <button id="refreshJobsButton" class="btn btn-secondary">Refresh</button>
-              <button id="cancelJobButton" class="btn btn-secondary">Cancel Selected</button>
-              <button id="clearFinishedJobsButton" class="btn btn-secondary">Clear Finished</button>
-            </div>
+        <section
+          id="promisingDrugsView"
+          class="view-panel"
+          data-view-panel="promising-drugs"
+          hidden
+        >
+          <div class="layout drug-layout">
+            <section class="card card-main">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Discovery Feed</p>
+                  <h2>Promising Drugs</h2>
+                </div>
+                <div class="toolbar">
+                  <button id="refreshPromisingDrugsButton" class="btn btn-secondary">Refresh</button>
+                  <button id="clearDrugFiltersButton" class="btn btn-secondary">Clear Filters</button>
+                </div>
+              </div>
+
+              <p class="panel-copy">
+                Therapeutics aggregated from completed agent runs, with the strongest
+                candidates surfaced first.
+              </p>
+              <div id="promisingDrugsSummary" class="meta-text"></div>
+
+              <div class="filters-grid">
+                <label class="field field-grow" for="drugSearchInput">
+                  <span>Search</span>
+                  <input
+                    id="drugSearchInput"
+                    type="search"
+                    placeholder="Search by name, target, tool, SMILES, or assessment"
+                  />
+                </label>
+                <label class="field" for="drugPromisingFilter">
+                  <span>Status</span>
+                  <select id="drugPromisingFilter">
+                    <option value="">All candidates</option>
+                    <option value="promising">Promising only</option>
+                    <option value="watchlist">Watchlist</option>
+                  </select>
+                </label>
+                <label class="field" for="drugTargetFilter">
+                  <span>Target</span>
+                  <select id="drugTargetFilter">
+                    <option value="">All targets</option>
+                  </select>
+                </label>
+                <label class="field" for="drugToolFilter">
+                  <span>Source Tool</span>
+                  <select id="drugToolFilter">
+                    <option value="">All tools</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section class="card drugs-list-card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Candidates</p>
+                  <h2>Therapeutic Library</h2>
+                </div>
+              </div>
+              <div id="drugCards" class="drug-cards"></div>
+            </section>
+
+            <section class="card drug-detail-card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Information Card</p>
+                  <h2>Drug Detail</h2>
+                </div>
+              </div>
+              <div id="drugDetail"></div>
+            </section>
           </div>
-
-          <div id="jobsCountSummary" class="meta-text"></div>
-
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Job ID</th>
-                  <th>Kind</th>
-                  <th>Status</th>
-                  <th>Progress</th>
-                  <th>Updated</th>
-                  <th>Duration</th>
-                </tr>
-              </thead>
-              <tbody id="jobsBody"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="card output-card">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Output</p>
-              <h2>Responses</h2>
-            </div>
-            <button id="clearOutputButton" class="btn btn-secondary">Clear</button>
-          </div>
-
-          <pre id="resultOutput">No actions yet.</pre>
         </section>
       </main>
     </div>

@@ -131,6 +131,84 @@ class StudioApiTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(content_type, "application/javascript")
         self.assertIn("refreshJobs", body)
+        self.assertIn("refreshPromisingDrugs", body)
+
+    def test_promising_drugs_endpoint(self) -> None:
+        first = self.app.store.create_job(
+            kind="campaign_run",
+            request={"objective": "Prioritize KRAS G12D therapeutics"},
+        )
+        self.app.store.set_running(first["job_id"])
+        self.app.store.set_completed(
+            first["job_id"],
+            {
+                "objective": "Prioritize KRAS G12D therapeutics",
+                "promising_cures": [
+                    {
+                        "cure_id": "drug:lumotril",
+                        "name": "Lumotril",
+                        "target": "KRAS G12D",
+                        "smiles": "CCOC1=CC=CC=C1",
+                        "tool": "refua_affinity",
+                        "score": 81.6,
+                        "promising": True,
+                        "assessment": "Strong binding and tractable chemistry.",
+                        "metrics": {"binding_probability": 0.84, "admet_score": 0.72},
+                        "admet": {
+                            "status": "favorable",
+                            "key_metrics": {"admet_score": 0.72},
+                        },
+                    }
+                ],
+            },
+        )
+
+        second = self.app.store.create_job(
+            kind="plan_execute",
+            request={"objective": "Cross-check Lumotril ADMET"},
+        )
+        self.app.store.set_running(second["job_id"])
+        self.app.store.set_completed(
+            second["job_id"],
+            {
+                "objective": "Cross-check Lumotril ADMET",
+                "promising_cures": [
+                    {
+                        "cure_id": "drug:lumotril",
+                        "name": "Lumotril",
+                        "target": "KRAS G12D",
+                        "tool": "refua_admet_profile",
+                        "score": 83.9,
+                        "promising": True,
+                        "assessment": "ADMET profile remains favorable after cross-check.",
+                        "metrics": {"binding_probability": 0.84, "admet_score": 0.78},
+                        "admet": {
+                            "status": "favorable",
+                            "key_metrics": {"admet_score": 0.78, "safety_score": 0.82},
+                        },
+                    }
+                ],
+            },
+        )
+
+        payload = self._request("GET", "/api/promising-drugs?limit=20")
+        self.assertIn("drugs", payload)
+        self.assertIn("summary", payload)
+        self.assertIn("facets", payload)
+        self.assertEqual(payload["summary"]["total_drugs"], 1)
+        self.assertEqual(payload["summary"]["source_jobs_count"], 2)
+        self.assertEqual(payload["facets"]["targets"], ["KRAS G12D"])
+        self.assertEqual(
+            payload["facets"]["tools"],
+            ["refua_admet_profile", "refua_affinity"],
+        )
+        self.assertEqual(payload["drugs"][0]["name"], "Lumotril")
+        self.assertEqual(payload["drugs"][0]["seen_count"], 2)
+        self.assertEqual(payload["drugs"][0]["source_jobs_count"], 2)
+        self.assertEqual(
+            payload["drugs"][0]["sources"][0]["objective"],
+            "Cross-check Lumotril ADMET",
+        )
 
     def test_validate_plan_endpoint(self) -> None:
         payload = self._request(

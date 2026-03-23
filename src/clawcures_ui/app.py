@@ -85,20 +85,16 @@ class StudioApp:
         return self.bridge.ecosystem()
 
     def list_jobs(self, *, query: dict[str, list[str]]) -> dict[str, Any]:
-        limit = 100
-        if "limit" in query:
-            try:
-                limit = int(query["limit"][0])
-            except (TypeError, ValueError, IndexError) as exc:
-                raise BadRequestError(
-                    "Query parameter 'limit' must be an integer"
-                ) from exc
-
+        limit = _parse_limit_query(query, default=100)
         statuses = _parse_statuses_query(query)
         return {
             "jobs": self.store.list_jobs(limit=limit, statuses=statuses),
             "counts": self.store.status_counts(),
         }
+
+    def list_promising_drugs(self, *, query: dict[str, list[str]]) -> dict[str, Any]:
+        limit = _parse_limit_query(query, default=300)
+        return self.store.list_promising_drugs(limit=limit)
 
     def get_job(self, job_id: str) -> dict[str, Any]:
         job = self.store.get_job(job_id)
@@ -253,6 +249,20 @@ def _parse_statuses_query(query: dict[str, list[str]]) -> tuple[str, ...] | None
         seen.add(status)
         deduped.append(status)
     return tuple(deduped)
+
+
+def _parse_limit_query(
+    query: dict[str, list[str]],
+    *,
+    default: int,
+) -> int:
+    limit = default
+    if "limit" not in query:
+        return limit
+    try:
+        return int(query["limit"][0])
+    except (TypeError, ValueError, IndexError) as exc:
+        raise BadRequestError("Query parameter 'limit' must be an integer") from exc
 
 
 def _require_nonempty_string(value: Any, field_name: str) -> str:
@@ -449,6 +459,12 @@ def create_handler(app: StudioApp):
                 if path == "/api/jobs":
                     query = parse_qs(parsed.query, keep_blank_values=False)
                     _json_response(self, HTTPStatus.OK, app.list_jobs(query=query))
+                    return
+                if path == "/api/promising-drugs":
+                    query = parse_qs(parsed.query, keep_blank_values=False)
+                    _json_response(
+                        self, HTTPStatus.OK, app.list_promising_drugs(query=query)
+                    )
                     return
                 if path.startswith("/api/jobs/"):
                     job_id = path.removeprefix("/api/jobs/")

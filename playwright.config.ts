@@ -20,7 +20,9 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: {
-    command: `rm -rf .playwright-data && PYTHONPATH=src ./.venv_release/bin/python -m clawcures_ui --host ${host} --port ${port} --data-dir .playwright-data --workspace-root .. --max-workers 2`,
+    command:
+      `PYTHONPATH=src ./.venv_release/bin/python e2e/run_test_server.py ` +
+      `--host ${host} --port ${port} --data-dir .playwright-data --workspace-root .. --max-workers 2`,
     url: `${baseURL}/api/health`,
     reuseExistingServer: false,
     timeout: 120_000,

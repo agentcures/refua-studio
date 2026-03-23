@@ -146,6 +146,49 @@ h3 {
   flex-wrap: wrap;
 }
 
+.view-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 10px;
+  border: 1px solid rgba(23, 35, 58, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 250, 243, 0.78);
+  box-shadow: 0 12px 30px rgba(33, 38, 52, 0.08);
+  backdrop-filter: blur(10px);
+}
+
+.view-tab {
+  border: 0;
+  min-height: 46px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.view-tab:hover {
+  transform: translateY(-1px);
+  color: var(--accent-strong);
+}
+
+.view-tab.is-active {
+  background: #17233a;
+  color: #f5f9ff;
+  box-shadow: 0 14px 24px rgba(23, 35, 58, 0.18);
+}
+
+.view-panel[hidden] {
+  display: none;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
@@ -183,6 +226,11 @@ h3 {
 .section-head > div:first-child {
   display: grid;
   gap: 6px;
+}
+
+.panel-copy {
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .field {
@@ -314,6 +362,28 @@ summary:focus-visible {
 .btn-secondary:hover {
   border-color: var(--accent);
   color: var(--accent-strong);
+}
+
+.drug-layout {
+  grid-template-columns: minmax(0, 0.96fr) minmax(340px, 1.04fr);
+}
+
+.drugs-list-card {
+  grid-column: 1 / 2;
+}
+
+.drug-detail-card {
+  grid-column: 2 / 3;
+  position: sticky;
+  top: 24px;
+  align-self: start;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(170px, 0.6fr));
+  gap: 12px;
+  margin-top: 18px;
 }
 
 .status-chip {
@@ -488,7 +558,8 @@ tbody tr.is-selected {
 
 .status-pill.is-running,
 .status-pill.is-completed,
-.status-pill.is-healthy {
+.status-pill.is-healthy,
+.status-pill.is-promising {
   background: var(--success-soft);
   color: var(--success);
 }
@@ -501,11 +572,187 @@ tbody tr.is-selected {
   color: var(--warning);
 }
 
+.status-pill.is-watchlist {
+  background: rgba(23, 35, 58, 0.08);
+  color: var(--ink);
+}
+
 .status-pill.is-failed,
 .status-pill.is-error,
 .status-pill.is-offline {
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+.drug-cards {
+  display: grid;
+  gap: 14px;
+}
+
+.drug-card {
+  width: 100%;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 252, 248, 0.96)),
+    var(--panel-strong);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
+}
+
+.drug-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(14, 116, 144, 0.28);
+  box-shadow: 0 16px 30px rgba(33, 38, 52, 0.08);
+}
+
+.drug-card.is-selected {
+  border-color: rgba(14, 116, 144, 0.32);
+  box-shadow: 0 22px 34px rgba(14, 116, 144, 0.12);
+  background:
+    linear-gradient(180deg, rgba(224, 246, 250, 0.9), rgba(255, 252, 248, 0.98)),
+    var(--panel-strong);
+}
+
+.drug-card-top,
+.detail-hero,
+.source-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.drug-card-title {
+  margin-top: 6px;
+  font-size: 1.18rem;
+  letter-spacing: -0.03em;
+}
+
+.drug-card-score {
+  margin-top: 12px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.drug-card-meta,
+.source-meta,
+.source-copy,
+.detail-copy,
+.detail-value,
+.metric-value {
+  line-height: 1.55;
+}
+
+.drug-card-meta,
+.source-meta,
+.source-copy,
+.detail-copy {
+  color: var(--muted);
+}
+
+.drug-card-assessment {
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.metric-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid rgba(23, 35, 58, 0.08);
+  border-radius: 999px;
+  background: rgba(23, 35, 58, 0.04);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.metric-chip.is-accent {
+  border-color: rgba(14, 116, 144, 0.16);
+  background: rgba(14, 116, 144, 0.1);
+  color: var(--accent-strong);
+}
+
+.metric-chip.is-success {
+  border-color: rgba(20, 122, 76, 0.16);
+  background: rgba(20, 122, 76, 0.1);
+  color: var(--success);
+}
+
+#drugDetail {
+  display: grid;
+  gap: 18px;
+  min-height: 420px;
+}
+
+.detail-hero {
+  padding: 18px;
+  border: 1px solid rgba(14, 116, 144, 0.14);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(14, 116, 144, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(224, 246, 250, 0.8), rgba(255, 252, 248, 0.96));
+}
+
+.detail-grid,
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.detail-item,
+.metric-card,
+.source-item {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-strong);
+}
+
+.detail-item,
+.metric-card,
+.detail-section {
+  display: grid;
+  gap: 8px;
+}
+
+.detail-value {
+  color: var(--ink);
+}
+
+.detail-mono {
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+.metric-value {
+  font-size: 1.08rem;
+  color: var(--ink);
+}
+
+.source-list {
+  display: grid;
+  gap: 10px;
 }
 
 #resultOutput {
@@ -550,6 +797,21 @@ tbody tr.is-selected {
   .toolbar > * {
     flex: 1 1 180px;
   }
+
+  .filters-grid,
+  .detail-grid,
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .drug-detail-card {
+    position: static;
+    grid-column: 1 / -1;
+  }
+
+  .drugs-list-card {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 720px) {
@@ -566,11 +828,31 @@ tbody tr.is-selected {
     grid-template-columns: 1fr;
   }
 
+  .filters-grid,
+  .detail-grid,
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
   .toggle-wide {
     grid-column: auto;
   }
 
   table {
     min-width: 640px;
+  }
+
+  .view-switcher {
+    width: 100%;
+  }
+
+  .view-tab {
+    flex: 1 1 0;
+  }
+
+  .drug-card-top,
+  .detail-hero,
+  .source-item-head {
+    flex-direction: column;
   }
 }
